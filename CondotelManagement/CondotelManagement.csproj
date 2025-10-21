@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -20,15 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Constants\" />
+    <Folder Include="Controllers\Host\" />
+    <Folder Include="Controllers\Tenant\" />
     <Folder Include="DTOs\Common\" />
     <Folder Include="DTOs\Condotel\" />
     <Folder Include="DTOs\Booking\" />
-    <Folder Include="Helpers\" />
-    <Folder Include="Repositories\Interfaces\" />
-    <Folder Include="Repositories\Implementations\" />
-    <Folder Include="Services\Implementations\" />
-    <Folder Include="Services\Interfaces\" />
   </ItemGroup>
 
 </Project>
