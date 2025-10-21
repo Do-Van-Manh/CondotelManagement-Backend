@@ -1,0 +1,23 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace CondotelManagement.Models;
+
+public partial class Host
+{
+    public int HostId { get; set; }
+
+    public string CompanyName { get; set; } = null!;
+
+    public string? Address { get; set; }
+
+    public string? PhoneContact { get; set; }
+
+    public string Status { get; set; } = null!;
+
+    public virtual ICollection<Condotel> Condotels { get; set; } = new List<Condotel>();
+
+    public virtual ICollection<HostPackage> HostPackages { get; set; } = new List<HostPackage>();
+
+    public virtual ICollection<Wallet> Wallets { get; set; } = new List<Wallet>();
+}
