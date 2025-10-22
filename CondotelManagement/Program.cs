@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json.Serialization;
 using CondotelManagement.Configurations;
+using CondotelManagement.Data;
 using CondotelManagement.Models;
 using CondotelManagement.Repositories.Implementations.Admin;
 using CondotelManagement.Repositories.Interfaces.Admin;
@@ -70,6 +71,7 @@ builder.Services.AddCors(options =>
 // 5️⃣ Dependency Injection (DI)
 // ============================
 builder.Services.AddDependencyInjectionConfiguration(builder.Configuration);
+
 
 // Đăng ký các service và repository của Admin
 builder.Services.AddScoped<IAdminDashboardService, AdminDashboardService>();

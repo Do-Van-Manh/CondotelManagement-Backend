@@ -1,4 +1,5 @@
-﻿using CondotelManagement.DTOs.Admin;
+﻿using CondotelManagement.Data;
+using CondotelManagement.DTOs.Admin;
 using CondotelManagement.Models;
 using CondotelManagement.Repositories.Interfaces.Admin;
 using Microsoft.EntityFrameworkCore;
