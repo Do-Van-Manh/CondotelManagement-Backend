@@ -2,6 +2,7 @@
 {
     public class Constants
     {
-        //Địt mẹ thằng đôn ngu như chó 
+        //Dũng béo
+
     }
 }
