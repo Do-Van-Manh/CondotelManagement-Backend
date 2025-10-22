@@ -11,7 +11,7 @@ public partial class User
 
     public string Email { get; set; } = null!;
 
-    public byte[] PasswordHash { get; set; } = null!;
+    public string PasswordHash { get; set; } = null!;
 
     public string? Phone { get; set; }
 
@@ -26,6 +26,10 @@ public partial class User
     public string? Address { get; set; }
 
     public DateTime CreatedAt { get; set; }
+
+    public string? PasswordResetToken { get; set; }
+
+    public DateTime? ResetTokenExpires { get; set; }
 
     public virtual ICollection<AdminReport> AdminReports { get; set; } = new List<AdminReport>();
 
