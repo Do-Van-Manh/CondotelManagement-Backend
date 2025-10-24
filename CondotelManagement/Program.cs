@@ -3,10 +3,14 @@ using System.Text.Json.Serialization;
 using CondotelManagement.Configurations;
 using CondotelManagement.Data;
 using CondotelManagement.Models;
+using CondotelManagement.Repositories;
 using CondotelManagement.Repositories.Implementations.Admin;
 using CondotelManagement.Repositories.Interfaces.Admin;
+using CondotelManagement.Services;
 using CondotelManagement.Services.Implementations.Admin;
 using CondotelManagement.Services.Interfaces.Admin;
+using CondotelManagement.Services.Interfaces.BookingService;
+
 //using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -76,6 +80,10 @@ builder.Services.AddDependencyInjectionConfiguration(builder.Configuration);
 // Đăng ký các service và repository của Admin
 builder.Services.AddScoped<IAdminDashboardService, AdminDashboardService>();
 builder.Services.AddScoped<IAdminDashboardRepository, AdminDashboardRepository>();
+//Đăng ký các service và repository của Booking
+builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+builder.Services.AddScoped<IBookingService, BookingService>();
+
 
 // (sau này bạn có thể thêm các service khác tại đây)
 // builder.Services.AddScoped<IHostService, HostService>();
