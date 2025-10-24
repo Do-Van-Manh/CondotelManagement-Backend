@@ -40,6 +40,10 @@ namespace CondotelManagement.Repositories
             if (booking != null)
                 _context.Bookings.Remove(booking);
         }
+        public IEnumerable<Booking> GetBookingsByRoom(int roomId)
+        {
+            return _context.Bookings.Where(b => b.BookingId == roomId).ToList();
+        }
 
         public bool SaveChanges()
         {

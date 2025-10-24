@@ -32,6 +32,19 @@ namespace CondotelManagement.Controllers
             if (booking == null) return NotFound();
             return Ok(booking);
         }
+        // GET api/booking/check-availability?roomId=1&checkIn=2025-10-28&checkOut=2025-10-30
+        [HttpGet("check-availability")]
+        public IActionResult CheckAvailability(int roomId, DateTime checkIn, DateTime checkOut)
+        {
+            bool isAvailable = _bookingService.CheckAvailability(roomId, checkIn, checkOut);
+            return Ok(new
+            {
+                roomId,
+                checkIn,
+                checkOut,
+                available = isAvailable
+            });
+        }
 
         // POST api/booking
         [HttpPost]

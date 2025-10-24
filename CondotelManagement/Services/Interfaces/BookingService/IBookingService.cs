@@ -9,5 +9,7 @@ namespace CondotelManagement.Services.Interfaces.BookingService
         BookingDTO CreateBooking(BookingDTO booking);
         BookingDTO UpdateBooking(BookingDTO booking);
         bool DeleteBooking(int id);
+        bool CheckAvailability(int roomId, DateTime checkIn, DateTime checkOut);
+
     }
 }

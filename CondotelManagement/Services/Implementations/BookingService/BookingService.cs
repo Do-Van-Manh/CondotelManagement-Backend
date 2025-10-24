@@ -88,5 +88,22 @@ namespace CondotelManagement.Services
             _bookingRepo.DeleteBooking(id);
             return _bookingRepo.SaveChanges();
         }
+
+        public bool CheckAvailability(int roomId, DateOnly checkIn, DateOnly checkOut)
+        {
+            var bookings = _bookingRepo.GetBookingsByRoom(roomId);
+
+            // Kiểm tra xem có khoảng nào bị trùng ngày
+            bool isAvailable = !bookings.Any(b =>
+                b.Status != "Cancelled" &&
+                ((checkIn >= b.StartDate && checkIn < b.EndDate) ||
+                 (checkOut > b.StartDate && checkOut <= b.EndDate) ||
+                 (checkIn <= b.StartDate && checkOut >= b.EndDate))
+            );
+
+            return isAvailable;
+        }
+
+
     }
 }
