@@ -11,8 +11,6 @@ using CondotelManagement.Services.Implementations.Admin;
 using CondotelManagement.Services.Interfaces.Admin;
 using Microsoft.AspNetCore.Authentication.JwtBearer; 
 using CondotelManagement.Services.Interfaces.BookingService;
-
-
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
