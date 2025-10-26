@@ -30,8 +30,6 @@
     <Folder Include="Controllers\Host\" />
     <Folder Include="Controllers\Tenant\" />
     <Folder Include="DTOs\Common\" />
-    <Folder Include="DTOs\Condotel\" />
-    <Folder Include="DTOs\Booking\" />
   </ItemGroup>
 
 </Project>
