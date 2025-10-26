@@ -7,10 +7,11 @@ using CondotelManagement.Repositories.Implementations.Admin;
 using CondotelManagement.Repositories.Interfaces.Admin;
 using CondotelManagement.Services.Implementations.Admin;
 using CondotelManagement.Services.Interfaces.Admin;
-//using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer; 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models; 
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,30 +31,43 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-// ============================
-// 3️⃣ JWT Authentication Configuration
-// ============================
-//builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-//    .AddJwtBearer(options =>
-//    {
-//        options.TokenValidationParameters = new TokenValidationParameters
-//        {
-//            ValidateIssuer = true,
-//            ValidateAudience = true,
-//            ValidateLifetime = true,
-//            ValidateIssuerSigningKey = true,
-//            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-//            ValidAudience = builder.Configuration["Jwt:Audience"],
-//            IssuerSigningKey = new SymmetricSecurityKey(
-//                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-//        };
-//    });
 
 // ============================
 // 4️⃣ Swagger + CORS
 // ============================
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// Giữ nguyên cấu hình Swagger để có nút Authorize
+builder.Services.AddSwaggerGen(options =>
+{
+    // Thêm định nghĩa "Authorize" (Security Definition)
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Description = "Nhập JWT Token: Bearer {token}",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT"
+    });
+
+    // Yêu cầu "Authorize" cho tất cả API
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
+});
+
 
 // CORS cho frontend React
 builder.Services.AddCors(options =>
@@ -70,10 +84,13 @@ builder.Services.AddCors(options =>
 // ============================
 // 5️⃣ Dependency Injection (DI)
 // ============================
+// Dòng này sẽ gọi file config (và AddAuthentication) một cách chính xác
 builder.Services.AddDependencyInjectionConfiguration(builder.Configuration);
 
 
 // Đăng ký các service và repository của Admin
+// GHI CHÚ: Bạn nên dời 2 dòng này vào file DependencyInjectionConfig.cs
+// cho gọn, nhưng để đây vẫn chạy được.
 builder.Services.AddScoped<IAdminDashboardService, AdminDashboardService>();
 builder.Services.AddScoped<IAdminDashboardRepository, AdminDashboardRepository>();
 
@@ -106,7 +123,7 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
 
-// Authentication + Authorization
+// Authentication + Authorization (Phải giữ 2 dòng này)
 app.UseAuthentication();
 app.UseAuthorization();
 

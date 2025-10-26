@@ -1,4 +1,5 @@
-﻿using CondotelManagement.Repositories.Implementations.Admin;
+﻿// --- CÁC USING CŨ CỦA BẠN ---
+using CondotelManagement.Repositories.Implementations.Admin;
 using CondotelManagement.Repositories.Implementations.Auth;
 using CondotelManagement.Repositories.Interfaces.Admin;
 using CondotelManagement.Repositories.Interfaces.Auth;
@@ -8,24 +9,47 @@ using CondotelManagement.Services.Implementations.Shared;
 using CondotelManagement.Services.Interfaces.Admin;
 using CondotelManagement.Services.Interfaces.Auth;
 using CondotelManagement.Services.Interfaces.Shared;
-using Microsoft.AspNetCore.Authentication.JwtBearer; // Cho JwtBearerDefaults
-using Microsoft.IdentityModel.Tokens;             // Cho TokenValidationParameters, SymmetricSecurityKey
-using System.Text;                                // Cho Encoding
-namespace CondotelManagement.Configurations
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
+
+using CondotelManagement.Repositories.Interfaces;      
+using CondotelManagement.Repositories.Implementations; 
+
+
+namespace CondotelManagement.Configurations
 {
     public static class DependencyInjectionConfig
     {
         public static void AddDependencyInjectionConfiguration(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddHttpContextAccessor();
+
             //DI 
             // ae dki service cac thu trong day
+
+            // Đăng ký Repository (Generic)
+           
+            services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
+            // --- Admin ---
             services.AddScoped<IAdminDashboardRepository, AdminDashboardRepository>();
             services.AddScoped<IAdminDashboardService, AdminDashboardService>();
-            // Auth
+
+            // --- Admin User Management (MỚI) ---
+            
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IRoleRepository, RoleRepository>();
+            services.AddScoped<IUserService, UserService>();
+
+            // --- Auth ---
             services.AddScoped<IAuthRepository, AuthRepository>();
             services.AddScoped<IAuthService, AuthService>();
+
+            // --- Shared ---
+            services.AddScoped<IEmailService, EmailService>();
+
             // Cấu hình JWT Authentication
             services.AddAuthentication(options =>
             {
@@ -40,14 +64,11 @@ namespace CondotelManagement.Configurations
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = configuration["Jwt:Issuer"],       // Cần thêm "Jwt:Issuer" trong appsettings.json
-                    ValidAudience = configuration["Jwt:Audience"],   // Cần thêm "Jwt:Audience" trong appsettings.json
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"])) // Key của bạn
+                    ValidIssuer = configuration["Jwt:Issuer"],
+                    ValidAudience = configuration["Jwt:Audience"],
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]))
                 };
             });
-
-            // Thêm Email Service
-            services.AddScoped<IEmailService, EmailService>();
         }
     }
 }
