@@ -104,6 +104,9 @@ namespace CondotelManagement.Services
             return isAvailable;
         }
 
-
+        public bool CheckAvailability(int roomId, DateTime checkIn, DateTime checkOut)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
