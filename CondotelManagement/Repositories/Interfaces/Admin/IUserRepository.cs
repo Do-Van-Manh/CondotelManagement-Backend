@@ -4,6 +4,7 @@ namespace CondotelManagement.Repositories.Interfaces.Admin
 {
     public interface IUserRepository : IRepository<User>
     {
-        // Bạn có thể thêm các phương thức riêng cho User ở đây sau
+        Task<User?> GetByIdAsync(int userId);
+        Task<bool> UpdateUserAsync(User user);
     }
 }
