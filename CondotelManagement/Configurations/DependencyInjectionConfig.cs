@@ -1,21 +1,24 @@
 ﻿// --- CÁC USING CŨ CỦA BẠN ---
+using CondotelManagement.Repositories;
+using CondotelManagement.Repositories.Implementations; 
 using CondotelManagement.Repositories.Implementations.Admin;
 using CondotelManagement.Repositories.Implementations.Auth;
+using CondotelManagement.Repositories.Interfaces;      
 using CondotelManagement.Repositories.Interfaces.Admin;
 using CondotelManagement.Repositories.Interfaces.Auth;
+using CondotelManagement.Services;
+using CondotelManagement.Services.Implementations;
 using CondotelManagement.Services.Implementations.Admin;
 using CondotelManagement.Services.Implementations.Auth;
 using CondotelManagement.Services.Implementations.Shared;
+using CondotelManagement.Services.Interfaces;
 using CondotelManagement.Services.Interfaces.Admin;
 using CondotelManagement.Services.Interfaces.Auth;
+using CondotelManagement.Services.Interfaces.BookingService;
 using CondotelManagement.Services.Interfaces.Shared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-
-
-using CondotelManagement.Repositories.Interfaces;      
-using CondotelManagement.Repositories.Implementations; 
 
 
 namespace CondotelManagement.Configurations
@@ -49,6 +52,12 @@ namespace CondotelManagement.Configurations
 
             // --- Shared ---
             services.AddScoped<IEmailService, EmailService>();
+            //---Profile---
+            services.AddScoped<IProfileService, ProfileService>();
+
+            //---Booking---
+            services.AddScoped<IBookingRepository, BookingRepository>();
+            services.AddScoped<IBookingService, BookingService>();
 
             // Cấu hình JWT Authentication
             services.AddAuthentication(options =>

@@ -9,7 +9,8 @@ namespace CondotelManagement.Repositories
         Booking GetBookingById(int id);
         void AddBooking(Booking booking);
         void UpdateBooking(Booking booking);
-        void DeleteBooking(int id);
+
+
         bool SaveChanges();
 
         IEnumerable<Booking> GetBookingsByRoom(int roomId);

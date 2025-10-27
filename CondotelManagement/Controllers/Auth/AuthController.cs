@@ -60,13 +60,29 @@ namespace CondotelManagement.Controllers.Auth
             return Ok(new { message = "If your email is registered, you will receive a password reset link." });
         }
 
-        [HttpPost("reset-password")]
+        [HttpPost("send-otp")] // Đổi tên từ "forgot-password"
         [AllowAnonymous]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        public async Task<IActionResult> SendPasswordResetOtp([FromBody] ForgotPasswordRequest request) // DTO này chỉ cần Email
         {
-            var success = await _authService.ResetPasswordAsync(request);
+            var success = await _authService.SendPasswordResetOtpAsync(request);
             if (!success)
-                return BadRequest(new { message = "Failed to reset password. Invalid token or email." }); // 400
+            {
+                // Vẫn trả về 200 để tránh lộ thông tin email nào có/không có trong hệ thống
+                return Ok(new { message = "If your email is registered, you will receive an OTP code." });
+            }
+            return Ok(new { message = "If your email is registered, you will receive an OTP code." });
+        }
+
+        /// <summary>
+        /// 2. Đặt lại mật khẩu bằng Email, OTP và Mật khẩu mới
+        /// </summary>
+        [HttpPost("reset-password-with-otp")] // Đổi tên từ "reset-password"
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPasswordWithOtp([FromBody] ResetPasswordWithOtpRequest request) // Dùng DTO mới
+        {
+            var success = await _authService.ResetPasswordWithOtpAsync(request);
+            if (!success)
+                return BadRequest(new { message = "Failed to reset password. Invalid email, expired or incorrect OTP." }); // 400
 
             return Ok(new { message = "Password updated successfully" }); // 200
         }

@@ -34,16 +34,12 @@ namespace CondotelManagement.Repositories
             _context.Bookings.Update(booking);
         }
 
-        public void DeleteBooking(int id)
+
+        public IEnumerable<Booking> GetBookingsByRoom(int condotelId)
         {
-            var booking = _context.Bookings.FirstOrDefault(b => b.BookingId == id);
-            if (booking != null)
-                _context.Bookings.Remove(booking);
+            return _context.Bookings.Where(b => b.CondotelId == condotelId).ToList();
         }
-        public IEnumerable<Booking> GetBookingsByRoom(int roomId)
-        {
-            return _context.Bookings.Where(b => b.BookingId == roomId).ToList();
-        }
+
 
         public bool SaveChanges()
         {

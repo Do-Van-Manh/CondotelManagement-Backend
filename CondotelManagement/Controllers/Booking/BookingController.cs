@@ -34,7 +34,7 @@ namespace CondotelManagement.Controllers
         }
         // GET api/booking/check-availability?roomId=1&checkIn=2025-10-28&checkOut=2025-10-30
         [HttpGet("check-availability")]
-        public IActionResult CheckAvailability(int roomId, DateTime checkIn, DateTime checkOut)
+        public IActionResult CheckAvailability(int roomId, DateOnly checkIn, DateOnly checkOut)
         {
             bool isAvailable = _bookingService.CheckAvailability(roomId, checkIn, checkOut);
             return Ok(new
@@ -54,6 +54,15 @@ namespace CondotelManagement.Controllers
             var created = _bookingService.CreateBooking(dto);
             return CreatedAtAction(nameof(GetBookingById), new { id = created.BookingId }, created);
         }
+        //hủy đặt phòng
+        // DELETE api/booking/5
+        [HttpDelete("{id}")]
+        public IActionResult CancelBooking(int id)
+        {
+            var canceled = _bookingService.CancelBooking(id);
+            if (!canceled) return NotFound();
+            return NoContent();
+        }
 
         // PUT api/booking/5
         [HttpPut("{id}")]
@@ -65,13 +74,6 @@ namespace CondotelManagement.Controllers
             return Ok(updated);
         }
 
-        // DELETE api/booking/5
-        [HttpDelete("{id}")]
-        public IActionResult DeleteBooking(int id)
-        {
-            var success = _bookingService.DeleteBooking(id);
-            if (!success) return NotFound();
-            return NoContent();
-        }
+       
     }
 }

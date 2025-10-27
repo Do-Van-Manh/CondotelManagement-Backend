@@ -83,9 +83,14 @@ namespace CondotelManagement.Services
             return dto;
         }
 
-        public bool DeleteBooking(int id)
+
+        public bool CancelBooking(int id)
         {
-            _bookingRepo.DeleteBooking(id);
+             var booking = _bookingRepo.GetBookingById(id);
+            if (booking == null) return false;
+
+            booking.Status = "Cancelled";
+            _bookingRepo.UpdateBooking(booking);
             return _bookingRepo.SaveChanges();
         }
 
@@ -95,18 +100,10 @@ namespace CondotelManagement.Services
 
             // Kiểm tra xem có khoảng nào bị trùng ngày
             bool isAvailable = !bookings.Any(b =>
-                b.Status != "Cancelled" &&
-                ((checkIn >= b.StartDate && checkIn < b.EndDate) ||
-                 (checkOut > b.StartDate && checkOut <= b.EndDate) ||
-                 (checkIn <= b.StartDate && checkOut >= b.EndDate))
-            );
+                           (checkIn < b.EndDate && checkOut > b.StartDate)
+                                      );
 
             return isAvailable;
-        }
-
-        public bool CheckAvailability(int roomId, DateTime checkIn, DateTime checkOut)
-        {
-            throw new NotImplementedException();
         }
     }
 }
