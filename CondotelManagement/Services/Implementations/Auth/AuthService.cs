@@ -165,5 +165,57 @@ namespace CondotelManagement.Services.Implementations.Auth
 
             return await _repo.GetByEmailAsync(email);
         }
+
+        public async Task<bool> SendPasswordResetOtpAsync(ForgotPasswordRequest request)
+        {
+            var user = await _repo.GetByEmailAsync(request.Email);
+
+            // Luôn trả về true để bảo mật, ngay cả khi không tìm thấy user
+            if (user == null || user.Status != "Active")
+            {
+                return true;
+            }
+
+            // 1. Tạo OTP (6 chữ số)
+            string otp = new Random().Next(100000, 999999).ToString();
+            DateTime expiry = DateTime.UtcNow.AddMinutes(10); // OTP hết hạn sau 10 phút
+
+            // 2. Lưu OTP (lưu plain text) và thời gian hết hạn vào DB
+            // Chúng ta tái sử dụng trường ResetToken để lưu OTP
+            await _repo.SetPasswordResetTokenAsync(user, otp, expiry);
+
+            // 3. Gửi Mail chứa OTP
+            await _emailService.SendPasswordResetOtpAsync(user.Email, otp);
+
+            return true;
+        }
+
+        // SỬA ĐỔI: Hiện thực phương thức reset bằng OTP
+        public async Task<bool> ResetPasswordWithOtpAsync(ResetPasswordWithOtpRequest request)
+        {
+            // 1. Tìm user bằng Email
+            var user = await _repo.GetByEmailAsync(request.Email);
+
+            // 2. Kiểm tra user, OTP và thời gian hết hạn
+            if (user == null ||
+                user.PasswordResetToken != request.Otp || // So sánh OTP người dùng nhập với OTP đã lưu
+                user.ResetTokenExpires < DateTime.UtcNow) // Kiểm tra OTP còn hạn không
+            {
+                // Email không đúng, OTP sai, hoặc OTP đã hết hạn
+                return false;
+            }
+
+            // 3. Hash mật khẩu mới
+            string newHashStr = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+
+            // 4. Cập nhật mật khẩu
+            var success = await _repo.UpdatePasswordAsync(user.Email, newHashStr);
+            if (!success) return false;
+
+            // 5. Vô hiệu hóa OTP (quan trọng) bằng cách set về null
+            await _repo.SetPasswordResetTokenAsync(user, null, DateTime.UtcNow);
+
+            return true;
+        }
     }
 }
