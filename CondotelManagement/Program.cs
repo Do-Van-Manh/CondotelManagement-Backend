@@ -97,9 +97,6 @@ builder.Services.AddDependencyInjectionConfiguration(builder.Configuration);
 //Đăng ký các service và repository của Booking
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddScoped<IBookingService, BookingService>();
-//Đăng ký các service và repository của Condotel
-builder.Services.AddScoped<ICondotelRepository, CondotelRepository>();
-builder.Services.AddScoped<ICondotelService, CondotelService>();
 
 
 // (sau này bạn có thể thêm các service khác tại đây)

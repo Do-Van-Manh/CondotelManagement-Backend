@@ -37,7 +37,7 @@ namespace CondotelManagement.Controllers
 
         //POST /api/condotel
         [HttpPost]
-        public ActionResult Create([FromBody] CondotelDetailDTO condotelDto)
+        public ActionResult Create([FromBody] CondotelCreateUpdateDTO condotelDto)
         {
             if (condotelDto == null) return BadRequest("Invalid condotel data");
             var created = _condotelService.CreateCondotel(condotelDto);
@@ -48,7 +48,7 @@ namespace CondotelManagement.Controllers
 
         //PUT /api/condotel/{id}
         [HttpPut("{id}")]
-        public ActionResult Update(int id, [FromBody] CondotelDetailDTO condotelDto)
+        public ActionResult Update(int id, [FromBody] CondotelCreateUpdateDTO condotelDto)
         {
             if (condotelDto == null || condotelDto.CondotelId != id) return BadRequest();
             var updated = _condotelService.UpdateCondotel(condotelDto);
