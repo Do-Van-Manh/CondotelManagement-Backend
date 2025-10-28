@@ -1,10 +1,12 @@
 ﻿// --- CÁC USING CŨ CỦA BẠN ---
+using CondotelManagement.Repositories;
 using CondotelManagement.Repositories.Implementations; 
 using CondotelManagement.Repositories.Implementations.Admin;
 using CondotelManagement.Repositories.Implementations.Auth;
 using CondotelManagement.Repositories.Interfaces;      
 using CondotelManagement.Repositories.Interfaces.Admin;
 using CondotelManagement.Repositories.Interfaces.Auth;
+using CondotelManagement.Services;
 using CondotelManagement.Services.Implementations;
 using CondotelManagement.Services.Implementations.Admin;
 using CondotelManagement.Services.Implementations.Auth;
@@ -52,8 +54,12 @@ namespace CondotelManagement.Configurations
             //---Profile---
             services.AddScoped<IProfileService, ProfileService>();
 
-            // Cấu hình JWT Authentication
-            services.AddAuthentication(options =>
+			//Đăng ký các service và repository của Condotel
+			services.AddScoped<ICondotelRepository, CondotelRepository>();
+			services.AddScoped<ICondotelService, CondotelService>();
+
+			// Cấu hình JWT Authentication
+			services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
