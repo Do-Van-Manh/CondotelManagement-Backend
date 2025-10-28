@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="CloudinaryDotNet" Version="1.27.8" />
     <PackageReference Include="MailKit" Version="4.14.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.21" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
@@ -30,6 +31,7 @@
     <Folder Include="Controllers\Host\" />
     <Folder Include="Controllers\Tenant\" />
     <Folder Include="DTOs\Common\" />
+    <Folder Include="Services\NewFolder\" />
   </ItemGroup>
 
 </Project>

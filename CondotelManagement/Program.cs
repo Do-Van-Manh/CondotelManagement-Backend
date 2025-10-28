@@ -70,6 +70,10 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
+// dang ki cloudinary
+builder.Services.Configure<CloudinarySettings>(
+    builder.Configuration.GetSection("CloudinarySettings"));
+builder.Services.AddSingleton<ICloudinaryService, CloudinaryService>();
 
 
 // CORS cho frontend React
