@@ -14,7 +14,9 @@ using CondotelManagement.Services.Interfaces.BookingService;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models; 
+using Microsoft.OpenApi.Models;
+using CondotelManagement.Services.Interfaces.Cloudinary;
+using CondotelManagement.Services.CloudinaryService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,6 +72,10 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
+// dang ki cloudinary
+builder.Services.Configure<CloudinarySettings>(
+    builder.Configuration.GetSection("CloudinarySettings"));
+builder.Services.AddSingleton<ICloudinaryService, CloudinaryService>();
 
 
 // CORS cho frontend React
@@ -77,7 +83,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173") // port frontend
+        policy.WithOrigins("http://localhost:3001") // port frontend
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
