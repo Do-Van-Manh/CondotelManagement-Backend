@@ -1,4 +1,6 @@
-﻿using CondotelManagement.Models;
+﻿using CloudinaryDotNet;
+using CloudinaryDotNet.Actions;
+using CondotelManagement.Models;
 using CondotelManagement.Services.Interfaces.Cloudinary;
 using Microsoft.Extensions.Options;
 
