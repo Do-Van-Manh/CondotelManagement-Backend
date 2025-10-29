@@ -28,7 +28,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\Host\" />
     <Folder Include="Controllers\Tenant\" />
     <Folder Include="DTOs\Common\" />
     <Folder Include="Services\NewFolder\" />

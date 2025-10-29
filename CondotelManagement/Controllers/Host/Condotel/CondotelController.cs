@@ -1,12 +1,14 @@
 ﻿using CondotelManagement.DTOs;
 using CondotelManagement.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
-namespace CondotelManagement.Controllers
+namespace CondotelManagement.Controllers.Host.Condotel
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/host/[controller]")]
+    [Authorize(Roles = "Host")]
     public class CondotelController : ControllerBase
     {
         private readonly ICondotelService _condotelService;
