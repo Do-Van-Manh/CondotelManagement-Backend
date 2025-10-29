@@ -5,20 +5,28 @@ using CondotelManagement.Data;
 using CondotelManagement.Models;
 using CondotelManagement.Repositories;
 using CondotelManagement.Repositories.Implementations.Admin;
+using CondotelManagement.Repositories.Implementations.Auth;
 using CondotelManagement.Repositories.Interfaces.Admin;
+using CondotelManagement.Repositories.Interfaces.Auth;
 using CondotelManagement.Services;
+using CondotelManagement.Services.CloudinaryService;
 using CondotelManagement.Services.Implementations.Admin;
+using CondotelManagement.Services.Implementations.Auth;
 using CondotelManagement.Services.Interfaces.Admin;
-using Microsoft.AspNetCore.Authentication.JwtBearer; 
+using CondotelManagement.Services.Interfaces.Auth;
 using CondotelManagement.Services.Interfaces.BookingService;
+using CondotelManagement.Services.Interfaces.Cloudinary;
+using Microsoft.AspNetCore.Authentication.JwtBearer; 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using CondotelManagement.Services.Interfaces.Cloudinary;
-using CondotelManagement.Services.CloudinaryService;
 
 var builder = WebApplication.CreateBuilder(args);
+// Đăng ký các service của Auth phải đặt SAU AddDependencyInjectionConfiguration
+builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
 
 // ============================
 // 1️⃣ Database Configuration
@@ -83,7 +91,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3001") // port frontend
+        policy.WithOrigins("http://localhost:3001","http://localhost:3000") // port frontend
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
