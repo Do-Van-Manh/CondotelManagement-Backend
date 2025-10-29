@@ -58,8 +58,12 @@ namespace CondotelManagement.Configurations
 			services.AddScoped<ICondotelRepository, CondotelRepository>();
 			services.AddScoped<ICondotelService, CondotelService>();
 
-			// Cấu hình JWT Authentication
-			services.AddAuthentication(options =>
+            //Đăng ký các service và repository của Location
+            services.AddScoped<ILocationRepository, LocationRepository>();
+            services.AddScoped<ILocationService, LocationService>();
+
+            // Cấu hình JWT Authentication
+            services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
