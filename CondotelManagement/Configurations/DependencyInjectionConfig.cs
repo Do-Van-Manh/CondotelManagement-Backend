@@ -55,6 +55,14 @@ namespace CondotelManagement.Configurations
             //---Profile---
             services.AddScoped<IProfileService, ProfileService>();
 
+			//Đăng ký các service và repository của Condotel
+			services.AddScoped<ICondotelRepository, CondotelRepository>();
+			services.AddScoped<ICondotelService, CondotelService>();
+
+            //Đăng ký các service và repository của Location
+            services.AddScoped<ILocationRepository, LocationRepository>();
+            services.AddScoped<ILocationService, LocationService>();
+
             //---Booking---
             services.AddScoped<IBookingRepository, BookingRepository>();
             services.AddScoped<IBookingService, BookingService>();

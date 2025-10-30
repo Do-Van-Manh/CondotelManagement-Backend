@@ -17,8 +17,9 @@ namespace CondotelManagement.Repositories.Implementations.Auth
         public async Task<User?> GetByEmailAsync(string email)
         {
             return await _context.Users
-                .Include(u => u.Role)
-                .FirstOrDefaultAsync(u => u.Email == email);
+       .Include(u => u.Role)
+       .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+
         }
 
         // SỬA ĐỔI: Nhận 'string' thay vì 'byte[]'
@@ -57,5 +58,12 @@ namespace CondotelManagement.Repositories.Implementations.Auth
             await _context.SaveChangesAsync();
             return user;
         }
+
+        public async Task<bool> UpdateUserAsync(User user)
+        {
+            _context.Users.Update(user);
+            return await _context.SaveChangesAsync() > 0;
+        }
+
     }
 }

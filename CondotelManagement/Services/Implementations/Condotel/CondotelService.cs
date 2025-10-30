@@ -11,7 +11,7 @@ public class CondotelService : ICondotelService
     {
         _condotelRepo = condotelRepo;
     }
-    public CondotelDetailDTO CreateCondotel(CondotelDetailDTO dto)
+    public CondotelCreateUpdateDTO CreateCondotel(CondotelCreateUpdateDTO dto)
     {
         var condotel = new Condotel
         {
@@ -74,7 +74,7 @@ public class CondotelService : ICondotelService
         if (c == null) return null;
 
         return new CondotelDetailDTO
-        {
+		{
             CondotelId = c.CondotelId,
             HostId = c.HostId,
             ResortId = c.ResortId,
@@ -107,8 +107,16 @@ public class CondotelService : ICondotelService
                 SafetyFeatures = d.SafetyFeatures,
                 HygieneStandards = d.HygieneStandards
             }).ToList(),
-            AmenityIds = c.CondotelAmenities?.Select(a => a.AmenityId).ToList(),
-            UtilityIds = c.CondotelUtilities?.Select(u => u.UtilityId).ToList()
+			Amenities = c.CondotelAmenities?.Select(ca => new AmenityDTO
+			{
+				AmenityId = ca.AmenityId,
+				Name = ca.Amenity.Name
+			}).ToList(),
+			Utilities = c.CondotelUtilities?.Select(u => new UtilityDTO
+            {
+                UtilityId = u.UtilityId,
+                Name = u.Utility.Name
+            }).ToList()
         };
     }
 
@@ -129,7 +137,7 @@ public class CondotelService : ICondotelService
                 });
     }
 
-    public CondotelDetailDTO UpdateCondotel(CondotelDetailDTO dto)
+    public CondotelCreateUpdateDTO UpdateCondotel(CondotelCreateUpdateDTO dto)
     {
         var c = _condotelRepo.GetCondotelById(dto.CondotelId);
         if (c == null) return null;

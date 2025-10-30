@@ -10,5 +10,7 @@ namespace CondotelManagement.Repositories.Interfaces.Auth
         Task<User> RegisterAsync(User user); // THÊM MỚI
         Task<bool> SetPasswordResetTokenAsync(User user, string token, DateTime expiry);
         Task<User?> GetUserByResetTokenAsync(string token);
+        Task<bool> UpdateUserAsync(User user);
+
     }
 }

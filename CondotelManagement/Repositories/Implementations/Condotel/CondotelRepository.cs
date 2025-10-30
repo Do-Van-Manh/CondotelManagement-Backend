@@ -43,10 +43,12 @@ namespace CondotelManagement.Repositories
             return _context.Condotels
                 .Include(c => c.CondotelImages)
                 .Include(c => c.CondotelAmenities)
-                .Include(c => c.CondotelPrices)
+				.ThenInclude(ca => ca.Amenity)
+				.Include(c => c.CondotelPrices)
                 .Include(c => c.CondotelDetails)
                 .Include(c => c.CondotelUtilities)
-                .FirstOrDefault(c => c.CondotelId == id);
+				.ThenInclude(cu => cu.Utility)
+				.FirstOrDefault(c => c.CondotelId == id);
         }
 
         public IEnumerable<Condotel> GetCondtels()
