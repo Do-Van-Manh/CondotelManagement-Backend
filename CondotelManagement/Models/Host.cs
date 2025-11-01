@@ -7,6 +7,8 @@ public partial class Host
 {
     public int HostId { get; set; }
 
+    public int UserId { get; set; }
+
     public string CompanyName { get; set; } = null!;
 
     public string? Address { get; set; }
@@ -18,6 +20,8 @@ public partial class Host
     public virtual ICollection<Condotel> Condotels { get; set; } = new List<Condotel>();
 
     public virtual ICollection<HostPackage> HostPackages { get; set; } = new List<HostPackage>();
+
+    public virtual User User { get; set; } = null!;
 
     public virtual ICollection<Wallet> Wallets { get; set; } = new List<Wallet>();
 }

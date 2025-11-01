@@ -11,7 +11,7 @@ public class CondotelService : ICondotelService
     {
         _condotelRepo = condotelRepo;
     }
-    public CondotelCreateUpdateDTO CreateCondotel(CondotelCreateUpdateDTO dto)
+    public CondotelUpdateDTO CreateCondotel(CondotelCreateDTO dto)
     {
         var condotel = new Condotel
         {
@@ -59,7 +59,48 @@ public class CondotelService : ICondotelService
 
         _condotelRepo.AddCondotel(condotel);
         _condotelRepo.SaveChanges();
-        return dto;
+        return new CondotelUpdateDTO
+        {
+            CondotelId = condotel.CondotelId,
+            HostId = condotel.HostId,
+            ResortId = condotel.ResortId,
+            Name = condotel.Name,
+            Description = condotel.Description,
+            PricePerNight = condotel.PricePerNight,
+            Beds = condotel.Beds,
+            Bathrooms = condotel.Bathrooms,
+            Status = condotel.Status,
+
+            Images = condotel.CondotelImages?.Select(i => new ImageDTO
+            {
+                ImageId = i.ImageId,
+                ImageUrl = i.ImageUrl,
+                Caption = i.Caption
+            }).ToList(),
+
+            Prices = condotel.CondotelPrices?.Select(p => new PriceDTO
+            {
+                PriceId = p.PriceId,
+                StartDate = p.StartDate,
+                EndDate = p.EndDate,
+                BasePrice = p.BasePrice,
+                PriceType = p.PriceType,
+                Description = p.Description
+            }).ToList(),
+
+            Details = condotel.CondotelDetails?.Select(d => new DetailDTO
+            {
+                BuildingName = d.BuildingName,
+                RoomNumber = d.RoomNumber,
+                Beds = d.Beds,
+                Bathrooms = d.Bathrooms,
+                SafetyFeatures = d.SafetyFeatures,
+                HygieneStandards = d.HygieneStandards
+            }).ToList(),
+
+            AmenityIds = condotel.CondotelAmenities?.Select(a => a.AmenityId).ToList(),
+            UtilityIds = condotel.CondotelUtilities?.Select(u => u.UtilityId).ToList()
+        };
     }
 
     public bool DeleteCondotel(int id)
@@ -77,7 +118,11 @@ public class CondotelService : ICondotelService
 		{
             CondotelId = c.CondotelId,
             HostId = c.HostId,
-            ResortId = c.ResortId,
+            Resort = new ResortDTO
+            {
+                ResortId = c.Resort.ResortId,
+                Name = c.Resort.Name
+            },
             Name = c.Name,
             Description = c.Description,
             PricePerNight = c.PricePerNight,
@@ -145,7 +190,7 @@ public class CondotelService : ICondotelService
                 });
     }
 
-    public CondotelCreateUpdateDTO UpdateCondotel(CondotelCreateUpdateDTO dto)
+    public CondotelUpdateDTO UpdateCondotel(CondotelUpdateDTO dto)
     {
         var c = _condotelRepo.GetCondotelById(dto.CondotelId);
         if (c == null) return null;
