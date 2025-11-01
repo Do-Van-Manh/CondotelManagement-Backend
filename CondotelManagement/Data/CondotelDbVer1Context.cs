@@ -374,12 +374,17 @@ public partial class CondotelDbVer1Context : DbContext
             entity.ToTable("Promotion");
 
             entity.Property(e => e.PromotionId).HasColumnName("PromotionID");
+            entity.Property(e => e.CondotelId).HasColumnName("CondotelID");
             entity.Property(e => e.DiscountPercentage).HasColumnType("decimal(5, 2)");
             entity.Property(e => e.Name).HasMaxLength(150);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Active");
             entity.Property(e => e.TargetAudience).HasMaxLength(100);
+
+            entity.HasOne(d => d.Condotel).WithMany(p => p.Promotions)
+                .HasForeignKey(d => d.CondotelId)
+                .HasConstraintName("FK_Promotion_Condotel");
         });
 
         modelBuilder.Entity<Resort>(entity =>

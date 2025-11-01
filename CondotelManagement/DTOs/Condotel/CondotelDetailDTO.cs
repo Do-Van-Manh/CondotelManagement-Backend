@@ -20,6 +20,7 @@
         // Liên kết n-n
         public List<AmenityDTO> Amenities { get; set; }
         public List<UtilityDTO> Utilities { get; set; }
+        public List<PromotionDTO> Promotions { get; set; }
     }
 
 	public class AmenityDTO
@@ -32,5 +33,14 @@
 	{
 		public int UtilityId { get; set; }
 		public string Name { get; set; }
+	}
+
+	public class PromotionDTO
+	{
+		public int PromotionId { get; set; }
+		public string Name { get; set; }
+		public DateOnly StartDate { get; set; }
+		public DateOnly EndDate { get; set; }
+		public decimal DiscountPercentage { get; set; }
 	}
 }

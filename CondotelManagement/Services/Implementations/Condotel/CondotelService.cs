@@ -116,7 +116,15 @@ public class CondotelService : ICondotelService
             {
                 UtilityId = u.UtilityId,
                 Name = u.Utility.Name
-            }).ToList()
+            }).ToList(),
+			Promotions = c.Promotions?.Select(p => new PromotionDTO
+			{
+				PromotionId = p.PromotionId,
+				Name = p.Name,
+				StartDate = p.StartDate,
+				EndDate = p.EndDate,
+				DiscountPercentage = p.DiscountPercentage
+			}).ToList()
         };
     }
 

@@ -19,5 +19,9 @@ public partial class Promotion
 
     public string Status { get; set; } = null!;
 
+    public int? CondotelId { get; set; }
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+
+    public virtual Condotel? Condotel { get; set; }
 }
