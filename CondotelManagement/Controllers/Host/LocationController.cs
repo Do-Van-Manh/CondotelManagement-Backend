@@ -3,7 +3,7 @@ using CondotelManagement.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace CondotelManagement.Controllers.Host.Location
+namespace CondotelManagement.Controllers.Host
 {
     [ApiController]
     [Route("api/host/[controller]")]

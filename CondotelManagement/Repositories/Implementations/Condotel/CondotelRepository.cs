@@ -41,6 +41,7 @@ namespace CondotelManagement.Repositories
     public Condotel GetCondotelById(int id)
     {
         return _context.Condotels
+            .Include(r => r.Resort)
             .Include(c => c.CondotelImages)
             .Include(c => c.CondotelAmenities)
 			.ThenInclude(ca => ca.Amenity)

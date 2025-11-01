@@ -1,10 +1,12 @@
-﻿namespace CondotelManagement.DTOs
+﻿using CondotelManagement.Models;
+
+namespace CondotelManagement.DTOs
 {
     public class CondotelDetailDTO
     {
         public int CondotelId { get; set; }
         public int HostId { get; set; }
-        public int? ResortId { get; set; }
+        public ResortDTO Resort { get; set; }
         public string Name { get; set; }
         public string? Description { get; set; }
         public decimal PricePerNight { get; set; }
@@ -43,4 +45,9 @@
 		public DateOnly EndDate { get; set; }
 		public decimal DiscountPercentage { get; set; }
 	}
+    public class ResortDTO
+    {
+        public int ResortId { get; set; }
+        public string Name { get; set; }
+    }
 }
