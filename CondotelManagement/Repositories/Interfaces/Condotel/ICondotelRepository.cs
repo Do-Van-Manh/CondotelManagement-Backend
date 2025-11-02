@@ -11,5 +11,7 @@ namespace CondotelManagement.Repositories
         void DeleteCondotel(int id);
         bool SaveChanges();
         Promotion? GetPromotionById(int promotionId);
+
+        IEnumerable<Condotel> GetCondtelsByHost(int hostId);
     }
 }
