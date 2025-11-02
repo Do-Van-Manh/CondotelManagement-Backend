@@ -23,15 +23,11 @@ namespace CondotelManagement.Repositories
                 FullName = b.Customer.FullName,
                 Email = b.Customer.Email,
                 Phone = b.Customer.Phone,
-                BookingId = b.BookingId,
-                CondotelName = b.Condotel.Name,
-                StartDate = b.StartDate,
-                EndDate = b.EndDate,
-                BookingDate = b.CreatedAt,
-                TotalPrice = b.TotalPrice,
-                Status = b.Status
+                Gender = b.Customer.Gender,
+                DateOfBirth = b.Customer.DateOfBirth,
+                Address = b.Customer.Address
             })
-            .OrderByDescending(x => x.BookingDate)
+            .OrderByDescending(x => x.UserId)
             .ToListAsync();
         }
     }

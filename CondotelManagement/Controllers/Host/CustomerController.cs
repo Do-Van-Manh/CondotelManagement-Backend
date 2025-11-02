@@ -19,9 +19,9 @@ namespace CondotelManagement.Controllers.Host
             _customerService = customerService;
             _hostService = hostService;
         }
-        //GET 
+        //GET all customer was booked
         [HttpGet]
-        public async Task<IActionResult> GetCustomerBookings()
+        public async Task<IActionResult> GetCustomerBooked()
         {
             //current host login
             var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;

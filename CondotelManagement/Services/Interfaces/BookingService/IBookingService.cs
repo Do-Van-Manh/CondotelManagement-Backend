@@ -12,5 +12,7 @@ namespace CondotelManagement.Services.Interfaces.BookingService
 
         bool CheckAvailability(int roomId, DateOnly checkIn, DateOnly checkOut);
 
+        IEnumerable<HostBookingDTO> GetBookingsByHost(int hostId);
+        IEnumerable<HostBookingDTO> GetBookingsByHostAndCustomer(int hostId, int customerId);
     }
 }

@@ -137,7 +137,14 @@ namespace CondotelManagement.Services
             CreatedAt = dto.CreatedAt
         };
 
-       
+        public IEnumerable<HostBookingDTO> GetBookingsByHost(int hostId)
+        {
+            return _bookingRepo.GetBookingsByHost(hostId);
+        }
 
+        public IEnumerable<HostBookingDTO> GetBookingsByHostAndCustomer(int hostId, int customerId)
+        {
+            return _bookingRepo.GetBookingsByHostAndCustomer(hostId, customerId);
+        }
     }
 }
