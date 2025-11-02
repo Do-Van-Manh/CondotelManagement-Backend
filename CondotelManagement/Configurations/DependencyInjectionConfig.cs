@@ -76,6 +76,10 @@ namespace CondotelManagement.Configurations
             services.AddScoped<ITenantReviewService, TenantReviewService>();
             services.AddScoped<ITenantRewardService, TenantRewardService>();
 
+            //Đăng ký các service và repository của Customer
+            services.AddScoped<ICustomerRepository, CustomerRepository>();
+            services.AddScoped<ICustomerService, CustomerService>();
+
             // Cấu hình JWT Authentication
             services.AddAuthentication(options =>
             {
