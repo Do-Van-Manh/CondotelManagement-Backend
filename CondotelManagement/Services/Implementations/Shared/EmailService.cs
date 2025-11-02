@@ -74,6 +74,37 @@ namespace CondotelManagement.Services.Implementations.Shared
             await smtp.SendAsync(email);
             await smtp.DisconnectAsync(true);
         }
+
+        public async Task SendVerificationOtpAsync(string toEmail, string otp)
+        {
+            var email = new MimeMessage();
+            email.From.Add(new MailboxAddress(
+                _config["EmailSettings:SenderName"],
+                _config["EmailSettings:SenderEmail"]));
+            email.To.Add(MailboxAddress.Parse(toEmail));
+            email.Subject = "Verify Your Email - Condotel Management";
+
+            var body = new BodyBuilder
+            {
+                HtmlBody = $"<p>Thank you for registering. Your email verification OTP code is:</p>" +
+                           $"<h1 style='font-size: 24px; font-weight: bold; color: #333;'>{otp}</h1>" +
+                           $"<p>This code will expire in 10 minutes.</p>"
+            };
+            email.Body = body.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            await smtp.ConnectAsync(
+                _config["EmailSettings:SmtpServer"],
+                int.Parse(_config["EmailSettings:Port"]),
+                SecureSocketOptions.StartTls);
+
+            await smtp.AuthenticateAsync(
+                _config["EmailSettings:SenderEmail"],
+                _config["EmailSettings:Password"]);
+
+            await smtp.SendAsync(email);
+            await smtp.DisconnectAsync(true);
+        }
     }
 }
 

@@ -1,6 +1,6 @@
-﻿using CondotelManagement.DTOs.Auth; // Cần DTOs
+﻿using CondotelManagement.DTOs.Auth;
 using CondotelManagement.Services.Interfaces.Auth;
-using Microsoft.AspNetCore.Authorization; // Cần cho [Authorize]
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,78 +18,93 @@ namespace CondotelManagement.Controllers.Auth
         }
 
         [HttpPost("login")]
-        [AllowAnonymous] // Cho phép truy cập không cần token
+        [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             var result = await _authService.LoginAsync(request);
             if (result == null)
-                return Unauthorized(new { message = "Invalid email or password" }); // Trả về 401
+                return Unauthorized(new { message = "Invalid email or password, or account not activated." }); // Sửa thông báo
 
-            return Ok(result); // Trả về 200
+            return Ok(result);
         }
 
-        // THÊM MỚI
+        // THÊM MỚI: Endpoint Google Login
+        [HttpPost("google-login")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+        {
+            var result = await _authService.GoogleLoginAsync(request);
+            if (result == null)
+                return Unauthorized(new { message = "Google authentication failed." });
+
+            return Ok(result);
+        }
+
+        // SỬA ĐỔI: Endpoint Register
         [HttpPost("register")]
-        [AllowAnonymous] // Cho phép truy cập không cần token
+        [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             var success = await _authService.RegisterAsync(request);
             if (!success)
-                return BadRequest(new { message = "Email already exists or invalid data." }); // Trả về 400
+                return BadRequest(new { message = "Email already exists and is activated." });
 
-            // Trả về 201 Created là chuẩn RESTful khi tạo mới
-            return StatusCode(201, new { message = "User registered successfully." });
+            // SỬA THÔNG BÁO: Yêu cầu xác thực OTP
+            return StatusCode(201, new { message = "User registration initiated. Please check your email for an OTP to verify your account." });
         }
+
+        // THÊM MỚI: Endpoint Xác thực Email
+        [HttpPost("verify-email")]
+        [AllowAnonymous]
+        public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
+        {
+            var success = await _authService.VerifyEmailAsync(request);
+            if (!success)
+                return BadRequest(new { message = "Invalid email, incorrect OTP, or OTP has expired." });
+
+            return Ok(new { message = "Email verified successfully. You can now log in." });
+        }
+
 
         [HttpPost("logout")]
-        [Authorize] // SỬA ĐỔI: Yêu cầu phải đăng nhập mới được logout
+        [Authorize]
         public IActionResult Logout()
         {
-            // Trong thực tế, bạn có thể cần vô hiệu hóa token (nếu dùng blacklist)
-            // ở đây chúng ta chỉ trả về 200 OK
             return Ok(new { message = "Logout successful" });
         }
+
+        // ... (Các endpoint forgot-password, send-otp, reset-password-with-otp, GetMe, admin-check giữ nguyên) ...
 
         [HttpPost("forgot-password")]
         [AllowAnonymous]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
         {
             await _authService.ForgotPasswordAsync(request);
-
-            // SỬA ĐỔI: Luôn trả về 200 để bảo mật
             return Ok(new { message = "If your email is registered, you will receive a password reset link." });
         }
 
-        [HttpPost("send-otp")] // Đổi tên từ "forgot-password"
+        [HttpPost("send-otp")]
         [AllowAnonymous]
-        public async Task<IActionResult> SendPasswordResetOtp([FromBody] ForgotPasswordRequest request) // DTO này chỉ cần Email
+        public async Task<IActionResult> SendPasswordResetOtp([FromBody] ForgotPasswordRequest request)
         {
             var success = await _authService.SendPasswordResetOtpAsync(request);
-            if (!success)
-            {
-                // Vẫn trả về 200 để tránh lộ thông tin email nào có/không có trong hệ thống
-                return Ok(new { message = "If your email is registered, you will receive an OTP code." });
-            }
+            // (Giữ logic cũ)
             return Ok(new { message = "If your email is registered, you will receive an OTP code." });
         }
 
-        /// <summary>
-        /// 2. Đặt lại mật khẩu bằng Email, OTP và Mật khẩu mới
-        /// </summary>
-        [HttpPost("reset-password-with-otp")] // Đổi tên từ "reset-password"
+        [HttpPost("reset-password-with-otp")]
         [AllowAnonymous]
-        public async Task<IActionResult> ResetPasswordWithOtp([FromBody] ResetPasswordWithOtpRequest request) // Dùng DTO mới
+        public async Task<IActionResult> ResetPasswordWithOtp([FromBody] ResetPasswordWithOtpRequest request)
         {
             var success = await _authService.ResetPasswordWithOtpAsync(request);
             if (!success)
-                return BadRequest(new { message = "Failed to reset password. Invalid email, expired or incorrect OTP." }); // 400
+                return BadRequest(new { message = "Failed to reset password. Invalid email, expired or incorrect OTP." });
 
-            return Ok(new { message = "Password updated successfully" }); // 200
+            return Ok(new { message = "Password updated successfully" });
         }
 
-        // THÊM MỚI: Endpoint để lấy thông tin user hiện tại
         [HttpGet("me")]
-        [Authorize] // Yêu cầu xác thực
+        [Authorize]
         public async Task<IActionResult> GetMe()
         {
             var user = await _authService.GetCurrentUserAsync();
@@ -98,7 +113,6 @@ namespace CondotelManagement.Controllers.Auth
                 return Unauthorized();
             }
 
-            // Map User model sang UserProfileDto để trả về an toàn
             var userProfile = new UserProfileDto
             {
                 UserId = user.UserId,
@@ -116,9 +130,8 @@ namespace CondotelManagement.Controllers.Auth
             return Ok(userProfile);
         }
 
-        // THÊM MỚI: Endpoint ví dụ cho phân quyền
         [HttpGet("admin-check")]
-        [Authorize(Roles = "Admin")] // Yêu cầu xác thực VÀ có Role "Admin"
+        [Authorize(Roles = "Admin")]
         public IActionResult AdminCheck()
         {
             return Ok(new { message = "Welcome, Admin!" });
