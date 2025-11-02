@@ -45,5 +45,10 @@ namespace CondotelManagement.Repositories
         {
             return _context.SaveChanges() > 0;
         }
+
+        public Task GetBookingByIdAsync(int bookingId)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

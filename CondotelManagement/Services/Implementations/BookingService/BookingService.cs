@@ -24,9 +24,9 @@ namespace CondotelManagement.Services
                     BookingId = b.BookingId,
                     CondotelId = b.CondotelId,
                     CustomerId = b.CustomerId,
-                    CheckInDate = b.StartDate,
-                    CheckOutDate = b.EndDate,
-                    TotalAmount = b.TotalPrice,
+                    StartDate = b.StartDate,
+                    EndDate = b.EndDate,
+                    TotalPrice = b.TotalPrice,
                     Status = b.Status
                 });
         }
@@ -41,9 +41,9 @@ namespace CondotelManagement.Services
                 BookingId = b.BookingId,
                 CondotelId = b.CondotelId,
                 CustomerId = b.CustomerId,
-                CheckInDate = b.StartDate,
-                CheckOutDate = b.EndDate,
-                TotalAmount = b.TotalPrice,
+                StartDate = b.StartDate,
+                EndDate = b.EndDate,
+                TotalPrice = b.TotalPrice,
                 Status = b.Status
             };
         }
@@ -54,9 +54,9 @@ namespace CondotelManagement.Services
             {
                 CondotelId = dto.CondotelId,
                 CustomerId = dto.CustomerId,
-                StartDate = dto.CheckInDate,
-                EndDate = dto.CheckOutDate,
-                TotalPrice = dto.TotalAmount,
+                StartDate = dto.StartDate,
+                EndDate = dto.EndDate,
+                TotalPrice = dto.TotalPrice,
                 Status = "Pending"
             };
 
@@ -72,9 +72,9 @@ namespace CondotelManagement.Services
             var booking = _bookingRepo.GetBookingById(dto.BookingId);
             if (booking == null) return null;
 
-            booking.StartDate = dto.CheckInDate;
-            booking.EndDate = dto.CheckOutDate;
-            booking.TotalPrice = dto.TotalAmount;
+            booking.StartDate = dto.StartDate;
+            booking.EndDate = dto.EndDate;
+            booking.TotalPrice = dto.TotalPrice;
             booking.Status = dto.Status;
 
             _bookingRepo.UpdateBooking(booking);

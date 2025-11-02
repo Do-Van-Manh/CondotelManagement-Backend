@@ -2,10 +2,12 @@
 using CondotelManagement.Services;
 using CondotelManagement.DTOs;
 using CondotelManagement.Services.Interfaces.BookingService;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CondotelManagement.Controllers
 {
     [ApiController]
+    [Authorize(Roles = "Tenant")]
     [Route("api/[controller]")]
     public class BookingController : ControllerBase
     {

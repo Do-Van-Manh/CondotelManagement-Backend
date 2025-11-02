@@ -28,8 +28,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\Tenant\" />
     <Folder Include="DTOs\Common\" />
+    <Folder Include="DTOs\Payment\" />
+    <Folder Include="Repositories\Implementations\Tenant\" />
+    <Folder Include="Repositories\Interfaces\Payment\" />
     <Folder Include="Services\NewFolder\" />
   </ItemGroup>
 

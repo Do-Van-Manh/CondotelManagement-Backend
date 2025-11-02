@@ -7,12 +7,9 @@ namespace CondotelManagement.Repositories
     {
         IEnumerable<Booking> GetBookingsByCustomerId(int customerId);
         Booking GetBookingById(int id);
+        IEnumerable<Booking> GetBookingsByCondotel(int condotelId);
         void AddBooking(Booking booking);
         void UpdateBooking(Booking booking);
-
-
         bool SaveChanges();
-
-        IEnumerable<Booking> GetBookingsByRoom(int roomId);
     }
 }

@@ -25,8 +25,6 @@ public partial class User
 
     public string? Address { get; set; }
     public string? ImageUrl { get; set; }
-
-
     public DateTime CreatedAt { get; set; }
 
     public string? PasswordResetToken { get; set; }

@@ -11,11 +11,13 @@ using CondotelManagement.Services.Implementations;
 using CondotelManagement.Services.Implementations.Admin;
 using CondotelManagement.Services.Implementations.Auth;
 using CondotelManagement.Services.Implementations.Shared;
+using CondotelManagement.Services.Implementations.Tenant;
 using CondotelManagement.Services.Interfaces;
 using CondotelManagement.Services.Interfaces.Admin;
 using CondotelManagement.Services.Interfaces.Auth;
 using CondotelManagement.Services.Interfaces.BookingService;
 using CondotelManagement.Services.Interfaces.Shared;
+using CondotelManagement.Services.Interfaces.Tenant;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -66,6 +68,9 @@ namespace CondotelManagement.Configurations
             //---Booking---
             services.AddScoped<IBookingRepository, BookingRepository>();
             services.AddScoped<IBookingService, BookingService>();
+            //---Tenant Review & Reward---
+            services.AddScoped<ITenantReviewService, TenantReviewService>();
+            services.AddScoped<ITenantRewardService, TenantRewardService>();
 
             // Cấu hình JWT Authentication
             services.AddAuthentication(options =>

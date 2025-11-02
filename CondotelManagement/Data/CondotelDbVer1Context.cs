@@ -47,6 +47,8 @@ public partial class CondotelDbVer1Context : DbContext
 
     public virtual DbSet<Promotion> Promotions { get; set; }
 
+
+
     public virtual DbSet<Resort> Resorts { get; set; }
 
     public virtual DbSet<ResortUtility> ResortUtilities { get; set; }
