@@ -24,7 +24,7 @@ public partial class User
     public DateOnly? DateOfBirth { get; set; }
 
     public string? Address { get; set; }
-    public string? ImageUrl { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public string? PasswordResetToken { get; set; }
@@ -34,6 +34,8 @@ public partial class User
     public virtual ICollection<AdminReport> AdminReports { get; set; } = new List<AdminReport>();
 
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+
+    public virtual ICollection<Host> Hosts { get; set; } = new List<Host>();
 
     public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
 

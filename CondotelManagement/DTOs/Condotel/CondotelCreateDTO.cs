@@ -1,8 +1,10 @@
-﻿namespace CondotelManagement.DTOs
+﻿using System.Text.Json.Serialization;
+
+namespace CondotelManagement.DTOs
 {
-    public class CondotelCreateUpdateDTO
+    public class CondotelCreateDTO
     {
-        public int CondotelId { get; set; }
+        [JsonIgnore] // Không cho client set
         public int HostId { get; set; }
         public int? ResortId { get; set; }
         public string Name { get; set; }

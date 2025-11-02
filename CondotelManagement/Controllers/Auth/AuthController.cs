@@ -110,7 +110,7 @@ namespace CondotelManagement.Controllers.Auth
                 Gender = user.Gender,
                 DateOfBirth = user.DateOfBirth,
                 Address = user.Address,
-                ImageUrl = user.ImageUrl,
+                //ImageUrl = user.ImageUrl,
                 CreatedAt = user.CreatedAt
             };
 
