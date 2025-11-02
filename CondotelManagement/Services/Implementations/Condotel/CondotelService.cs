@@ -11,7 +11,7 @@ public class CondotelService : ICondotelService
     {
         _condotelRepo = condotelRepo;
     }
-    public CondotelDetailDTO CreateCondotel(CondotelDetailDTO dto)
+    public CondotelUpdateDTO CreateCondotel(CondotelCreateDTO dto)
     {
         var condotel = new Condotel
         {
@@ -59,7 +59,48 @@ public class CondotelService : ICondotelService
 
         _condotelRepo.AddCondotel(condotel);
         _condotelRepo.SaveChanges();
-        return dto;
+        return new CondotelUpdateDTO
+        {
+            CondotelId = condotel.CondotelId,
+            HostId = condotel.HostId,
+            ResortId = condotel.ResortId,
+            Name = condotel.Name,
+            Description = condotel.Description,
+            PricePerNight = condotel.PricePerNight,
+            Beds = condotel.Beds,
+            Bathrooms = condotel.Bathrooms,
+            Status = condotel.Status,
+
+            Images = condotel.CondotelImages?.Select(i => new ImageDTO
+            {
+                ImageId = i.ImageId,
+                ImageUrl = i.ImageUrl,
+                Caption = i.Caption
+            }).ToList(),
+
+            Prices = condotel.CondotelPrices?.Select(p => new PriceDTO
+            {
+                PriceId = p.PriceId,
+                StartDate = p.StartDate,
+                EndDate = p.EndDate,
+                BasePrice = p.BasePrice,
+                PriceType = p.PriceType,
+                Description = p.Description
+            }).ToList(),
+
+            Details = condotel.CondotelDetails?.Select(d => new DetailDTO
+            {
+                BuildingName = d.BuildingName,
+                RoomNumber = d.RoomNumber,
+                Beds = d.Beds,
+                Bathrooms = d.Bathrooms,
+                SafetyFeatures = d.SafetyFeatures,
+                HygieneStandards = d.HygieneStandards
+            }).ToList(),
+
+            AmenityIds = condotel.CondotelAmenities?.Select(a => a.AmenityId).ToList(),
+            UtilityIds = condotel.CondotelUtilities?.Select(u => u.UtilityId).ToList()
+        };
     }
 
     public bool DeleteCondotel(int id)
@@ -74,10 +115,14 @@ public class CondotelService : ICondotelService
         if (c == null) return null;
 
         return new CondotelDetailDTO
-        {
+		{
             CondotelId = c.CondotelId,
             HostId = c.HostId,
-            ResortId = c.ResortId,
+            Resort = new ResortDTO
+            {
+                ResortId = c.Resort.ResortId,
+                Name = c.Resort.Name
+            },
             Name = c.Name,
             Description = c.Description,
             PricePerNight = c.PricePerNight,
@@ -107,8 +152,24 @@ public class CondotelService : ICondotelService
                 SafetyFeatures = d.SafetyFeatures,
                 HygieneStandards = d.HygieneStandards
             }).ToList(),
-            AmenityIds = c.CondotelAmenities?.Select(a => a.AmenityId).ToList(),
-            UtilityIds = c.CondotelUtilities?.Select(u => u.UtilityId).ToList()
+			Amenities = c.CondotelAmenities?.Select(ca => new AmenityDTO
+			{
+				AmenityId = ca.AmenityId,
+				Name = ca.Amenity.Name
+			}).ToList(),
+			Utilities = c.CondotelUtilities?.Select(u => new UtilityDTO
+            {
+                UtilityId = u.UtilityId,
+                Name = u.Utility.Name
+            }).ToList(),
+			Promotions = c.Promotions?.Select(p => new PromotionDTO
+			{
+				PromotionId = p.PromotionId,
+				Name = p.Name,
+				StartDate = p.StartDate,
+				EndDate = p.EndDate,
+				DiscountPercentage = p.DiscountPercentage
+			}).ToList()
         };
     }
 
@@ -129,7 +190,24 @@ public class CondotelService : ICondotelService
                 });
     }
 
-    public CondotelDetailDTO UpdateCondotel(CondotelDetailDTO dto)
+    public IEnumerable<CondotelDTO> GetCondtelsByHost(int hostId)
+    {
+        return _condotelRepo.GetCondtelsByHost(hostId)
+                .Select(c => new CondotelDTO
+                {
+                    CondotelId = c.CondotelId,
+                    Name = c.Name,
+                    PricePerNight = c.PricePerNight,
+                    Beds = c.Beds,
+                    Bathrooms = c.Bathrooms,
+                    Status = c.Status,
+                    ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
+                    ResortName = c.Resort?.Name,
+                    HostName = c.Host?.CompanyName
+                });
+    }
+
+    public CondotelUpdateDTO UpdateCondotel(CondotelUpdateDTO dto)
     {
         var c = _condotelRepo.GetCondotelById(dto.CondotelId);
         if (c == null) return null;

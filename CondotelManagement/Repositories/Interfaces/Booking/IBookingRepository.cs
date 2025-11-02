@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using CondotelManagement.DTOs;
 using CondotelManagement.Models;
 
 namespace CondotelManagement.Repositories
@@ -7,11 +8,11 @@ namespace CondotelManagement.Repositories
     {
         IEnumerable<Booking> GetBookingsByCustomerId(int customerId);
         Booking GetBookingById(int id);
+        IEnumerable<Booking> GetBookingsByCondotel(int condotelId);
         void AddBooking(Booking booking);
         void UpdateBooking(Booking booking);
-        void DeleteBooking(int id);
         bool SaveChanges();
-
-        IEnumerable<Booking> GetBookingsByRoom(int roomId);
+        IEnumerable<HostBookingDTO> GetBookingsByHost(int hostId);
+        IEnumerable<HostBookingDTO> GetBookingsByHostAndCustomer(int hostId, int customerId);
     }
 }

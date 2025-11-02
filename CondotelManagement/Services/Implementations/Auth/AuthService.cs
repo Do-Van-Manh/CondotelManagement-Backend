@@ -284,7 +284,8 @@ namespace CondotelManagement.Services.Implementations.Auth
             {
                 Token = tokenHandler.WriteToken(token),
                 RoleName = roleName,
-                FullName = user.FullName
+                FullName = user.FullName,
+                //ImageUrl = user.ImageUrl
             };
         }
     }

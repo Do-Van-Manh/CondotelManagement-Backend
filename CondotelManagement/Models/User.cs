@@ -35,6 +35,8 @@ public partial class User
 
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
+    public virtual ICollection<Host> Hosts { get; set; } = new List<Host>();
+
     public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
 
     public virtual ICollection<RewardPoint> RewardPoints { get; set; } = new List<RewardPoint>();

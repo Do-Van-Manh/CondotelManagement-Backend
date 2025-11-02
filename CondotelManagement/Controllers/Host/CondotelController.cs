@@ -1,26 +1,33 @@
 ﻿using CondotelManagement.DTOs;
+using CondotelManagement.Helpers;
 using CondotelManagement.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
-namespace CondotelManagement.Controllers
+namespace CondotelManagement.Controllers.Host
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/host/[controller]")]
+    [Authorize(Roles = "Host")]
     public class CondotelController : ControllerBase
     {
         private readonly ICondotelService _condotelService;
+        private readonly IHostService _hostService;
 
-        public CondotelController(ICondotelService condotelService)
+        public CondotelController(ICondotelService condotelService, IHostService hostService)
         {
             _condotelService = condotelService;
+            _hostService = hostService;
         }
 
         //GET /api/condotel
         [HttpGet]
-        public ActionResult<IEnumerable<CondotelDTO>> GetAll()
+        public ActionResult<IEnumerable<CondotelDTO>> GetAllCondotelByHost()
         {
-            var condotels = _condotelService.GetCondotels();
+            //current host login
+            var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
+            var condotels = _condotelService.GetCondtelsByHost(hostId);
             return Ok(condotels);
         }
 
@@ -37,20 +44,26 @@ namespace CondotelManagement.Controllers
 
         //POST /api/condotel
         [HttpPost]
-        public ActionResult Create([FromBody] CondotelDetailDTO condotelDto)
+        public ActionResult Create([FromBody] CondotelCreateDTO condotelDto)
         {
             if (condotelDto == null) return BadRequest("Invalid condotel data");
+            //current host login
+            var host = _hostService.GetByUserId(User.GetUserId());
+            condotelDto.HostId = host.HostId;
             var created = _condotelService.CreateCondotel(condotelDto);
             return CreatedAtAction(nameof(GetById),
-                new { id = condotelDto.CondotelId },
+                new { id = created.CondotelId },
                 created);
         }
 
         //PUT /api/condotel/{id}
         [HttpPut("{id}")]
-        public ActionResult Update(int id, [FromBody] CondotelDetailDTO condotelDto)
+        public ActionResult Update(int id, [FromBody] CondotelUpdateDTO condotelDto)
         {
             if (condotelDto == null || condotelDto.CondotelId != id) return BadRequest();
+            //current host login
+            var host = _hostService.GetByUserId(User.GetUserId());
+            condotelDto.HostId = host.HostId;
             var updated = _condotelService.UpdateCondotel(condotelDto);
             if (updated == null) return NotFound();
             return Ok(updated);

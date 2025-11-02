@@ -7,6 +7,8 @@ public partial class Promotion
 {
     public int PromotionId { get; set; }
 
+    public int? CondotelId { get; set; }
+
     public string Name { get; set; } = null!;
 
     public DateOnly StartDate { get; set; }
@@ -20,4 +22,6 @@ public partial class Promotion
     public string Status { get; set; } = null!;
 
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+
+    public virtual Condotel? Condotel { get; set; }
 }
