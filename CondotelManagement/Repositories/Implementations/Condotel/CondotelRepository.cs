@@ -103,5 +103,11 @@ namespace CondotelManagement.Repositories
         {
             return _context.SaveChanges() > 0;
         }
+
+        public Promotion? GetPromotionById(int promotionId)
+        {
+            return _context.Promotions.FirstOrDefault(p => p.PromotionId == promotionId);
+        }
+
     }
 }

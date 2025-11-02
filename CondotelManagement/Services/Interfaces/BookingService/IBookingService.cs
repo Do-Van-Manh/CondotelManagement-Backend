@@ -8,7 +8,8 @@ namespace CondotelManagement.Services.Interfaces.BookingService
         BookingDTO GetBookingById(int id);
         BookingDTO CreateBooking(BookingDTO booking);
         BookingDTO UpdateBooking(BookingDTO booking);
-        bool CancelBooking(int id);
+        bool CancelBooking(int bookingId, int customerId);
+
         bool CheckAvailability(int roomId, DateOnly checkIn, DateOnly checkOut);
 
     }

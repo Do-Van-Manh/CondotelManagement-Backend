@@ -15,14 +15,13 @@ namespace CondotelManagement.Repositories
         }
 
         public IEnumerable<Booking> GetBookingsByCustomerId(int customerId)
-        {
-            return _context.Bookings.Where(b => b.CustomerId == customerId).ToList();
-        }
+            => _context.Bookings.Where(b => b.CustomerId == customerId).ToList();
 
         public Booking GetBookingById(int id)
-        {
-            return _context.Bookings.FirstOrDefault(b => b.BookingId == id);
-        }
+            => _context.Bookings.FirstOrDefault(b => b.BookingId == id);
+
+        public IEnumerable<Booking> GetBookingsByCondotel(int condotelId)
+            => _context.Bookings.Where(b => b.CondotelId == condotelId).ToList();
 
         public void AddBooking(Booking booking)
         {
@@ -34,21 +33,9 @@ namespace CondotelManagement.Repositories
             _context.Bookings.Update(booking);
         }
 
-
-        public IEnumerable<Booking> GetBookingsByRoom(int condotelId)
-        {
-            return _context.Bookings.Where(b => b.CondotelId == condotelId).ToList();
-        }
-
-
         public bool SaveChanges()
         {
             return _context.SaveChanges() > 0;
-        }
-
-        public Task GetBookingByIdAsync(int bookingId)
-        {
-            throw new NotImplementedException();
         }
     }
 }
