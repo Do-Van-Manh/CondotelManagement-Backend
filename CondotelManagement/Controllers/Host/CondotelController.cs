@@ -23,9 +23,11 @@ namespace CondotelManagement.Controllers.Host
 
         //GET /api/condotel
         [HttpGet]
-        public ActionResult<IEnumerable<CondotelDTO>> GetAll()
+        public ActionResult<IEnumerable<CondotelDTO>> GetAllCondotelByHost()
         {
-            var condotels = _condotelService.GetCondotels();
+            //current host login
+            var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
+            var condotels = _condotelService.GetCondtelsByHost(hostId);
             return Ok(condotels);
         }
 

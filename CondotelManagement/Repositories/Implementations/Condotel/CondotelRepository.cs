@@ -109,5 +109,14 @@ namespace CondotelManagement.Repositories
             return _context.Promotions.FirstOrDefault(p => p.PromotionId == promotionId);
         }
 
+        public IEnumerable<Condotel> GetCondtelsByHost(int hostId)
+        {
+            return _context.Condotels
+                    .Where(c => c.HostId == hostId)
+                    .Include(c => c.Resort)
+                    .Include(c => c.Host)
+                    .Include(c => c.CondotelImages)
+                    .ToList();
+        }
     }
 }

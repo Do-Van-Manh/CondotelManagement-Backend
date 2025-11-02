@@ -190,6 +190,23 @@ public class CondotelService : ICondotelService
                 });
     }
 
+    public IEnumerable<CondotelDTO> GetCondtelsByHost(int hostId)
+    {
+        return _condotelRepo.GetCondtelsByHost(hostId)
+                .Select(c => new CondotelDTO
+                {
+                    CondotelId = c.CondotelId,
+                    Name = c.Name,
+                    PricePerNight = c.PricePerNight,
+                    Beds = c.Beds,
+                    Bathrooms = c.Bathrooms,
+                    Status = c.Status,
+                    ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
+                    ResortName = c.Resort?.Name,
+                    HostName = c.Host?.CompanyName
+                });
+    }
+
     public CondotelUpdateDTO UpdateCondotel(CondotelUpdateDTO dto)
     {
         var c = _condotelRepo.GetCondotelById(dto.CondotelId);

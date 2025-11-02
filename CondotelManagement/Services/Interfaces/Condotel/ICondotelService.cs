@@ -9,5 +9,6 @@ namespace CondotelManagement.Services
         CondotelUpdateDTO CreateCondotel(CondotelCreateDTO condotel);
         CondotelUpdateDTO UpdateCondotel(CondotelUpdateDTO condotel);
         bool DeleteCondotel(int id);
+        IEnumerable<CondotelDTO> GetCondtelsByHost(int hostId);
     }
 }
