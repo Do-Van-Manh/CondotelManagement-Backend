@@ -1,18 +1,23 @@
 ﻿// --- CÁC USING CŨ CỦA BẠN ---
+using CondotelManagement.Repositories;
 using CondotelManagement.Repositories.Implementations; 
 using CondotelManagement.Repositories.Implementations.Admin;
 using CondotelManagement.Repositories.Implementations.Auth;
 using CondotelManagement.Repositories.Interfaces;      
 using CondotelManagement.Repositories.Interfaces.Admin;
 using CondotelManagement.Repositories.Interfaces.Auth;
+using CondotelManagement.Services;
 using CondotelManagement.Services.Implementations;
 using CondotelManagement.Services.Implementations.Admin;
 using CondotelManagement.Services.Implementations.Auth;
 using CondotelManagement.Services.Implementations.Shared;
+using CondotelManagement.Services.Implementations.Tenant;
 using CondotelManagement.Services.Interfaces;
 using CondotelManagement.Services.Interfaces.Admin;
 using CondotelManagement.Services.Interfaces.Auth;
+using CondotelManagement.Services.Interfaces.BookingService;
 using CondotelManagement.Services.Interfaces.Shared;
+using CondotelManagement.Services.Interfaces.Tenant;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -51,6 +56,32 @@ namespace CondotelManagement.Configurations
             services.AddScoped<IEmailService, EmailService>();
             //---Profile---
             services.AddScoped<IProfileService, ProfileService>();
+
+			//Đăng ký các service và repository của Condotel
+			services.AddScoped<ICondotelRepository, CondotelRepository>();
+			services.AddScoped<ICondotelService, CondotelService>();
+
+            //Đăng ký các service và repository của Location
+            services.AddScoped<ILocationRepository, LocationRepository>();
+            services.AddScoped<ILocationService, LocationService>();
+
+            //Đăng ký các service và repository của Host
+            services.AddScoped<IHostRepository, HostRepository>();
+            services.AddScoped<IHostService, HostService>();
+
+            //---Booking---
+            services.AddScoped<IBookingRepository, BookingRepository>();
+            services.AddScoped<IBookingService, BookingService>();
+            //---Tenant Review & Reward---
+            services.AddScoped<ITenantReviewService, TenantReviewService>();
+            services.AddScoped<ITenantRewardService, TenantRewardService>();
+
+            //Đăng ký các service và repository của Customer
+            services.AddScoped<ICustomerRepository, CustomerRepository>();
+            services.AddScoped<ICustomerService, CustomerService>();
+
+            services.AddScoped<IServicePackageRepository, ServicePackageRepository>();
+            services.AddScoped<IServicePackageService, ServicePackageService>();
 
             // Cấu hình JWT Authentication
             services.AddAuthentication(options =>

@@ -47,6 +47,8 @@ public partial class CondotelDbVer1Context : DbContext
 
     public virtual DbSet<Promotion> Promotions { get; set; }
 
+
+
     public virtual DbSet<Resort> Resorts { get; set; }
 
     public virtual DbSet<ResortUtility> ResortUtilities { get; set; }
@@ -65,9 +67,17 @@ public partial class CondotelDbVer1Context : DbContext
 
     public virtual DbSet<Wallet> Wallets { get; set; }
 
+    private string GetConnectionString()
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", true, true).Build();
+        return configuration["ConnectionStrings:MyCnn"];
+    }
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("server=localhost;database=CondotelDB_Ver1;uid=sa;pwd=123;TrustServerCertificate=True");
+    {
+        optionsBuilder.UseSqlServer(GetConnectionString());
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -301,12 +311,19 @@ public partial class CondotelDbVer1Context : DbContext
             entity.ToTable("Host");
 
             entity.Property(e => e.HostId).HasColumnName("HostID");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
             entity.Property(e => e.Address).HasMaxLength(255);
             entity.Property(e => e.CompanyName).HasMaxLength(200);
             entity.Property(e => e.PhoneContact).HasMaxLength(20);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Active");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
+
+            entity.HasOne(d => d.User).WithMany(p => p.Hosts)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Host_User");
         });
 
         modelBuilder.Entity<HostPackage>(entity =>
@@ -366,12 +383,17 @@ public partial class CondotelDbVer1Context : DbContext
             entity.ToTable("Promotion");
 
             entity.Property(e => e.PromotionId).HasColumnName("PromotionID");
+            entity.Property(e => e.CondotelId).HasColumnName("CondotelID");
             entity.Property(e => e.DiscountPercentage).HasColumnType("decimal(5, 2)");
             entity.Property(e => e.Name).HasMaxLength(150);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Active");
             entity.Property(e => e.TargetAudience).HasMaxLength(100);
+
+            entity.HasOne(d => d.Condotel).WithMany(p => p.Promotions)
+                .HasForeignKey(d => d.CondotelId)
+                .HasConstraintName("FK_Promotion_Condotel");
         });
 
         modelBuilder.Entity<Resort>(entity =>

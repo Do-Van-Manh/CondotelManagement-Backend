@@ -47,6 +47,7 @@ namespace CondotelManagement.Controllers.Profile
                 Gender = user.Gender,
                 DateOfBirth = user.DateOfBirth,
                 Address = user.Address,
+                //ImageUrl = user.ImageUrl,
                 CreatedAt = user.CreatedAt
             };
 

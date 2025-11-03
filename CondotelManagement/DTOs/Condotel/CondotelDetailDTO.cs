@@ -1,10 +1,12 @@
-﻿namespace CondotelManagement.DTOs
+﻿using CondotelManagement.Models;
+
+namespace CondotelManagement.DTOs
 {
     public class CondotelDetailDTO
     {
         public int CondotelId { get; set; }
         public int HostId { get; set; }
-        public int? ResortId { get; set; }
+        public ResortDTO Resort { get; set; }
         public string Name { get; set; }
         public string? Description { get; set; }
         public decimal PricePerNight { get; set; }
@@ -18,35 +20,34 @@
         public List<DetailDTO>? Details { get; set; }
 
         // Liên kết n-n
-        public List<int>? AmenityIds { get; set; }
-        public List<int>? UtilityIds { get; set; }
+        public List<AmenityDTO> Amenities { get; set; }
+        public List<UtilityDTO> Utilities { get; set; }
+        public List<PromotionDTO> Promotions { get; set; }
     }
 
-    public class ImageDTO
-    {
-        public int ImageId { get; set; }
-        public string ImageUrl { get; set; }
-        public string? Caption { get; set; }
-    }
+	public class AmenityDTO
+	{
+		public int AmenityId { get; set; }
+		public string Name { get; set; }
+	}
 
-    public class PriceDTO
-    {
-        public int PriceId { get; set; }
-        public DateOnly StartDate { get; set; }
-        public DateOnly EndDate { get; set; }
-        public decimal BasePrice { get; set; }
-        public string PriceType { get; set; }
+	public class UtilityDTO
+	{
+		public int UtilityId { get; set; }
+		public string Name { get; set; }
+	}
 
-        public string Description { get; set; }
-    }
-
-    public class DetailDTO
+	public class PromotionDTO
+	{
+		public int PromotionId { get; set; }
+		public string Name { get; set; }
+		public DateOnly StartDate { get; set; }
+		public DateOnly EndDate { get; set; }
+		public decimal DiscountPercentage { get; set; }
+	}
+    public class ResortDTO
     {
-        public string? BuildingName { get; set; }
-        public string? RoomNumber { get; set; }
-        public byte Beds { get; set; }
-        public byte Bathrooms { get; set; }
-        public string? SafetyFeatures { get; set; }
-        public string? HygieneStandards { get; set; }
+        public int ResortId { get; set; }
+        public string Name { get; set; }
     }
 }
