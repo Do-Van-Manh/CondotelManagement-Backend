@@ -62,6 +62,10 @@ namespace CondotelManagement.Configurations
             services.AddScoped<ILocationRepository, LocationRepository>();
             services.AddScoped<ILocationService, LocationService>();
 
+            //Đăng ký các service và repository của Promotion
+            services.AddScoped<IPromotionRepository, PromotionRepository>();
+            services.AddScoped<IPromotionService, PromotionService>();
+
             // Cấu hình JWT Authentication
             services.AddAuthentication(options =>
             {

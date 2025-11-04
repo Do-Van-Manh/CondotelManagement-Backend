@@ -512,6 +512,9 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.Email).HasMaxLength(255);
             entity.Property(e => e.FullName).HasMaxLength(150);
             entity.Property(e => e.Gender).HasMaxLength(10);
+            entity.Property(e => e.ImageUrl)
+                .HasMaxLength(500)
+                .HasColumnName("ImageURL");
             entity.Property(e => e.PasswordHash).HasMaxLength(100);
             entity.Property(e => e.PasswordResetToken).HasMaxLength(100);
             entity.Property(e => e.Phone).HasMaxLength(20);
