@@ -83,6 +83,9 @@ namespace CondotelManagement.Configurations
             services.AddScoped<IServicePackageRepository, ServicePackageRepository>();
             services.AddScoped<IServicePackageService, ServicePackageService>();
 
+            services.AddScoped<IHostReportRepository, HostReportRepository>();
+            services.AddScoped<IHostReportService, HostReportService>();
+
             // Cấu hình JWT Authentication
             services.AddAuthentication(options =>
             {
