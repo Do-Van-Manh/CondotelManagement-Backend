@@ -27,6 +27,8 @@ public partial class Booking
 
     public virtual ICollection<BookingDetail> BookingDetails { get; set; } = new List<BookingDetail>();
 
+    public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
+
     public virtual Condotel Condotel { get; set; } = null!;
 
     public virtual User Customer { get; set; } = null!;

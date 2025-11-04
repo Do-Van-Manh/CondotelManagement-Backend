@@ -5,23 +5,30 @@ using CondotelManagement.Services.Interfaces.Admin;
 using Microsoft.EntityFrameworkCore; 
 using CondotelManagement.Repositories.Interfaces;
 using CondotelManagement.Repositories.Interfaces.Admin;
+using CondotelManagement.Repositories.Interfaces.Auth; // Cho IAuthRepository
+using CondotelManagement.Services.Interfaces.Shared; // Cho IEmailService
 
 namespace CondotelManagement.Services.Implementations.Admin
 {
     public class UserService : IUserService
     {
-        // Giả sử bạn dùng Repository Pattern
         private readonly IUserRepository _userRepository;
         private readonly IRoleRepository _roleRepository;
-        private readonly CondotelDbVer1Context _context; // Hoặc inject DbContext
+        private readonly CondotelDbVer1Context _context;
+        private readonly IAuthRepository _authRepo;
+        private readonly IEmailService _emailService;
 
         public UserService(IUserRepository userRepository,
                              IRoleRepository roleRepository,
-                             CondotelDbVer1Context context)
+                             CondotelDbVer1Context context,
+                             IAuthRepository authRepo, 
+                             IEmailService emailService) 
         {
             _userRepository = userRepository;
             _roleRepository = roleRepository;
-            _context = context; // Dùng context để Query (Select/Include)
+            _context = context;
+            _authRepo = authRepo; 
+            _emailService = emailService; 
         }
 
         // 1. Lấy tất cả user
@@ -68,69 +75,110 @@ namespace CondotelManagement.Services.Implementations.Admin
                 .FirstOrDefaultAsync();
         }
 
-        // 3. Admin tạo user
         public async Task<(bool IsSuccess, string Message, UserViewDTO CreatedUser)> AdminCreateUserAsync(AdminCreateUserDTO dto)
         {
-            // 1. Kiểm tra email tồn tại
-            var existingUser = await _userRepository.FirstOrDefaultAsync(u => u.Email == dto.Email);
-            if (existingUser != null)
-            {
-                return (false, "Email đã tồn tại", null);
-            }
-
-            // 2. Kiểm tra RoleId có hợp lệ
-            var roleExists = await _roleRepository.GetByIdAsync(dto.RoleId);
-            if (roleExists == null)
+            // 1. Kiểm tra RoleId có hợp lệ VÀ có phải là Admin không
+            var role = await _roleRepository.GetByIdAsync(dto.RoleId);
+            if (role == null)
             {
                 return (false, "RoleId không hợp lệ", null);
             }
+            // KIỂM TRA MỚI: Không cho phép Admin tạo Admin khác
+            if (role.RoleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, "Không có quyền tạo user với vai trò Admin", null);
+            }
 
-            // 3. Hash mật khẩu (Sử dụng BCrypt.Net)
+            // 2. Kiểm tra email tồn tại (cho cả user "Active" và "Pending")
+            var existingUser = await _userRepository.FirstOrDefaultAsync(u => u.Email == dto.Email);
+            if (existingUser != null && existingUser.Status == "Active")
+            {
+                return (false, "Email đã tồn tại và đã được kích hoạt", null);
+            }
+
+            // 3. Tạo OTP
+            string otp = new Random().Next(100000, 999999).ToString();
+            DateTime expiry = DateTime.UtcNow.AddMinutes(10); // OTP hết hạn 10 phút
+
+            // 4. Hash mật khẩu (Sử dụng BCrypt.Net)
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
-            // 4. Tạo Model User mới
-            var newUser = new User
+            User userToRegister;
+
+            // 5. Tạo hoặc Cập nhật Model User
+            if (existingUser != null && existingUser.Status == "Pending")
             {
-                FullName = dto.FullName,
-                Email = dto.Email,
-                PasswordHash = passwordHash,
-                Phone = dto.Phone,
-                RoleId = dto.RoleId,
-                Gender = dto.Gender,
-                DateOfBirth = dto.DateOfBirth,
-                Address = dto.Address,
-                Status = "Active", // Gán trạng thái mặc định
-                CreatedAt = DateTime.UtcNow // Gán thời gian tạo
-            };
+                // Nếu user "Pending" tồn tại, cập nhật lại thông tin
+                existingUser.FullName = dto.FullName;
+                existingUser.PasswordHash = passwordHash;
+                existingUser.Phone = dto.Phone;
+                existingUser.RoleId = dto.RoleId;
+                existingUser.Gender = dto.Gender;
+                existingUser.DateOfBirth = dto.DateOfBirth;
+                existingUser.Address = dto.Address;
 
-            // 5. Lưu vào DB
-            await _userRepository.AddAsync(newUser);
+                await _userRepository.UpdateAsync(existingUser);
+                userToRegister = existingUser;
+            }
+            else
+            {
+                // Tạo mới nếu chưa có
+                userToRegister = new User
+                {
+                    FullName = dto.FullName,
+                    Email = dto.Email,
+                    PasswordHash = passwordHash,
+                    Phone = dto.Phone,
+                    RoleId = dto.RoleId,
+                    Gender = dto.Gender,
+                    DateOfBirth = dto.DateOfBirth,
+                    Address = dto.Address,
+                    Status = "Pending", // SỬA ĐỔI: Set "Pending"
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _userRepository.AddAsync(userToRegister);
+            }
 
-            // 6. Map sang DTO để trả về
+            // 6. Lưu OTP và Gửi Mail (Sử dụng dịch vụ từ Auth)
+            await _authRepo.SetPasswordResetTokenAsync(userToRegister, otp, expiry);
+            await _emailService.SendVerificationOtpAsync(userToRegister.Email, otp);
+
+            // 7. Map sang DTO để trả về
             var userView = new UserViewDTO
             {
-                UserId = newUser.UserId,
-                FullName = newUser.FullName,
-                Email = newUser.Email,
-                Phone = newUser.Phone,
-                Status = newUser.Status,
-                Gender = newUser.Gender,
-                DateOfBirth = newUser.DateOfBirth,
-                Address = newUser.Address,
-                CreatedAt = newUser.CreatedAt,
-                RoleName = roleExists.RoleName // Dùng tên Role đã check ở trên
+                UserId = userToRegister.UserId,
+                FullName = userToRegister.FullName,
+                Email = userToRegister.Email,
+                Phone = userToRegister.Phone,
+                Status = userToRegister.Status, // Sẽ là "Pending"
+                Gender = userToRegister.Gender,
+                DateOfBirth = userToRegister.DateOfBirth,
+                Address = userToRegister.Address,
+                CreatedAt = userToRegister.CreatedAt,
+                RoleName = role.RoleName
             };
 
-            return (true, "Tạo user thành công", userView);
+            // SỬA ĐỔI: Trả về thông báo mới
+            return (true, "Tạo user thành công. Mã OTP đã được gửi đến email để kích hoạt.", userView);
         }
 
-        // 4. Admin cập nhật user
+        // SỬA LẠI: Admin cập nhật user
         public async Task<(bool IsSuccess, string Message, UserViewDTO UpdatedUser)> AdminUpdateUserAsync(int userId, AdminUpdateUserDTO dto)
         {
-            var user = await _userRepository.GetByIdAsync(userId);
+            // SỬA ĐỔI: Phải dùng _context.Include để lấy Role
+            var user = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
             if (user == null)
             {
                 return (false, "Không tìm thấy user", null);
+            }
+
+            // KIỂM TRA MỚI: Không cho phép sửa thông tin của Admin
+            if (user.Role.RoleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, "Không thể chỉnh sửa thông tin của Admin", null);
             }
 
             // Kiểm tra email trùng lặp (nếu đổi email)
@@ -144,10 +192,16 @@ namespace CondotelManagement.Services.Implementations.Admin
             }
 
             // Kiểm tra RoleId
-            var role = await _roleRepository.GetByIdAsync(dto.RoleId);
-            if (role == null)
+            var newRole = await _roleRepository.GetByIdAsync(dto.RoleId);
+            if (newRole == null)
             {
                 return (false, "RoleId không hợp lệ", null);
+            }
+
+            // KIỂM TRA MỚI: Không cho phép thăng cấp lên Admin
+            if (newRole.RoleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, "Không có quyền thăng cấp user thành Admin", null);
             }
 
             // Cập nhật thông tin

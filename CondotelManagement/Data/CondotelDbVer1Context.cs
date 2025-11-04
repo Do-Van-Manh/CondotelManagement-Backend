@@ -47,6 +47,8 @@ public partial class CondotelDbVer1Context : DbContext
 
     public virtual DbSet<Promotion> Promotions { get; set; }
 
+
+
     public virtual DbSet<Resort> Resorts { get; set; }
 
     public virtual DbSet<ResortUtility> ResortUtilities { get; set; }
@@ -309,12 +311,19 @@ public partial class CondotelDbVer1Context : DbContext
             entity.ToTable("Host");
 
             entity.Property(e => e.HostId).HasColumnName("HostID");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
             entity.Property(e => e.Address).HasMaxLength(255);
             entity.Property(e => e.CompanyName).HasMaxLength(200);
             entity.Property(e => e.PhoneContact).HasMaxLength(20);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Active");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
+
+            entity.HasOne(d => d.User).WithMany(p => p.Hosts)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Host_User");
         });
 
         modelBuilder.Entity<HostPackage>(entity =>

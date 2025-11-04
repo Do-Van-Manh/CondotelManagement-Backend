@@ -1,0 +1,13 @@
+﻿using CondotelManagement.DTOs;
+
+namespace CondotelManagement.Services
+{
+    public interface IServicePackageService
+    {
+        Task<IEnumerable<ServicePackageDTO>> GetAllAsync();
+        Task<ServicePackageDTO?> GetByIdAsync(int id);
+        Task<ServicePackageDTO> CreateAsync(CreateServicePackageDTO dto);
+        Task<ServicePackageDTO?> UpdateAsync(int id, UpdateServicePackageDTO dto);
+        Task<bool> DeleteAsync(int id);
+    }
+}

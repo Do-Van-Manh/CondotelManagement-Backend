@@ -41,6 +41,7 @@ namespace CondotelManagement.Repositories
     public Condotel GetCondotelById(int id)
     {
         return _context.Condotels
+            .Include(r => r.Resort)
             .Include(c => c.CondotelImages)
             .Include(c => c.CondotelAmenities)
 			.ThenInclude(ca => ca.Amenity)
@@ -101,6 +102,21 @@ namespace CondotelManagement.Repositories
         public bool SaveChanges()
         {
             return _context.SaveChanges() > 0;
+        }
+
+        public Promotion? GetPromotionById(int promotionId)
+        {
+            return _context.Promotions.FirstOrDefault(p => p.PromotionId == promotionId);
+        }
+
+        public IEnumerable<Condotel> GetCondtelsByHost(int hostId)
+        {
+            return _context.Condotels
+                    .Where(c => c.HostId == hostId)
+                    .Include(c => c.Resort)
+                    .Include(c => c.Host)
+                    .Include(c => c.CondotelImages)
+                    .ToList();
         }
     }
 }

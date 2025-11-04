@@ -4,5 +4,6 @@
     {
         Task SendPasswordResetEmailAsync(string toEmail, string resetLink);
         Task SendPasswordResetOtpAsync(string toEmail, string otp);
+        Task SendVerificationOtpAsync(string toEmail, string otp);
     }
 }

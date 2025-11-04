@@ -40,9 +40,20 @@ namespace CondotelManagement.Controllers.Admin
             var result = await _userService.AdminCreateUserAsync(createUserDto);
             if (!result.IsSuccess)
             {
-                return BadRequest(result.Message);
+                // Trả về object cho nhất quán
+                return BadRequest(new { message = result.Message });
             }
-            return CreatedAtAction(nameof(GetUserById), new { userId = result.CreatedUser.UserId }, result.CreatedUser);
+
+            // SỬA ĐỔI: Trả về 201 với thông báo và user object
+            return CreatedAtAction(
+                nameof(GetUserById), // Hàm để lấy lại user
+                new { userId = result.CreatedUser.UserId }, // Tham số cho hàm GetUserById
+                new
+                {
+                    message = result.Message, // Thông báo: "Tạo user thành công. Mã OTP..."
+                    user = result.CreatedUser  // Đối tượng user vừa tạo (đang "Pending")
+                }
+            );
         }
 
         [HttpPut("users/{userId}")]

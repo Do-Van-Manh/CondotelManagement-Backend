@@ -108,9 +108,7 @@ builder.Services.AddDependencyInjectionConfiguration(builder.Configuration);
 // Đăng ký các service và repository của Admin
 // GHI CHÚ: Bạn nên dời 2 dòng này vào file DependencyInjectionConfig.cs
 // cho gọn, nhưng để đây vẫn chạy được.
-//Đăng ký các service và repository của Booking
-builder.Services.AddScoped<IBookingRepository, BookingRepository>();
-builder.Services.AddScoped<IBookingService, BookingService>();
+
 
 
 // (sau này bạn có thể thêm các service khác tại đây)

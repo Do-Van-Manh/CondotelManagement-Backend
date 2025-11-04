@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CondotelManagement.Models;
 
@@ -8,6 +9,8 @@ public partial class Review
     public int ReviewId { get; set; }
 
     public int CondotelId { get; set; }
+
+    public int? BookingId { get; set; }
 
     public byte Rating { get; set; }
 
@@ -20,4 +23,8 @@ public partial class Review
     public virtual Condotel Condotel { get; set; } = null!;
 
     public virtual User User { get; set; } = null!;
+
+    [ForeignKey("BookingId")]
+    public virtual Booking? Booking { get; set; }
+
 }
