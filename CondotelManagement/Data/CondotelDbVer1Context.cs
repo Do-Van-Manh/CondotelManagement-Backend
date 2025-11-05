@@ -318,7 +318,6 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Active");
-            entity.Property(e => e.UserId).HasColumnName("UserID");
 
             entity.HasOne(d => d.User).WithMany(p => p.Hosts)
                 .HasForeignKey(d => d.UserId)
@@ -523,7 +522,8 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.Gender).HasMaxLength(10);
             entity.Property(e => e.ImageUrl)
                 .HasMaxLength(500)
-                .HasColumnName("ImageURL");
+                .HasColumnName("ImageURL")
+                .IsRequired(false);
             entity.Property(e => e.PasswordHash).HasMaxLength(100);
             entity.Property(e => e.PasswordResetToken).HasMaxLength(100);
             entity.Property(e => e.Phone).HasMaxLength(20);

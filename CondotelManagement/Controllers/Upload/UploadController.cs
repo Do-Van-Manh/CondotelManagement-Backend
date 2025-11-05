@@ -67,7 +67,7 @@ namespace CondotelManagement.Controllers.Upload
             if (user == null)
                 return NotFound(new { message = "User not found" });
 
-            //user.ImageUrl = imageUrl;
+            user.ImageUrl = imageUrl;
             await _repo.UpdateUserAsync(user);
 
             return Ok(new
