@@ -1,6 +1,7 @@
 ﻿using CondotelManagement.DTOs;
 using CondotelManagement.Models;
 using CondotelManagement.Repositories;
+using Microsoft.Extensions.Hosting;
 
 namespace CondotelManagement.Services;
 public class CondotelService : ICondotelService
@@ -207,7 +208,24 @@ public class CondotelService : ICondotelService
                 });
     }
 
-    public CondotelUpdateDTO UpdateCondotel(CondotelUpdateDTO dto)
+	public IEnumerable<CondotelDTO> GetCondtelsByLocation(string? locationText)
+	{
+		return _condotelRepo.GetCondtelsByLocation(locationText)
+				.Select(c => new CondotelDTO
+				{
+					CondotelId = c.CondotelId,
+					Name = c.Name,
+					PricePerNight = c.PricePerNight,
+					Beds = c.Beds,
+					Bathrooms = c.Bathrooms,
+					Status = c.Status,
+					ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
+					ResortName = c.Resort?.Name,
+					HostName = c.Host?.CompanyName
+				});
+	}
+
+	public CondotelUpdateDTO UpdateCondotel(CondotelUpdateDTO dto)
     {
         var c = _condotelRepo.GetCondotelById(dto.CondotelId);
         if (c == null) return null;

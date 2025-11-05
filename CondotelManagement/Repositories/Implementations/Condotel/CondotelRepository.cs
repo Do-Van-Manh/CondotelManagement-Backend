@@ -118,5 +118,24 @@ namespace CondotelManagement.Repositories
                     .Include(c => c.CondotelImages)
                     .ToList();
         }
-    }
+
+		public IEnumerable<Condotel> GetCondtelsByLocation(string? locationText)
+		{
+			var query = _context.Condotels
+				.Include(c => c.Resort)
+					.ThenInclude(r => r.Location)
+				.Include(c => c.Host)
+				.Include(c => c.CondotelImages)
+				.AsQueryable();
+
+			if (!string.IsNullOrWhiteSpace(locationText))
+			{
+				query = query.Where(c =>
+					c.Resort.Location.Name.Contains(locationText));
+			}
+
+			return query.ToList();
+		}
+
+	}
 }
