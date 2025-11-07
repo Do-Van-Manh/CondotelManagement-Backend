@@ -25,6 +25,8 @@ public partial class Booking
 
     public DateTime CreatedAt { get; set; }
 
+    public int? VoucherId { get; set; }
+
     public virtual ICollection<BookingDetail> BookingDetails { get; set; } = new List<BookingDetail>();
 
     public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
@@ -34,4 +36,6 @@ public partial class Booking
     public virtual User Customer { get; set; } = null!;
 
     public virtual Promotion? Promotion { get; set; }
+
+    public virtual Voucher? Voucher { get; set; }
 }

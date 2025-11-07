@@ -86,8 +86,13 @@ namespace CondotelManagement.Configurations
             services.AddScoped<IHostReportRepository, HostReportRepository>();
             services.AddScoped<IHostReportService, HostReportService>();
 
-            // --- Cấu hình JWT Authentication ---
-            services.AddAuthentication(options =>
+			// --- Voucher ---
+			services.AddScoped<IVoucherRepository, VoucherRepository>();
+			services.AddScoped<IVoucherService, VoucherService>();
+
+
+			// --- Cấu hình JWT Authentication ---
+			services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
