@@ -65,6 +65,8 @@ public partial class CondotelDbVer1Context : DbContext
 
     public virtual DbSet<Utility> Utilities { get; set; }
 
+    public virtual DbSet<Voucher> Vouchers { get; set; }
+
     public virtual DbSet<Wallet> Wallets { get; set; }
 
     private string GetConnectionString()
@@ -130,6 +132,7 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasMaxLength(20)
                 .HasDefaultValue("Pending");
             entity.Property(e => e.TotalPrice).HasColumnType("decimal(12, 2)");
+            entity.Property(e => e.VoucherId).HasColumnName("VoucherID");
 
             entity.HasOne(d => d.Condotel).WithMany(p => p.Bookings)
                 .HasForeignKey(d => d.CondotelId)
@@ -144,6 +147,11 @@ public partial class CondotelDbVer1Context : DbContext
             entity.HasOne(d => d.Promotion).WithMany(p => p.Bookings)
                 .HasForeignKey(d => d.PromotionId)
                 .HasConstraintName("FK_Booking_Promotion");
+
+            entity.HasOne(d => d.Voucher).WithMany(p => p.Bookings)
+                .HasForeignKey(d => d.VoucherId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_Booking_Voucher");
         });
 
         modelBuilder.Entity<BookingDetail>(entity =>
@@ -546,6 +554,30 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.Category).HasMaxLength(50);
             entity.Property(e => e.Description).HasMaxLength(255);
             entity.Property(e => e.Name).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<Voucher>(entity =>
+        {
+            entity.HasKey(e => e.VoucherId).HasName("PK__Voucher__3AEE79C10B1D7B61");
+
+            entity.ToTable("Voucher");
+
+            entity.HasIndex(e => e.Code, "UQ__Voucher__A25C5AA78EE9CE64").IsUnique();
+
+            entity.Property(e => e.VoucherId).HasColumnName("VoucherID");
+            entity.Property(e => e.Code).HasMaxLength(50);
+            entity.Property(e => e.CondotelId).HasColumnName("CondotelID");
+            entity.Property(e => e.DiscountAmount).HasColumnType("decimal(10, 2)");
+            entity.Property(e => e.DiscountPercentage).HasColumnType("decimal(5, 2)");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .HasDefaultValue("Active");
+            entity.Property(e => e.UsedCount).HasDefaultValue(0);
+
+            entity.HasOne(d => d.Condotel).WithMany(p => p.Vouchers)
+                .HasForeignKey(d => d.CondotelId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_Voucher_Condotel");
         });
 
         modelBuilder.Entity<Wallet>(entity =>
