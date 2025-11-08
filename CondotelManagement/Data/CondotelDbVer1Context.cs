@@ -40,7 +40,7 @@ public partial class CondotelDbVer1Context : DbContext
 
     public virtual DbSet<CondotelUtility> CondotelUtilities { get; set; }
 
-    public virtual DbSet<Host> Hosts { get; set; }
+    public virtual DbSet<Models.Host> Hosts { get; set; }
 
     public virtual DbSet<HostPackage> HostPackages { get; set; }
 
@@ -346,7 +346,7 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasConstraintName("FK_CondotelUtilities_Utilities");
         });
 
-        modelBuilder.Entity<Host>(entity =>
+        modelBuilder.Entity<Models.Host>(entity =>
         {
             entity.ToTable("Host");
 
