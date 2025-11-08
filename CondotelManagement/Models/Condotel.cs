@@ -37,11 +37,11 @@ public partial class Condotel
 
     public virtual Host Host { get; set; } = null!;
 
+    public virtual ICollection<Promotion> Promotions { get; set; } = new List<Promotion>();
+
     public virtual Resort? Resort { get; set; }
 
     public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
-
-    public virtual ICollection<Promotion> Promotions { get; set; } = new List<Promotion>();
 
     public virtual ICollection<Voucher> Vouchers { get; set; } = new List<Voucher>();
 }

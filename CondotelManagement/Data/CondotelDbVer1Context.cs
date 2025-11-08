@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using CondotelManagement.Models;
 using Microsoft.EntityFrameworkCore;
-using HostModel = CondotelManagement.Models.Host;
 
 namespace CondotelManagement.Data;
 
@@ -21,6 +20,10 @@ public partial class CondotelDbVer1Context : DbContext
 
     public virtual DbSet<Amenity> Amenities { get; set; }
 
+    public virtual DbSet<BlogCategory> BlogCategories { get; set; }
+
+    public virtual DbSet<BlogPost> BlogPosts { get; set; }
+
     public virtual DbSet<Booking> Bookings { get; set; }
 
     public virtual DbSet<BookingDetail> BookingDetails { get; set; }
@@ -37,7 +40,7 @@ public partial class CondotelDbVer1Context : DbContext
 
     public virtual DbSet<CondotelUtility> CondotelUtilities { get; set; }
 
-    public virtual DbSet<HostModel> Hosts { get; set; }
+    public virtual DbSet<Host> Hosts { get; set; }
 
     public virtual DbSet<HostPackage> HostPackages { get; set; }
 
@@ -46,8 +49,6 @@ public partial class CondotelDbVer1Context : DbContext
     public virtual DbSet<Package> Packages { get; set; }
 
     public virtual DbSet<Promotion> Promotions { get; set; }
-
-
 
     public virtual DbSet<Resort> Resorts { get; set; }
 
@@ -69,23 +70,15 @@ public partial class CondotelDbVer1Context : DbContext
 
     public virtual DbSet<Wallet> Wallets { get; set; }
 
-    private string GetConnectionString()
-    {
-        IConfiguration configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", true, true).Build();
-        return configuration["ConnectionStrings:MyCnn"];
-    }
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        optionsBuilder.UseSqlServer(GetConnectionString());
-    }
+#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+        => optionsBuilder.UseSqlServer("server=localhost;database=CondotelDB_Ver2;uid=sa;pwd=123;TrustServerCertificate=True");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AdminReport>(entity =>
         {
-            entity.HasKey(e => e.ReportId).HasName("PK__AdminRep__D5BD48E5DD896BC2");
+            entity.HasKey(e => e.ReportId);
 
             entity.ToTable("AdminReport");
 
@@ -107,18 +100,63 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<Amenity>(entity =>
         {
-            entity.HasKey(e => e.AmenityId).HasName("PK__Amenitie__842AF52B7667116F");
-
             entity.Property(e => e.AmenityId).HasColumnName("AmenityID");
             entity.Property(e => e.Category).HasMaxLength(50);
             entity.Property(e => e.Description).HasMaxLength(255);
             entity.Property(e => e.Name).HasMaxLength(100);
         });
 
+        modelBuilder.Entity<BlogCategory>(entity =>
+        {
+            entity.HasKey(e => e.CategoryId);
+
+            entity.HasIndex(e => e.Slug, "IX_BlogCategories_Slug").IsUnique();
+
+            entity.Property(e => e.CategoryId).HasColumnName("CategoryID");
+            entity.Property(e => e.Name).HasMaxLength(150);
+            entity.Property(e => e.Slug)
+                .HasMaxLength(150)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<BlogPost>(entity =>
+        {
+            entity.HasKey(e => e.PostId);
+
+            entity.HasIndex(e => e.Slug, "IX_BlogPosts_Slug").IsUnique();
+
+            entity.Property(e => e.PostId).HasColumnName("PostID");
+            entity.Property(e => e.AuthorUserId).HasColumnName("AuthorUserID");
+            entity.Property(e => e.CategoryId).HasColumnName("CategoryID");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getutcdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.FeaturedImageUrl)
+                .HasMaxLength(500)
+                .IsUnicode(false);
+            entity.Property(e => e.PublishedAt).HasColumnType("datetime");
+            entity.Property(e => e.Slug)
+                .HasMaxLength(255)
+                .IsUnicode(false);
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("Draft");
+            entity.Property(e => e.Title).HasMaxLength(255);
+
+            entity.HasOne(d => d.AuthorUser).WithMany(p => p.BlogPosts)
+                .HasForeignKey(d => d.AuthorUserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_BlogPosts_User");
+
+            entity.HasOne(d => d.Category).WithMany(p => p.BlogPosts)
+                .HasForeignKey(d => d.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_BlogPosts_BlogCategories");
+        });
+
         modelBuilder.Entity<Booking>(entity =>
         {
-            entity.HasKey(e => e.BookingId).HasName("PK__Booking__73951ACDB87A75DE");
-
             entity.ToTable("Booking");
 
             entity.Property(e => e.BookingId).HasColumnName("BookingID");
@@ -156,8 +194,6 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<BookingDetail>(entity =>
         {
-            entity.HasKey(e => e.BookingDetailId).HasName("PK__BookingD__8136D47A7F505BA4");
-
             entity.ToTable("BookingDetail");
 
             entity.Property(e => e.BookingDetailId).HasColumnName("BookingDetailID");
@@ -179,8 +215,6 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<Condotel>(entity =>
         {
-            entity.HasKey(e => e.CondotelId).HasName("PK__Condotel__5137994D066CC8AE");
-
             entity.ToTable("Condotel");
 
             entity.Property(e => e.CondotelId).HasColumnName("CondotelID");
@@ -228,7 +262,7 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<CondotelDetail>(entity =>
         {
-            entity.HasKey(e => e.DetailId).HasName("PK__Condotel__135C314DC0149A17");
+            entity.HasKey(e => e.DetailId);
 
             entity.Property(e => e.DetailId).HasColumnName("DetailID");
             entity.Property(e => e.Bathrooms).HasDefaultValue((byte)1);
@@ -250,7 +284,7 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<CondotelImage>(entity =>
         {
-            entity.HasKey(e => e.ImageId).HasName("PK__Condotel__7516F4EC2F1E6A9D");
+            entity.HasKey(e => e.ImageId);
 
             entity.ToTable("CondotelImage");
 
@@ -269,7 +303,7 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<CondotelPrice>(entity =>
         {
-            entity.HasKey(e => e.PriceId).HasName("PK__Condotel__4957584FD528DBBF");
+            entity.HasKey(e => e.PriceId);
 
             entity.ToTable("CondotelPrice");
 
@@ -312,20 +346,18 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasConstraintName("FK_CondotelUtilities_Utilities");
         });
 
-        modelBuilder.Entity<HostModel>(entity =>
+        modelBuilder.Entity<Host>(entity =>
         {
-            entity.HasKey(e => e.HostId).HasName("PK__Host__08D4870CF71CA63F");
-
             entity.ToTable("Host");
 
             entity.Property(e => e.HostId).HasColumnName("HostID");
-            entity.Property(e => e.UserId).HasColumnName("UserID");
             entity.Property(e => e.Address).HasMaxLength(255);
             entity.Property(e => e.CompanyName).HasMaxLength(200);
             entity.Property(e => e.PhoneContact).HasMaxLength(20);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Active");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
 
             entity.HasOne(d => d.User).WithMany(p => p.Hosts)
                 .HasForeignKey(d => d.UserId)
@@ -335,7 +367,7 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<HostPackage>(entity =>
         {
-            entity.HasKey(e => new { e.HostId, e.PackageId }).HasName("PK__HostPack__DBF68452C59B64C5");
+            entity.HasKey(e => new { e.HostId, e.PackageId });
 
             entity.ToTable("HostPackage");
 
@@ -358,8 +390,6 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<Location>(entity =>
         {
-            entity.HasKey(e => e.LocationId).HasName("PK__Location__E7FEA477D86590DA");
-
             entity.ToTable("Location");
 
             entity.Property(e => e.LocationId).HasColumnName("LocationID");
@@ -369,8 +399,6 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<Package>(entity =>
         {
-            entity.HasKey(e => e.PackageId).HasName("PK__Package__322035EC4A75639D");
-
             entity.ToTable("Package");
 
             entity.Property(e => e.PackageId).HasColumnName("PackageID");
@@ -385,8 +413,6 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<Promotion>(entity =>
         {
-            entity.HasKey(e => e.PromotionId).HasName("PK__Promotio__52C42F2FAD255FDB");
-
             entity.ToTable("Promotion");
 
             entity.Property(e => e.PromotionId).HasColumnName("PromotionID");
@@ -405,8 +431,6 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<Resort>(entity =>
         {
-            entity.HasKey(e => e.ResortId).HasName("PK__Resort__7D2D742E06FB88E2");
-
             entity.ToTable("Resort");
 
             entity.Property(e => e.ResortId).HasColumnName("ResortID");
@@ -446,17 +470,20 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<Review>(entity =>
         {
-            entity.HasKey(e => e.ReviewId).HasName("PK__Review__74BC79AE7C3C93E9");
-
             entity.ToTable("Review");
 
             entity.Property(e => e.ReviewId).HasColumnName("ReviewID");
+            entity.Property(e => e.BookingId).HasColumnName("BookingID");
             entity.Property(e => e.Comment).HasMaxLength(500);
             entity.Property(e => e.CondotelId).HasColumnName("CondotelID");
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
                 .HasDefaultValueSql("(sysdatetime())");
             entity.Property(e => e.UserId).HasColumnName("UserID");
+
+            entity.HasOne(d => d.Booking).WithMany(p => p.Reviews)
+                .HasForeignKey(d => d.BookingId)
+                .HasConstraintName("FK_Review_Booking");
 
             entity.HasOne(d => d.Condotel).WithMany(p => p.Reviews)
                 .HasForeignKey(d => d.CondotelId)
@@ -471,7 +498,7 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<RewardPoint>(entity =>
         {
-            entity.HasKey(e => e.PointId).HasName("PK__RewardPo__40A97781A5ECB5B9");
+            entity.HasKey(e => e.PointId);
 
             entity.Property(e => e.PointId).HasColumnName("PointID");
             entity.Property(e => e.CustomerId).HasColumnName("CustomerID");
@@ -487,11 +514,9 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<Role>(entity =>
         {
-            entity.HasKey(e => e.RoleId).HasName("PK__Role__8AFACE3AA814A924");
-
             entity.ToTable("Role");
 
-            entity.HasIndex(e => e.RoleName, "UQ__Role__8A2B6160A4980567").IsUnique();
+            entity.HasIndex(e => e.RoleName, "UQ_Role_RoleName").IsUnique();
 
             entity.Property(e => e.RoleId).HasColumnName("RoleID");
             entity.Property(e => e.RoleName).HasMaxLength(50);
@@ -499,7 +524,7 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<ServicePackage>(entity =>
         {
-            entity.HasKey(e => e.ServiceId).HasName("PK__ServiceP__C51BB0EAEC41FF93");
+            entity.HasKey(e => e.ServiceId);
 
             entity.ToTable("ServicePackage");
 
@@ -514,11 +539,9 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<User>(entity =>
         {
-            entity.HasKey(e => e.UserId).HasName("PK__User__1788CCAC33739598");
-
             entity.ToTable("User");
 
-            entity.HasIndex(e => e.Email, "UQ__User__A9D1053476481B2D").IsUnique();
+            entity.HasIndex(e => e.Email, "UQ_User_Email").IsUnique();
 
             entity.Property(e => e.UserId).HasColumnName("UserID");
             entity.Property(e => e.Address).HasMaxLength(255);
@@ -530,8 +553,7 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.Gender).HasMaxLength(10);
             entity.Property(e => e.ImageUrl)
                 .HasMaxLength(500)
-                .HasColumnName("ImageURL")
-                .IsRequired(false);
+                .HasColumnName("ImageURL");
             entity.Property(e => e.PasswordHash).HasMaxLength(100);
             entity.Property(e => e.PasswordResetToken).HasMaxLength(100);
             entity.Property(e => e.Phone).HasMaxLength(20);
@@ -548,8 +570,6 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<Utility>(entity =>
         {
-            entity.HasKey(e => e.UtilityId).HasName("PK__Utilitie__8B7E2E3F99BB3C25");
-
             entity.Property(e => e.UtilityId).HasColumnName("UtilityID");
             entity.Property(e => e.Category).HasMaxLength(50);
             entity.Property(e => e.Description).HasMaxLength(255);
@@ -558,11 +578,11 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<Voucher>(entity =>
         {
-            entity.HasKey(e => e.VoucherId).HasName("PK__Voucher__3AEE79C10B1D7B61");
+            entity.HasKey(e => e.VoucherId).HasName("PK__Voucher__3AEE79C1FC1B0A7C");
 
             entity.ToTable("Voucher");
 
-            entity.HasIndex(e => e.Code, "UQ__Voucher__A25C5AA78EE9CE64").IsUnique();
+            entity.HasIndex(e => e.Code, "UQ__Voucher__A25C5AA71A906DB6").IsUnique();
 
             entity.Property(e => e.VoucherId).HasColumnName("VoucherID");
             entity.Property(e => e.Code).HasMaxLength(50);
@@ -582,8 +602,6 @@ public partial class CondotelDbVer1Context : DbContext
 
         modelBuilder.Entity<Wallet>(entity =>
         {
-            entity.HasKey(e => e.WalletId).HasName("PK__Wallet__84D4F92E7D1E0C09");
-
             entity.ToTable("Wallet");
 
             entity.Property(e => e.WalletId).HasColumnName("WalletID");

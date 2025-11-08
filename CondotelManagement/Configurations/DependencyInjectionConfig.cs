@@ -10,11 +10,13 @@ using CondotelManagement.Services;
 using CondotelManagement.Services.Implementations;
 using CondotelManagement.Services.Implementations.Admin;
 using CondotelManagement.Services.Implementations.Auth;
+using CondotelManagement.Services.Implementations.Blog;
 using CondotelManagement.Services.Implementations.Shared;
 using CondotelManagement.Services.Implementations.Tenant;
 using CondotelManagement.Services.Interfaces;
 using CondotelManagement.Services.Interfaces.Admin;
 using CondotelManagement.Services.Interfaces.Auth;
+using CondotelManagement.Services.Interfaces.Blog;
 using CondotelManagement.Services.Interfaces.BookingService;
 using CondotelManagement.Services.Interfaces.Shared;
 using CondotelManagement.Services.Interfaces.Tenant;
@@ -71,7 +73,7 @@ namespace CondotelManagement.Configurations
             services.AddScoped<IBookingService, BookingService>();
 
             // --- Tenant Review & Reward ---
-            services.AddScoped<ITenantReviewService, TenantReviewService>();
+            //services.AddScoped<ITenantReviewService, TenantReviewService>();
             services.AddScoped<ITenantRewardService, TenantRewardService>();
 
             // --- Customer ---
@@ -89,10 +91,11 @@ namespace CondotelManagement.Configurations
 			// --- Voucher ---
 			services.AddScoped<IVoucherRepository, VoucherRepository>();
 			services.AddScoped<IVoucherService, VoucherService>();
+            // --- Blog (THÊM MỚI) ---
+            services.AddScoped<IBlogService, BlogService>();
 
-
-			// --- Cấu hình JWT Authentication ---
-			services.AddAuthentication(options =>
+            // --- Cấu hình JWT Authentication ---
+            services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;

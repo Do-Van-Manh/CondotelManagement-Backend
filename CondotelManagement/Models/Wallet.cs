@@ -20,7 +20,7 @@ public partial class Wallet
     public string Status { get; set; } = null!;
 
     public bool IsDefault { get; set; }
-    
+
     public virtual Host? Host { get; set; }
 
     public virtual User? User { get; set; }

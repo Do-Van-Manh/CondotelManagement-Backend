@@ -24,8 +24,6 @@ public partial class User
     public DateOnly? DateOfBirth { get; set; }
 
     public string? Address { get; set; }
-    
-    public string? ImageUrl { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
@@ -33,7 +31,11 @@ public partial class User
 
     public DateTime? ResetTokenExpires { get; set; }
 
+    public string? ImageUrl { get; set; }
+
     public virtual ICollection<AdminReport> AdminReports { get; set; } = new List<AdminReport>();
+
+    public virtual ICollection<BlogPost> BlogPosts { get; set; } = new List<BlogPost>();
 
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
