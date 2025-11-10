@@ -494,7 +494,16 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Review_User");
-        });
+
+			entity.Property(r => r.Reply)
+				.HasMaxLength(1000)
+				.IsRequired(false);
+
+			entity.Property(r => r.Status)
+				.HasMaxLength(50)
+				.HasDefaultValue("Visible")
+				.IsRequired();
+		});
 
         modelBuilder.Entity<RewardPoint>(entity =>
         {

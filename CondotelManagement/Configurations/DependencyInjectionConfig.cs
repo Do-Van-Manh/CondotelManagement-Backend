@@ -94,8 +94,12 @@ namespace CondotelManagement.Configurations
             // --- Blog (THÊM MỚI) ---
             services.AddScoped<IBlogService, BlogService>();
 
-            // --- Cấu hình JWT Authentication ---
-            services.AddAuthentication(options =>
+			// --- Review ---
+			services.AddScoped<IReviewRepository, ReviewRepository>();
+			services.AddScoped<IReviewService, ReviewService>();
+
+			// --- Cấu hình JWT Authentication ---
+			services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
