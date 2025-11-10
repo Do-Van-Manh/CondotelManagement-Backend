@@ -19,7 +19,10 @@ public partial class Review
 
     public int? BookingId { get; set; }
 
-    public virtual Booking? Booking { get; set; }
+	public string? Reply { get; set; }
+	public string Status { get; set; } = "Visible";
+
+	public virtual Booking? Booking { get; set; }
 
     public virtual Condotel Condotel { get; set; } = null!;
 
