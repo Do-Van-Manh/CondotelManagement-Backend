@@ -66,10 +66,11 @@ namespace CondotelManagement.Controllers.Promotion
         {
             if (dto == null) return BadRequest(new { message = "Invalid promotion data" });
             
-            var success = await _promotionService.UpdateAsync(id, dto);
-            if (!success) return NotFound(new { message = "Promotion not found" });
-            
-            return Ok(new { message = "Promotion updated successfully" });
+            var result = await _promotionService.UpdateAsync(id, dto);
+			if (!result.Success)
+				return BadRequest(new { message = result.Message });
+
+			return Ok(new { message = "Promotion updated successfully" });
         }
 
         // DELETE /api/promotion/{id}

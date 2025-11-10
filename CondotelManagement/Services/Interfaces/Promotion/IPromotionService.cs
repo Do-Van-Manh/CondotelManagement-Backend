@@ -1,4 +1,5 @@
 using CondotelManagement.DTOs;
+using CondotelManagement.Models;
 
 namespace CondotelManagement.Services
 {
@@ -8,7 +9,7 @@ namespace CondotelManagement.Services
         Task<PromotionDTO?> GetByIdAsync(int id);
         Task<IEnumerable<PromotionDTO>> GetByCondotelIdAsync(int condotelId);
 		Task<ResponseDTO<PromotionDTO>> CreateAsync(PromotionCreateUpdateDTO dto);
-        Task<bool> UpdateAsync(int id, PromotionCreateUpdateDTO dto);
+		Task<ResponseDTO<Promotion>> UpdateAsync(int id, PromotionCreateUpdateDTO dto);
         Task<bool> DeleteAsync(int id);
     }
 }
