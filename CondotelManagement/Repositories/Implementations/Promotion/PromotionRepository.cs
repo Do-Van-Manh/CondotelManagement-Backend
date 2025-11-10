@@ -53,7 +53,15 @@ namespace CondotelManagement.Repositories
             _context.Promotions.Remove(promotion);
             await _context.SaveChangesAsync();
         }
-    }
+
+		public async Task<bool> CheckOverlapAsync(int? condotelId, DateOnly startDate, DateOnly endDate)
+		{
+			return await _context.Promotions.AnyAsync(p =>
+				p.CondotelId == condotelId &&
+				p.StartDate <= endDate && p.EndDate >= startDate
+			);
+		}
+	}
 }
 
 

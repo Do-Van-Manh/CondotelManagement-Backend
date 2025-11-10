@@ -10,7 +10,8 @@ namespace CondotelManagement.Repositories
         Task<Promotion> AddAsync(Promotion promotion);
         Task UpdateAsync(Promotion promotion);
         Task DeleteAsync(Promotion promotion);
-    }
+		Task<bool> CheckOverlapAsync(int? condotelId, DateOnly startDate, DateOnly endDate);
+	}
 }
 
 

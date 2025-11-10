@@ -66,9 +66,22 @@ namespace CondotelManagement.Services
             });
         }
 
-        public async Task<PromotionDTO> CreateAsync(PromotionCreateUpdateDTO dto)
+        public async Task<ResponseDTO<PromotionDTO>> CreateAsync(PromotionCreateUpdateDTO dto)
         {
-            var promotion = new Promotion
+			// Kiểm tra ngày logic
+			if (dto.StartDate >= dto.EndDate)
+				return ResponseDTO<PromotionDTO>.Fail("Ngày bắt đầu phải nhỏ hơn ngày kết thúc.");
+
+			if (dto.EndDate < DateOnly.FromDateTime(DateTime.Now))
+				return ResponseDTO<PromotionDTO>.Fail("Ngày kết thúc không được ở trong quá khứ.");
+
+			// Kiểm tra trùng hoặc chồng thời gian
+			bool hasOverlap = await _promotionRepo.CheckOverlapAsync(dto.CondotelId, dto.StartDate, dto.EndDate);
+			if (hasOverlap)
+				return ResponseDTO<PromotionDTO>.Fail("Thời gian khuyến mãi bị trùng hoặc chồng với một khuyến mãi khác.");
+
+            //create
+			var promotion = new Promotion
             {
                 Name = dto.Name,
                 StartDate = dto.StartDate,
@@ -86,7 +99,7 @@ namespace CondotelManagement.Services
             if (created == null)
                 throw new InvalidOperationException("Failed to retrieve created promotion");
 
-            return new PromotionDTO
+            var result = new PromotionDTO
             {
                 PromotionId = created.PromotionId,
                 Name = created.Name,
@@ -98,7 +111,9 @@ namespace CondotelManagement.Services
                 CondotelId = created.CondotelId,
                 CondotelName = created.Condotel?.Name
             };
-        }
+
+			return ResponseDTO<PromotionDTO>.SuccessResult(result, "Create promotion success.");
+		}
 
         public async Task<bool> UpdateAsync(int id, PromotionCreateUpdateDTO dto)
         {
