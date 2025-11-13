@@ -9,6 +9,6 @@ namespace CondotelManagement.Services
 		Task<VoucherDTO?> CreateVoucherAsync(VoucherCreateDTO dto);
 		Task<VoucherDTO?> UpdateVoucherAsync(int id, VoucherCreateDTO dto);
 		Task<bool> DeleteVoucherAsync(int id);
-		Task<VoucherDTO?> CreateVoucherAfterBookingAsync(VoucherAutoCreateDTO dto);
+		Task<List<VoucherDTO>> CreateVoucherAfterBookingAsync(VoucherAutoCreateDTO dto);
 	}
 }

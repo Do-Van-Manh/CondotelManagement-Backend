@@ -8,10 +8,12 @@ namespace CondotelManagement.Services
 	public class VoucherService : IVoucherService
 	{
 		private readonly IVoucherRepository _repo;
+		private readonly ICondotelRepository _repoCondotel;
 
-		public VoucherService(IVoucherRepository repo)
+		public VoucherService(IVoucherRepository repo, ICondotelRepository repoCondotel)
 		{
 			_repo = repo;
+			_repoCondotel = repoCondotel;
 		}
 
 		public async Task<IEnumerable<VoucherDTO>> GetVouchersByHostAsync(int hostId)
@@ -119,39 +121,47 @@ namespace CondotelManagement.Services
 
 		public Task<bool> DeleteVoucherAsync(int id) => _repo.DeleteAsync(id);
 
-		public async Task<VoucherDTO?> CreateVoucherAfterBookingAsync(VoucherAutoCreateDTO dto)
+		public async Task<List<VoucherDTO>> CreateVoucherAfterBookingAsync(VoucherAutoCreateDTO dto)
 		{
-			// Sinh code tự động nếu không có
-			string code = await _repo.GenerateUniqueVoucherCodeAsync(dto.UserID);
+			// Lấy danh sách tất cả condotel của host
+			var condotels = _repoCondotel.GetCondtelsByHost(dto.HostID);
+			var vouchers = new List<VoucherDTO>();
 
-			var entity = new Voucher
+			foreach (var condotel in condotels)
 			{
-				CondotelId = dto.CondotelID,
-				UserId = dto.UserID,
-				Code = code,
-				DiscountAmount = 200000,            // fixed giảm 200k
-				DiscountPercentage = 10,             // 10% giảm
-				StartDate = DateOnly.FromDateTime(DateTime.Today),       // Chuyển sang DateOnly
-				EndDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(6)), // Chuyển sang DateOnly
-				UsageLimit = 1,
-				Status = "Active"
-			};
-			var saved = await _repo.AddAsync(entity);
+				// Sinh code tự động nếu không có
+				string code = await _repo.GenerateUniqueVoucherCodeAsync(dto.UserID);
 
-			return new VoucherDTO
-			{
-				VoucherID = saved.VoucherId,
-				CondotelID = saved.Condotel.CondotelId,
-				CondotelName = saved.Condotel.Name,
-				UserID = saved.User?.UserId,
-				FullName = saved.User?.FullName,
-				Code = saved.Code,
-				DiscountAmount = saved.DiscountAmount,
-				DiscountPercentage = saved.DiscountPercentage,
-				StartDate = saved.StartDate,
-				EndDate = saved.EndDate,
-				Status = saved.Status
-			};
+				var entity = new Voucher
+				{
+					CondotelId = condotel.CondotelId,
+					UserId = dto.UserID,
+					Code = code,
+					DiscountAmount = 200000,            // fixed giảm 200k
+					DiscountPercentage = 10,             // 10% giảm
+					StartDate = DateOnly.FromDateTime(DateTime.Today),       // Chuyển sang DateOnly
+					EndDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(6)), // Chuyển sang DateOnly
+					UsageLimit = 1,
+					Status = "Active"
+				};
+				var saved = await _repo.AddAsync(entity);
+
+				vouchers.Add(new VoucherDTO
+				{
+					VoucherID = saved.VoucherId,
+					CondotelID = saved.Condotel.CondotelId,
+					CondotelName = saved.Condotel.Name,
+					UserID = saved.User?.UserId,
+					FullName = saved.User?.FullName,
+					Code = saved.Code,
+					DiscountAmount = saved.DiscountAmount,
+					DiscountPercentage = saved.DiscountPercentage,
+					StartDate = saved.StartDate,
+					EndDate = saved.EndDate,
+					Status = saved.Status
+				});
+			}
+			return vouchers;
 		}
 
 
