@@ -74,61 +74,30 @@ namespace CondotelManagement.Services.Implementations.Tenant
 
             _logger.LogInformation($"User {userId} created review {review.ReviewId} for Condotel {dto.CondotelId}");
 
-            // 7. TODO: Tích điểm thưởng khi review (có thể gọi RewardService)
-            // await _rewardService.EarnPointsFromReview(userId, review.ReviewId);
-
             return MapToResponseDTO(review, booking.Condotel.Name, true, true);
         }
 
-        public async Task<(List<ReviewResponseDTO> Reviews, int TotalCount)> GetMyReviewsAsync(int userId, ReviewQueryDTO query)
+        public async Task<List<ReviewResponseDTO>> GetMyReviewsAsync(int userId)
         {
-            var reviewsQuery = _context.Reviews
+            var reviews = await _context.Reviews
                 .Include(r => r.Condotel)
-                .Include(r => r.User)
-                .Where(r => r.UserId == userId);
-
-            // Apply filters
-            if (query.CondotelId.HasValue)
-            {
-                reviewsQuery = reviewsQuery.Where(r => r.CondotelId == query.CondotelId.Value);
-            }
-
-            if (query.MinRating.HasValue)
-            {
-                reviewsQuery = reviewsQuery.Where(r => r.Rating >= query.MinRating.Value);
-            }
-
-            if (query.MaxRating.HasValue)
-            {
-                reviewsQuery = reviewsQuery.Where(r => r.Rating <= query.MaxRating.Value);
-            }
-
-            if (query.FromDate.HasValue)
-            {
-                reviewsQuery = reviewsQuery.Where(r => r.CreatedAt >= query.FromDate.Value);
-            }
-
-            if (query.ToDate.HasValue)
-            {
-                reviewsQuery = reviewsQuery.Where(r => r.CreatedAt <= query.ToDate.Value);
-            }
-
-            var totalCount = await reviewsQuery.CountAsync();
-
-            var reviews = await reviewsQuery
+                .Where(r => r.UserId == userId)
                 .OrderByDescending(r => r.CreatedAt)
-                .Skip((query.Page - 1) * query.PageSize)
-                .Take(query.PageSize)
-                .ToListAsync();
+                .ToListAsync(); // Lấy dữ liệu trước
 
-            var reviewDTOs = reviews.Select(r =>
+            // Bây giờ tính toán CanEdit/CanDelete ở phía bộ nhớ (LINQ to Objects)
+            return reviews.Select(r => new ReviewResponseDTO
             {
-                var canEdit = CanEditReview(r.CreatedAt);
-                return MapToResponseDTO(r, r.Condotel.Name, canEdit, canEdit);
+                ReviewId = r.ReviewId,
+                Rating = r.Rating,
+                Comment = r.Comment,
+                CondotelName = r.Condotel.Name,
+                CreatedAt = r.CreatedAt,
+                CanEdit = CanEditReview(r.CreatedAt),
+                CanDelete = CanEditReview(r.CreatedAt)
             }).ToList();
-
-            return (reviewDTOs, totalCount);
         }
+
 
         public async Task<ReviewResponseDTO?> GetReviewByIdAsync(int reviewId, int userId)
         {
@@ -190,42 +159,37 @@ namespace CondotelManagement.Services.Implementations.Tenant
 
             return true;
         }
-
-        public async Task<(bool CanReview, string Message)> CanReviewBookingAsync(int userId, int bookingId)
+        public async Task<(List<ReviewResponseDTO> Reviews, int TotalCount)> GetReviewsByCondotelAsync(int condotelId, ReviewQueryDTO query)
         {
-            var booking = await _context.Bookings
-                .FirstOrDefaultAsync(b => b.BookingId == bookingId && b.CustomerId == userId);
+            var reviewsQuery = _context.Reviews
+                .Include(r => r.User)
+                .Include(r => r.Condotel)
+                .Where(r => r.CondotelId == condotelId);
 
-            if (booking == null)
+            var totalCount = await reviewsQuery.CountAsync();
+
+            var reviews = await reviewsQuery
+                .OrderByDescending(r => r.CreatedAt)
+                .Skip((query.Page - 1) * query.PageSize)
+                .Take(query.PageSize)
+                .ToListAsync();
+
+            var reviewDTOs = reviews.Select(r => new ReviewResponseDTO
             {
-                return (false, "Booking not found or does not belong to you");
-            }
+                ReviewId = r.ReviewId,
+                CondotelId = r.CondotelId,
+                CondotelName = r.Condotel?.Name ?? "Unknown",
+                UserId = r.UserId,
+                UserFullName = r.User?.FullName ?? "Anonymous",
+                Rating = r.Rating,
+                Comment = r.Comment,
+                CreatedAt = r.CreatedAt,
+                CanEdit = false,
+                CanDelete = false
+            }).ToList();
 
-            if (booking.Status != "Completed")
-            {
-                return (false, "Booking must be completed before reviewing");
-            }
-
-            if (booking.EndDate > DateOnly.FromDateTime(DateTime.Now))
-            {
-                return (false, "You can only review after the stay is completed");
-            }
-
-            var hasReviewed = await HasReviewedBookingAsync(userId, bookingId);
-            if (hasReviewed)
-            {
-                return (false, "You have already reviewed this booking");
-            }
-
-            return (true, "You can review this booking");
+            return (reviewDTOs, totalCount);
         }
-
-        public async Task<bool> HasReviewedBookingAsync(int userId, int bookingId)
-        {
-            return await _context.Reviews
-                .AnyAsync(r => r.UserId == userId && r.BookingId == bookingId);
-        }
-
         // Helper methods
         private bool CanEditReview(DateTime createdAt)
         {

@@ -12,7 +12,8 @@ namespace CondotelManagement.Services.Interfaces.Tenant
         /// <summary>
         /// Lấy danh sách review của tenant hiện tại
         /// </summary>
-        Task<(List<ReviewResponseDTO> Reviews, int TotalCount)> GetMyReviewsAsync(int userId, ReviewQueryDTO query);
+
+      Task<List<ReviewResponseDTO>> GetMyReviewsAsync(int userId);
 
         /// <summary>
         /// Lấy chi tiết 1 review
@@ -28,15 +29,7 @@ namespace CondotelManagement.Services.Interfaces.Tenant
         /// Xóa review (trong vòng 7 ngày)
         /// </summary>
         Task<bool> DeleteReviewAsync(int reviewId, int userId);
+        Task<(List<ReviewResponseDTO> Reviews, int TotalCount)> GetReviewsByCondotelAsync(int condotelId, ReviewQueryDTO query);
 
-        /// <summary>
-        /// Kiểm tra xem tenant có thể review booking này không
-        /// </summary>
-        Task<(bool CanReview, string Message)> CanReviewBookingAsync(int userId, int bookingId);
-
-        /// <summary>
-        /// Kiểm tra xem tenant đã review booking này chưa
-        /// </summary>
-        Task<bool> HasReviewedBookingAsync(int userId, int bookingId);
     }
 }
