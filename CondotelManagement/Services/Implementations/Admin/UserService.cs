@@ -221,27 +221,50 @@ namespace CondotelManagement.Services.Implementations.Admin
         }
 
         // 5. Admin reset mật khẩu
+        
         public async Task<bool> AdminResetPasswordAsync(int userId, string newPassword)
         {
-            var user = await _userRepository.GetByIdAsync(userId);
+            // SỬA: Dùng _context để lấy Role
+            var user = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
             if (user == null) return false;
 
+            // THÊM: Kiểm tra phân quyền
+            if (user.Role.RoleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                // Không cho phép reset mật khẩu của Admin khác
+                return false;
+            }
+
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
-            await _userRepository.UpdateAsync(user);
+            await _userRepository.UpdateAsync(user); // Dùng repo để Update là đúng
             return true;
         }
 
         // 6. Admin cập nhật trạng thái
+        // 6. Admin cập nhật trạng thái
         public async Task<bool> AdminUpdateUserStatusAsync(int userId, string newStatus)
         {
-            // TODO: Bạn nên kiểm tra xem newStatus có hợp lệ không
-            // (ví dụ: chỉ cho phép "Active", "Locked", "Deleted")
+            // (Bạn nên kiểm tra newStatus hợp lệ ở đây)
 
-            var user = await _userRepository.GetByIdAsync(userId);
+            // SỬA: Dùng _context để lấy Role
+            var user = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
             if (user == null) return false;
 
+            // THÊM: Kiểm tra phân quyền
+            if (user.Role.RoleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                // Không cho phép thay đổi trạng thái của Admin khác
+                return false;
+            }
+
             user.Status = newStatus;
-            await _userRepository.UpdateAsync(user);
+            await _userRepository.UpdateAsync(user); // Dùng repo để Update là đúng
             return true;
         }
     }

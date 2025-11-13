@@ -10,7 +10,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-
+using CondotelManagement.DTOs.Auth;
 namespace CondotelManagement.Services.Implementations.Auth
 {
     public class AuthService : IAuthService
@@ -30,8 +30,7 @@ namespace CondotelManagement.Services.Implementations.Auth
             _userRepo = userRepo;
         }
 
-        // SỬA LỖI 1 (Phần 1): Gọi hàm helper
-        public async Task<LoginResponse?> LoginAsync(LoginRequest request)
+        public async Task<object?> LoginAsync(LoginRequest request)
         {
             var user = await _repo.GetByEmailAsync(request.Email);
             if (user == null || user.Status != "Active")
@@ -40,8 +39,27 @@ namespace CondotelManagement.Services.Implementations.Auth
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                 return null;
 
-            // Gọi hàm helper
-            return GenerateJwtToken(user);
+            // Gọi hàm helper (hàm này vẫn trả về LoginResponse)
+            var tokenString = GenerateJwtTokenString(user); // Đổi tên hàm helper
+
+            // TẠO DTO GIỐNG NHƯ TRONG GetMe
+            var userProfile = new UserProfileDto
+            {
+                UserId = user.UserId,
+                FullName = user.FullName,
+                Email = user.Email,
+                Phone = user.Phone,
+                RoleName = user.Role?.RoleName ?? "User",
+                Status = user.Status,
+                Gender = user.Gender,
+                DateOfBirth = user.DateOfBirth,
+                Address = user.Address,
+                ImageUrl = user.ImageUrl, // Thêm ImageUrl
+                CreatedAt = user.CreatedAt
+            };
+
+            // Trả về object lồng nhau mà FE mong đợi
+            return new { Token = tokenString, User = userProfile };
         }
 
         public async Task<bool> RegisterAsync(RegisterRequest request)
@@ -123,55 +141,67 @@ namespace CondotelManagement.Services.Implementations.Auth
             // 3. Cập nhật user (Cần IUserRepository)
             return await _userRepo.UpdateUserAsync(user);
         }
-
-        // THÊM MỚI: Logic Google Login
-        public async Task<LoginResponse?> GoogleLoginAsync(GoogleLoginRequest request)
+        public async Task<object?> GoogleLoginAsync(GoogleLoginRequest request)
         {
             try
             {
-                // 1. Xác thực IdToken từ Google
+                // ... (Toàn bộ logic try...catch của bạn giữ nguyên) ...
                 var googleClientId = _config["Google:ClientId"];
                 var settings = new GoogleJsonWebSignature.ValidationSettings()
                 {
                     Audience = new List<string> { googleClientId }
                 };
-
                 var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, settings);
-
-                // 2. Lấy thông tin
                 var userEmail = payload.Email;
                 var userName = payload.Name;
-
-                // 3. Kiểm tra user trong DB
                 var user = await _repo.GetByEmailAsync(userEmail);
 
                 if (user == null)
                 {
-                    // 3a. Nếu user không tồn tại -> Tự động đăng ký
                     user = new User
                     {
                         FullName = userName,
                         Email = userEmail,
-                        PasswordHash = "EXTERNAL_LOGIN", // Không dùng mật khẩu
+                        PasswordHash = "EXTERNAL_LOGIN",
                         RoleId = 3, // Role "User"
-                        Status = "Active", // Google đã xác thực email
-                        CreatedAt = DateTime.UtcNow
+                        Status = "Active",
+                        CreatedAt = DateTime.UtcNow,
+                        ImageUrl = payload.Picture // ⬅️ THÊM: Tự động lấy ảnh avatar Google
                     };
                     await _repo.RegisterAsync(user);
-
-                    // Lấy lại user (đã có UserId)
-                    user = await _repo.GetByEmailAsync(userEmail);
+                    user = await _repo.GetByEmailAsync(userEmail); // Lấy lại user đã có Role
                 }
 
-                // 4. Đảm bảo user "Active" (phòng trường hợp user đã tồn tại nhưng "Pending")
                 if (user.Status != "Active")
                 {
                     user.Status = "Active";
-                    await _userRepo.UpdateUserAsync(user); // Cần IUserRepository
+                    if (string.IsNullOrEmpty(user.ImageUrl)) // ⬅️ THÊM: Cập nhật ảnh nếu chưa có
+                    {
+                        user.ImageUrl = payload.Picture;
+                    }
+                    await _userRepo.UpdateUserAsync(user);
                 }
 
-                // 5. Tạo và trả về JWT token của hệ thống
-                return GenerateJwtToken(user); // Lỗi CS0103 xảy ra ở đây
+                // --- SỬA LOGIC TRẢ VỀ ---
+                var tokenString = GenerateJwtTokenString(user); // Gọi helper
+
+                var userProfile = new UserProfileDto
+                {
+                    UserId = user.UserId,
+                    FullName = user.FullName,
+                    Email = user.Email,
+                    Phone = user.Phone,
+                    RoleName = user.Role?.RoleName ?? "User",
+                    Status = user.Status,
+                    Gender = user.Gender,
+                    DateOfBirth = user.DateOfBirth,
+                    Address = user.Address,
+                    ImageUrl = user.ImageUrl, // Thêm ImageUrl
+                    CreatedAt = user.CreatedAt
+                };
+
+                // Trả về object lồng nhau
+                return new { Token = tokenString, User = userProfile };
             }
             catch (Exception ex)
             {
@@ -179,7 +209,6 @@ namespace CondotelManagement.Services.Implementations.Auth
                 return null; // Token Google không hợp lệ
             }
         }
-
         public async Task<bool> ForgotPasswordAsync(ForgotPasswordRequest request)
         {
             var user = await _repo.GetByEmailAsync(request.Email);
@@ -255,8 +284,7 @@ namespace CondotelManagement.Services.Implementations.Auth
             return true;
         }
 
-        // SỬA LỖI 1 (Phần 2): Thêm hàm helper bị thiếu
-        private LoginResponse GenerateJwtToken(User user)
+        private string GenerateJwtTokenString(User user)
         {
             var roleName = user.Role?.RoleName ?? "User";
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -280,13 +308,10 @@ namespace CondotelManagement.Services.Implementations.Auth
             };
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
-            return new LoginResponse
-            {
-                Token = tokenHandler.WriteToken(token),
-                RoleName = roleName,
-                FullName = user.FullName,
-                //ImageUrl = user.ImageUrl
-            };
+            return tokenHandler.WriteToken(token);
         }
+
+        // HÀM CŨ NÀY BÂY GIỜ KHÔNG CÒN DÙNG ĐẾN (có thể xóa)
+        // private LoginResponse GenerateJwtToken(User user) { ... }
     }
 }
