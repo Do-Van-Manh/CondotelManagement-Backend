@@ -11,7 +11,6 @@ namespace CondotelManagement.Services
         CondotelUpdateDTO UpdateCondotel(CondotelUpdateDTO condotel);
         bool DeleteCondotel(int id);
         IEnumerable<CondotelDTO> GetCondtelsByHost(int hostId);
-        IEnumerable<CondotelDTO> GetCondtelsByLocation(string? locationText);
-
+        IEnumerable<CondotelDTO> GetCondotelsByNameLocationAndDate( string? name, string? location, DateOnly? fromDate, DateOnly? toDate);
 	}
 }
