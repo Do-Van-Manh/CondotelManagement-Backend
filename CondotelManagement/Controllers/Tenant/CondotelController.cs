@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CondotelManagement.Controllers
 {
 	[ApiController]
-	[Route("api/tenant/condotel")]
+	[Route("api/tenant/condotels")]
 	public class CondotelController : ControllerBase
 	{
 		private readonly ICondotelService _condotelService;
@@ -17,11 +17,11 @@ namespace CondotelManagement.Controllers
 			_condotelService = condotelService;
 		}
 
-		// GET api/tenant/condotel/location?name=Da Nang
-		[HttpGet("location")]
-		public ActionResult<IEnumerable<CondotelDTO>> GetAllCondotelByLocation([FromQuery] string? name)
+		// GET api/tenant/condotels?name=abc&location=abc?...
+		[HttpGet]
+		public ActionResult<IEnumerable<CondotelDTO>> GetCondotelsByNameAndLocation([FromQuery] string? name, [FromQuery] string? location, [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate)
 		{
-			var condotels = _condotelService.GetCondtelsByLocation(name);
+			var condotels = _condotelService.GetCondotelsByNameLocationAndDate(name, location, fromDate, toDate);
 			return Ok(condotels);
 		}
 	}
