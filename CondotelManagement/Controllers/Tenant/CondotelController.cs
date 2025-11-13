@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CondotelManagement.Controllers
 {
 	[ApiController]
-	[Route("api/tenant/condotel")]
+	[Route("api/tenant/condotels")]
 	public class CondotelController : ControllerBase
 	{
 		private readonly ICondotelService _condotelService;
@@ -17,7 +17,7 @@ namespace CondotelManagement.Controllers
 			_condotelService = condotelService;
 		}
 
-		// GET api/tenant/condotel?name=abc&location=abc?...
+		// GET api/tenant/condotels?name=abc&location=abc?...
 		[HttpGet]
 		public ActionResult<IEnumerable<CondotelDTO>> GetCondotelsByNameAndLocation([FromQuery] string? name, [FromQuery] string? location, [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate)
 		{
