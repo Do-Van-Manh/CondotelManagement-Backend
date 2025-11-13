@@ -1,5 +1,5 @@
 ﻿using System.Text;
-using System.Text.Json.Serialization;
+using System.Text.Json.Serialization; // 1. BẠN CẦN THÊM USING NÀY
 using CondotelManagement.Configurations;
 using CondotelManagement.Data;
 using CondotelManagement.Models;
@@ -16,16 +16,17 @@ using CondotelManagement.Services.Interfaces.Admin;
 using CondotelManagement.Services.Interfaces.Auth;
 using CondotelManagement.Services.Interfaces.BookingService;
 using CondotelManagement.Services.Interfaces.Cloudinary;
-using Microsoft.AspNetCore.Authentication.JwtBearer; 
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
-// Đăng ký các service của Auth phải đặt SAU AddDependencyInjectionConfiguration
-builder.Services.AddScoped<IAuthRepository, AuthRepository>();
-builder.Services.AddScoped<IAuthService, AuthService>();
+
+// 2. XÓA 2 DÒNG THỪA NÀY (Vì chúng đã có trong DependencyInjectionConfig.cs)
+// builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+// builder.Services.AddScoped<IAuthService, AuthService>();
 
 
 // ============================
@@ -35,13 +36,16 @@ builder.Services.AddDbContext<CondotelDbVer1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("MyCnn")));
 
 // ============================
-// 2️⃣ Controller + JSON Enum Convert
+// 2️⃣ Controller + SỬA LỖI JSON CRASH
 // ============================
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         // Enum -> string thay vì số
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+
+        // 3. THÊM DÒNG NÀY ĐỂ FIX LỖI CRASH (StackOverflow)
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 
 
@@ -50,10 +54,9 @@ builder.Services.AddControllers()
 // ============================
 builder.Services.AddEndpointsApiExplorer();
 
-// Giữ nguyên cấu hình Swagger để có nút Authorize
+// Giữ nguyên cấu hình Swagger
 builder.Services.AddSwaggerGen(options =>
 {
-    // Thêm định nghĩa "Authorize" (Security Definition)
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -63,8 +66,6 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "Bearer",
         BearerFormat = "JWT"
     });
-
-    // Yêu cầu "Authorize" cho tất cả API
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -83,7 +84,7 @@ builder.Services.AddSwaggerGen(options =>
 // dang ki cloudinary
 builder.Services.Configure<CloudinarySettings>(
     builder.Configuration.GetSection("CloudinarySettings"));
-builder.Services.AddSingleton<ICloudinaryService, CloudinaryService>();
+builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
 
 // CORS cho frontend React
@@ -91,7 +92,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3001","http://localhost:3000") // port frontend
+        policy.WithOrigins("http://localhost:3001", "http://localhost:3000") // port frontend
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -102,25 +103,16 @@ builder.Services.AddCors(options =>
 // 5️⃣ Dependency Injection (DI)
 // ============================
 // Dòng này sẽ gọi file config (và AddAuthentication) một cách chính xác
+// (Nó đã chứa IAuthService, IAuthRepository, IProfileService, ...)
 builder.Services.AddDependencyInjectionConfiguration(builder.Configuration);
 
-
-// Đăng ký các service và repository của Admin
-// GHI CHÚ: Bạn nên dời 2 dòng này vào file DependencyInjectionConfig.cs
-// cho gọn, nhưng để đây vẫn chạy được.
-
-
-
-// (sau này bạn có thể thêm các service khác tại đây)
-// builder.Services.AddScoped<IHostService, HostService>();
-// builder.Services.AddScoped<ITenantService, TenantService>();
 
 // ============================
 // 6️⃣ Build & Middleware
 // ============================
 var app = builder.Build();
 
-// Static files (nếu có upload hình ảnh)
+// (Static files, bạn có thể bỏ comment nếu cần)
 //app.UseStaticFiles(new StaticFileOptions
 //{
 //    FileProvider = new PhysicalFileProvider(
