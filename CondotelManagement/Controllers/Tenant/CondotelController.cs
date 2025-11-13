@@ -17,11 +17,11 @@ namespace CondotelManagement.Controllers
 			_condotelService = condotelService;
 		}
 
-		// GET api/tenant/condotel/location?name=Da Nang
-		[HttpGet("location")]
-		public ActionResult<IEnumerable<CondotelDTO>> GetAllCondotelByLocation([FromQuery] string? name)
+		// GET api/tenant/condotel?name=abc&location=abc?...
+		[HttpGet]
+		public ActionResult<IEnumerable<CondotelDTO>> GetCondotelsByNameAndLocation([FromQuery] string? name, [FromQuery] string? location, [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate)
 		{
-			var condotels = _condotelService.GetCondtelsByLocation(name);
+			var condotels = _condotelService.GetCondotelsByNameLocationAndDate(name, location, fromDate, toDate);
 			return Ok(condotels);
 		}
 	}
