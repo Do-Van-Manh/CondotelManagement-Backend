@@ -1,6 +1,7 @@
 ﻿using CondotelManagement.DTOs;
 using CondotelManagement.Repositories;
 using CondotelManagement.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace CondotelManagement.Services
 {
@@ -19,6 +20,10 @@ namespace CondotelManagement.Services
 			return list.Select(v => new VoucherDTO
 			{
 				VoucherID = v.VoucherId,
+				CondotelID = v.Condotel?.CondotelId,
+				CondotelName = v.Condotel?.Name,
+				UserID = v.User?.UserId,
+				FullName = v.User?.FullName,
 				Code = v.Code,
 				DiscountAmount = v.DiscountAmount,
 				DiscountPercentage = v.DiscountPercentage,
@@ -34,6 +39,10 @@ namespace CondotelManagement.Services
 			return list.Select(v => new VoucherDTO
 			{
 				VoucherID = v.VoucherId,
+				CondotelID = v.Condotel?.CondotelId,
+				CondotelName = v.Condotel?.Name,
+				UserID = v.User?.UserId,
+				FullName = v.User?.FullName,
 				Code = v.Code,
 				DiscountAmount = v.DiscountAmount,
 				DiscountPercentage = v.DiscountPercentage,
@@ -48,6 +57,7 @@ namespace CondotelManagement.Services
 			var entity = new Voucher
 			{
 				CondotelId = dto.CondotelID,
+				UserId = dto.UserID,
 				Code = dto.Code,
 				DiscountAmount = dto.DiscountAmount,
 				DiscountPercentage = dto.DiscountPercentage,
@@ -61,6 +71,10 @@ namespace CondotelManagement.Services
 			return new VoucherDTO
 			{
 				VoucherID = saved.VoucherId,
+				CondotelID = saved.Condotel.CondotelId,
+				CondotelName = saved.Condotel.Name,
+				UserID = saved.User?.UserId,
+				FullName = saved.User?.FullName,
 				Code = saved.Code,
 				DiscountAmount = saved.DiscountAmount,
 				DiscountPercentage = saved.DiscountPercentage,
@@ -76,6 +90,7 @@ namespace CondotelManagement.Services
 			if (existing == null) return null;
 
 			existing.CondotelId = dto.CondotelID;
+			existing.UserId = dto.UserID;
 			existing.Code = dto.Code;
 			existing.DiscountAmount = dto.DiscountAmount;
 			existing.DiscountPercentage = dto.DiscountPercentage;
@@ -89,6 +104,10 @@ namespace CondotelManagement.Services
 			return new VoucherDTO
 			{
 				VoucherID = updated.VoucherId,
+				CondotelID = updated.Condotel.CondotelId,
+				CondotelName = updated.Condotel.Name,
+				UserID = updated.User?.UserId,
+				FullName = updated.User?.FullName,
 				Code = updated.Code,
 				DiscountAmount = updated.DiscountAmount,
 				DiscountPercentage = updated.DiscountPercentage,
@@ -99,5 +118,42 @@ namespace CondotelManagement.Services
 		}
 
 		public Task<bool> DeleteVoucherAsync(int id) => _repo.DeleteAsync(id);
+
+		public async Task<VoucherDTO?> CreateVoucherAfterBookingAsync(VoucherAutoCreateDTO dto)
+		{
+			// Sinh code tự động nếu không có
+			string code = await _repo.GenerateUniqueVoucherCodeAsync(dto.UserID);
+
+			var entity = new Voucher
+			{
+				CondotelId = dto.CondotelID,
+				UserId = dto.UserID,
+				Code = code,
+				DiscountAmount = 200000,            // fixed giảm 200k
+				DiscountPercentage = 10,             // 10% giảm
+				StartDate = DateOnly.FromDateTime(DateTime.Today),       // Chuyển sang DateOnly
+				EndDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(6)), // Chuyển sang DateOnly
+				UsageLimit = 1,
+				Status = "Active"
+			};
+			var saved = await _repo.AddAsync(entity);
+
+			return new VoucherDTO
+			{
+				VoucherID = saved.VoucherId,
+				CondotelID = saved.Condotel.CondotelId,
+				CondotelName = saved.Condotel.Name,
+				UserID = saved.User?.UserId,
+				FullName = saved.User?.FullName,
+				Code = saved.Code,
+				DiscountAmount = saved.DiscountAmount,
+				DiscountPercentage = saved.DiscountPercentage,
+				StartDate = saved.StartDate,
+				EndDate = saved.EndDate,
+				Status = saved.Status
+			};
+		}
+
+
 	}
 }

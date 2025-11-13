@@ -9,7 +9,9 @@ public partial class Voucher
 
     public int? CondotelId { get; set; }
 
-    public string Code { get; set; } = null!;
+	public int? UserId { get; set; }
+
+	public string Code { get; set; } = null!;
 
     public decimal? DiscountAmount { get; set; }
 
@@ -28,4 +30,6 @@ public partial class Voucher
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual Condotel? Condotel { get; set; }
+
+	public User User { get; set; }
 }
