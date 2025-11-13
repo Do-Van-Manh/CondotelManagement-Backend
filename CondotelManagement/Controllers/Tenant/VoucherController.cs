@@ -1,4 +1,5 @@
-﻿using CondotelManagement.Services;
+﻿using CondotelManagement.DTOs;
+using CondotelManagement.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CondotelManagement.Controllers.Tenant
@@ -14,11 +15,21 @@ namespace CondotelManagement.Controllers.Tenant
 			_voucherService = voucherService;
 		}
 
-		[HttpGet("condotel/{condotelId}")]
-		public async Task<IActionResult> GetVouchersByCondotel(int condotelId)
+		[HttpPost("create-after-booking")]
+		public async Task<IActionResult> CreateVoucherAfterBooking([FromBody] VoucherAutoCreateDTO dto)
 		{
-			var vouchers = await _voucherService.GetVouchersByCondotelAsync(condotelId);
-			return Ok(vouchers);
+			var voucher = await _voucherService.CreateVoucherAfterBookingAsync(dto);
+			if (voucher == null) return BadRequest("Cannot create voucher");
+
+			return Ok(voucher);
 		}
+
+
+		//[HttpGet("condotel/{condotelId}")]
+		//public async Task<IActionResult> GetVouchersByCondotel(int condotelId)
+		//{
+		//	var vouchers = await _voucherService.GetVouchersByCondotelAsync(condotelId);
+		//	return Ok(vouchers);
+		//}
 	}
 }

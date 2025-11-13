@@ -3,6 +3,7 @@
 	public class VoucherCreateDTO
 	{
 		public int? CondotelID { get; set; }
+		public int? UserID { get; set; }
 		public string Code { get; set; } = null!;
 		public decimal? DiscountAmount { get; set; }
 		public decimal? DiscountPercentage { get; set; }
