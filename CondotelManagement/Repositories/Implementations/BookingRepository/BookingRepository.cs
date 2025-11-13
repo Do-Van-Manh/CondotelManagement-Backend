@@ -3,6 +3,7 @@ using System.Linq;
 using CondotelManagement.Data;
 using CondotelManagement.DTOs;
 using CondotelManagement.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace CondotelManagement.Repositories
 {
@@ -16,7 +17,13 @@ namespace CondotelManagement.Repositories
         }
 
         public IEnumerable<Booking> GetBookingsByCustomerId(int customerId)
-            => _context.Bookings.Where(b => b.CustomerId == customerId).ToList();
+        {
+            return _context.Bookings
+                .Include(b => b.Condotel)  // Thêm include để lấy tên condotel
+                .Where(b => b.CustomerId == customerId)
+                .OrderByDescending(b => b.EndDate)  // Sắp xếp mới nhất trước
+                .ToList();
+        }
 
         public Booking GetBookingById(int id)
             => _context.Bookings.FirstOrDefault(b => b.BookingId == id);
