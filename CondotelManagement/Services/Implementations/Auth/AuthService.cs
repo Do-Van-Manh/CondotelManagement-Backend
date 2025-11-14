@@ -124,6 +124,25 @@ namespace CondotelManagement.Services.Implementations.Auth
             return await _userRepo.UpdateUserAsync(user);
         }
 
+        public async Task<bool> VerifyOtpAsync(VerifyOtpRequest request)
+        {
+            var user = await _repo.GetByEmailAsync(request.Email);
+            if (user == null)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(user.PasswordResetToken) ||
+                user.PasswordResetToken != request.Otp ||
+                user.ResetTokenExpires < DateTime.UtcNow)
+            {
+                return false;
+            }
+
+            // Only verify validity; do not clear OTP here so it can be used for reset-password-with-otp.
+            return true;
+        }
+
         // THÊM MỚI: Logic Google Login
         public async Task<LoginResponse?> GoogleLoginAsync(GoogleLoginRequest request)
         {
