@@ -5,6 +5,7 @@ using CondotelManagement.Services;
 using CondotelManagement.Services.Interfaces.BookingService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using CondotelManagement.Services.Interfaces;
 
 namespace CondotelManagement.Controllers.Host
 {
