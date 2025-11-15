@@ -2,6 +2,7 @@ using CondotelManagement.DTOs;
 using CondotelManagement.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Org.BouncyCastle.Asn1.Ocsp;
 
 namespace CondotelManagement.Controllers.Promotion
 {
@@ -49,9 +50,13 @@ namespace CondotelManagement.Controllers.Promotion
         public async Task<ActionResult<PromotionDTO>> Create([FromBody] PromotionCreateUpdateDTO dto)
         {
             if (dto == null) return BadRequest(new { message = "Invalid promotion data" });
-            
-            var created = await _promotionService.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetById), "Promotion", new { id = created.PromotionId }, created);
+
+			var result = await _promotionService.CreateAsync(dto);
+
+			if (!result.Success)
+				return BadRequest(new { message = result.Message });
+
+            return CreatedAtAction(nameof(GetById), "Promotion", new { id = result.Data.PromotionId }, result.Data);
         }
 
         // PUT /api/promotion/{id}
@@ -61,10 +66,11 @@ namespace CondotelManagement.Controllers.Promotion
         {
             if (dto == null) return BadRequest(new { message = "Invalid promotion data" });
             
-            var success = await _promotionService.UpdateAsync(id, dto);
-            if (!success) return NotFound(new { message = "Promotion not found" });
-            
-            return Ok(new { message = "Promotion updated successfully" });
+            var result = await _promotionService.UpdateAsync(id, dto);
+			if (!result.Success)
+				return BadRequest(new { message = result.Message });
+
+			return Ok(new { message = "Promotion updated successfully" });
         }
 
         // DELETE /api/promotion/{id}

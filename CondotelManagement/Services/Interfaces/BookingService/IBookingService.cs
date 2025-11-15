@@ -4,7 +4,7 @@ namespace CondotelManagement.Services.Interfaces.BookingService
 {
     public interface IBookingService
     {
-        IEnumerable<BookingDTO> GetBookingsByCustomer(int customerId);
+        Task<IEnumerable<BookingDTO>> GetBookingsByCustomerAsync(int customerId);
         BookingDTO GetBookingById(int id);
         BookingDTO CreateBooking(BookingDTO booking);
         BookingDTO UpdateBooking(BookingDTO booking);

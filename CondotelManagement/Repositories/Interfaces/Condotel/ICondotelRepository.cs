@@ -13,6 +13,6 @@ namespace CondotelManagement.Repositories
         Promotion? GetPromotionById(int promotionId);
 
         IEnumerable<Condotel> GetCondtelsByHost(int hostId);
-		IEnumerable<Condotel> GetCondtelsByLocation(string? locationText);
+		IEnumerable<Condotel> GetCondotelsByNameLocationAndDate(string? name, string? location, DateOnly? fromDate, DateOnly? toDate);
 	}
 }

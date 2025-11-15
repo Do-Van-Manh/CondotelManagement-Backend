@@ -66,9 +66,22 @@ namespace CondotelManagement.Services
             });
         }
 
-        public async Task<PromotionDTO> CreateAsync(PromotionCreateUpdateDTO dto)
+        public async Task<ResponseDTO<PromotionDTO>> CreateAsync(PromotionCreateUpdateDTO dto)
         {
-            var promotion = new Promotion
+			// Kiểm tra ngày logic
+			if (dto.StartDate >= dto.EndDate)
+				return ResponseDTO<PromotionDTO>.Fail("Start date must be less than end date.");
+
+			if (dto.EndDate < DateOnly.FromDateTime(DateTime.Now))
+				return ResponseDTO<PromotionDTO>.Fail("The end date cannot be in the pastứ.");
+
+			// Kiểm tra trùng hoặc chồng thời gian
+			bool hasOverlap = await _promotionRepo.CheckOverlapAsync(dto.CondotelId, dto.StartDate, dto.EndDate);
+			if (hasOverlap)
+				return ResponseDTO<PromotionDTO>.Fail("Promotion period overlaps or overlaps with another promotion.");
+
+            //create
+			var promotion = new Promotion
             {
                 Name = dto.Name,
                 StartDate = dto.StartDate,
@@ -86,7 +99,7 @@ namespace CondotelManagement.Services
             if (created == null)
                 throw new InvalidOperationException("Failed to retrieve created promotion");
 
-            return new PromotionDTO
+            var result = new PromotionDTO
             {
                 PromotionId = created.PromotionId,
                 Name = created.Name,
@@ -98,14 +111,28 @@ namespace CondotelManagement.Services
                 CondotelId = created.CondotelId,
                 CondotelName = created.Condotel?.Name
             };
-        }
 
-        public async Task<bool> UpdateAsync(int id, PromotionCreateUpdateDTO dto)
+			return ResponseDTO<PromotionDTO>.SuccessResult(result, "Create promotion success.");
+		}
+
+        public async Task<ResponseDTO<Promotion>> UpdateAsync(int id, PromotionCreateUpdateDTO dto)
         {
-            var promotion = await _promotionRepo.GetByIdAsync(id);
-            if (promotion == null) return false;
+			// Kiểm tra ngày logic
+			if (dto.StartDate >= dto.EndDate)
+				return ResponseDTO<Promotion>.Fail("Start date must be less than end date.");
 
-            promotion.Name = dto.Name;
+			if (dto.EndDate < DateOnly.FromDateTime(DateTime.Now))
+				return ResponseDTO<Promotion>.Fail("The end date cannot be in the pastứ.");
+
+			// Kiểm tra trùng hoặc chồng thời gian
+			bool hasOverlap = await _promotionRepo.CheckOverlapAsync(dto.CondotelId, dto.StartDate, dto.EndDate);
+			if (hasOverlap)
+				return ResponseDTO<Promotion>.Fail("Promotion period overlaps or overlaps with another promotion.");
+
+			var promotion = await _promotionRepo.GetByIdAsync(id);
+            if (promotion == null) return ResponseDTO<Promotion>.Fail("Not found.");
+
+			promotion.Name = dto.Name;
             promotion.StartDate = dto.StartDate;
             promotion.EndDate = dto.EndDate;
             promotion.DiscountPercentage = dto.DiscountPercentage;
@@ -114,8 +141,8 @@ namespace CondotelManagement.Services
             promotion.CondotelId = dto.CondotelId;
 
             await _promotionRepo.UpdateAsync(promotion);
-            return true;
-        }
+			return ResponseDTO<Promotion>.SuccessResult(promotion, "Update promotion success.");
+		}
 
         public async Task<bool> DeleteAsync(int id)
         {

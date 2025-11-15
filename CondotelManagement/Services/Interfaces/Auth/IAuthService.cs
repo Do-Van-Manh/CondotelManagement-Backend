@@ -5,12 +5,12 @@ namespace CondotelManagement.Services.Interfaces.Auth
 {
     public interface IAuthService
     {
-        Task<LoginResponse?> LoginAsync(LoginRequest request);
+        Task<object?> LoginAsync(LoginRequest request);
+        Task<object?> GoogleLoginAsync(GoogleLoginRequest request);
         Task<bool> RegisterAsync(RegisterRequest request); // THÊM MỚI
         Task<bool> ForgotPasswordAsync(ForgotPasswordRequest request);
         Task<bool> VerifyEmailAsync(VerifyEmailRequest request);
         Task<bool> VerifyOtpAsync(VerifyOtpRequest request);
-        Task<LoginResponse?> GoogleLoginAsync(GoogleLoginRequest request);
         Task<bool> ResetPasswordAsync(ResetPasswordRequest request);
         Task<User?> GetCurrentUserAsync(); // THÊM MỚI
         Task<bool> SendPasswordResetOtpAsync(ForgotPasswordRequest request);

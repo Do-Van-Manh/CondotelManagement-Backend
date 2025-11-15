@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CondotelManagement.Controllers
 {
 	[ApiController]
-	[Route("api/tenant/condotel")]
+	[Route("api/tenant/condotels")]
 	public class CondotelController : ControllerBase
 	{
 		private readonly ICondotelService _condotelService;
@@ -17,16 +17,16 @@ namespace CondotelManagement.Controllers
 			_condotelService = condotelService;
 		}
 
-		// GET api/tenant/condotel - Lấy tất cả condotel (không cần đăng nhập)
+		// GET api/tenant/condotels?name=abc&location=abc&fromDate=...&toDate=...
 		[HttpGet]
 		[AllowAnonymous]
-		public ActionResult<IEnumerable<CondotelDTO>> GetAllCondotel()
+		public ActionResult<IEnumerable<CondotelDTO>> GetCondotelsByNameAndLocation([FromQuery] string? name, [FromQuery] string? location, [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate)
 		{
-			var condotels = _condotelService.GetCondotels();
+			var condotels = _condotelService.GetCondotelsByNameLocationAndDate(name, location, fromDate, toDate);
 			return Ok(condotels);
 		}
 
-		// GET api/tenant/condotel/{id} - Lấy chi tiết condotel (không cần đăng nhập)
+		// GET api/tenant/condotels/{id} - Lấy chi tiết condotel (không cần đăng nhập)
 		[HttpGet("{id}")]
 		[AllowAnonymous]
 		public ActionResult<CondotelDetailDTO> GetCondotelById(int id)
@@ -36,15 +36,6 @@ namespace CondotelManagement.Controllers
 				return NotFound(new { message = "Condotel not found" });
 
 			return Ok(condotel);
-		}
-
-		// GET api/tenant/condotel/location?name=Da Nang
-		[HttpGet("location")]
-		[AllowAnonymous]
-		public ActionResult<IEnumerable<CondotelDTO>> GetAllCondotelByLocation([FromQuery] string? name)
-		{
-			var condotels = _condotelService.GetCondtelsByLocation(name);
-			return Ok(condotels);
 		}
 	}
 }

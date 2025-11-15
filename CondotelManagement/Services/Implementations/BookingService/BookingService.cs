@@ -1,15 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using CondotelManagement.Data;
 using CondotelManagement.DTOs;
 using CondotelManagement.Models;
 using CondotelManagement.Repositories;
 using CondotelManagement.Services.Interfaces.BookingService;
+using Microsoft.EntityFrameworkCore;
 
 namespace CondotelManagement.Services
 {
     public class BookingService : IBookingService
     {
+        private readonly CondotelDbVer1Context _context = new CondotelDbVer1Context();
         private readonly IBookingRepository _bookingRepo;
         private readonly ICondotelRepository _condotelRepo; // để lấy giá phòng
 
@@ -19,10 +22,36 @@ namespace CondotelManagement.Services
             _condotelRepo = condotelRepo;
         }
 
-        public IEnumerable<BookingDTO> GetBookingsByCustomer(int customerId)
+        public async Task<IEnumerable<BookingDTO>> GetBookingsByCustomerAsync(int customerId)
         {
-            return _bookingRepo.GetBookingsByCustomerId(customerId)
-                .Select(b => ToDTO(b));
+            var bookings = await _context.Bookings
+                .Include(b => b.Condotel)
+                .Where(b => b.CustomerId == customerId)
+                .OrderByDescending(b => b.EndDate)
+                .ToListAsync();
+
+            var bookingDTOs = bookings.Select(b => new BookingDTO
+            {
+                BookingId = b.BookingId,
+                CondotelId = b.CondotelId,
+                CondotelName = b.Condotel.Name,
+                CustomerId = b.CustomerId,
+                StartDate = b.StartDate,
+                EndDate = b.EndDate,
+                TotalPrice = b.TotalPrice,
+                Status = b.Status,
+                PromotionId = b.PromotionId,
+                CreatedAt = b.CreatedAt,
+
+                // Logic hiển thị nút review
+                CanReview = b.Status == "Completed"
+                         && b.EndDate < DateOnly.FromDateTime(DateTime.Now)
+                         && !_context.Reviews.Any(r => r.BookingId == b.BookingId),
+
+                HasReviewed = _context.Reviews.Any(r => r.BookingId == b.BookingId)
+            }).ToList();
+
+            return bookingDTOs;
         }
 
         public BookingDTO GetBookingById(int id)
@@ -119,7 +148,6 @@ namespace CondotelManagement.Services
             TotalPrice = b.TotalPrice,
             Status = b.Status,
             PromotionId = b.PromotionId,
-            IsUsingRewardPoints = b.IsUsingRewardPoints,
             CreatedAt = b.CreatedAt
         };
 
@@ -133,7 +161,6 @@ namespace CondotelManagement.Services
             TotalPrice = dto.TotalPrice,
             Status = dto.Status,
             PromotionId = dto.PromotionId,
-            IsUsingRewardPoints = dto.IsUsingRewardPoints,
             CreatedAt = dto.CreatedAt
         };
 
