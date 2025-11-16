@@ -3,6 +3,7 @@ using CondotelManagement.Models;
 using CondotelManagement.Repositories;
 using Microsoft.Extensions.Hosting;
 
+
 namespace CondotelManagement.Services;
 public class CondotelService : ICondotelService
 {
@@ -208,9 +209,9 @@ public class CondotelService : ICondotelService
                 });
     }
 
-	public IEnumerable<CondotelDTO> GetCondtelsByLocation(string? locationText)
+	public IEnumerable<CondotelDTO> GetCondotelsByNameLocationAndDate(string? name, string? location, DateOnly? fromDate, DateOnly? toDate)
 	{
-		return _condotelRepo.GetCondtelsByLocation(locationText)
+		return _condotelRepo.GetCondotelsByNameLocationAndDate(name, location, fromDate, toDate)
 				.Select(c => new CondotelDTO
 				{
 					CondotelId = c.CondotelId,

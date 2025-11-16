@@ -27,32 +27,21 @@ namespace CondotelManagement.Controllers.Tenant
         /// Tạo review mới cho booking đã hoàn thành
         /// POST /api/tenant/reviews
         /// </summary>
+
         [HttpPost]
         public async Task<IActionResult> CreateReview([FromBody] ReviewDTO dto)
         {
             try
             {
                 var userId = GetCurrentUserId();
-
-                // Kiểm tra có thể review không
-                var canReview = await _reviewService.CanReviewBookingAsync(userId, dto.BookingId);
-                if (!canReview.CanReview)
-                {
-                    return BadRequest(new { message = canReview.Message });
-                }
-
                 var review = await _reviewService.CreateReviewAsync(userId, dto);
 
-                return CreatedAtAction(
-                    nameof(GetReviewById),
-                    new { id = review.ReviewId },
-                    new
-                    {
-                        success = true,
-                        message = "Review created successfully",
-                        data = review
-                    }
-                );
+                return Ok(new
+                {
+                    success = true,
+                    message = "Review created successfully",
+                    data = review
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -61,7 +50,7 @@ namespace CondotelManagement.Controllers.Tenant
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating review");
-                return StatusCode(500, new { message = "An error occurred while creating review" });
+                return StatusCode(500, new { message = "An error occurred while creating the review" });
             }
         }
 
@@ -69,33 +58,39 @@ namespace CondotelManagement.Controllers.Tenant
         /// Lấy danh sách review của tôi
         /// GET /api/tenant/reviews
         /// </summary>
+
         [HttpGet]
-        public async Task<IActionResult> GetMyReviews([FromQuery] ReviewQueryDTO query)
+        public async Task<IActionResult> GetMyReviews()
         {
             try
             {
                 var userId = GetCurrentUserId();
-                var (reviews, totalCount) = await _reviewService.GetMyReviewsAsync(userId, query);
+
+                if (userId <= 0)
+                    return Unauthorized(new { message = "Invalid user" });
+
+                var reviews = await _reviewService.GetMyReviewsAsync(userId);
 
                 return Ok(new
                 {
                     success = true,
                     data = reviews,
-                    pagination = new
-                    {
-                        page = query.Page,
-                        pageSize = query.PageSize,
-                        totalCount,
-                        totalPages = (int)Math.Ceiling((double)totalCount / query.PageSize)
-                    }
+                    count = reviews.Count
                 });
             }
+            
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting reviews");
-                return StatusCode(500, new { message = "An error occurred while getting reviews" });
+                _logger.LogError(ex, "Error getting my reviews for user");
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while getting reviews",
+                    detail = ex.Message // ← Development only
+                });
             }
         }
+
+
 
         /// <summary>
         /// Lấy chi tiết 1 review
@@ -192,30 +187,6 @@ namespace CondotelManagement.Controllers.Tenant
             }
         }
 
-        /// <summary>
-        /// Kiểm tra có thể review booking không
-        /// GET /api/tenant/reviews/can-review/{bookingId}
-        /// </summary>
-        [HttpGet("can-review/{bookingId}")]
-        public async Task<IActionResult> CanReviewBooking(int bookingId)
-        {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var (canReview, message) = await _reviewService.CanReviewBookingAsync(userId, bookingId);
-
-                return Ok(new
-                {
-                    canReview,
-                    message
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error checking can review booking {bookingId}");
-                return StatusCode(500, new { message = "An error occurred" });
-            }
-        }
 
         // Helper method để lấy UserId từ JWT token
         private int GetCurrentUserId()

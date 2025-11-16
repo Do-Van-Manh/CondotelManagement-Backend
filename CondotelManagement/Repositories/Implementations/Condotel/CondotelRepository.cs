@@ -119,19 +119,32 @@ namespace CondotelManagement.Repositories
                     .ToList();
         }
 
-		public IEnumerable<Condotel> GetCondtelsByLocation(string? locationText)
+		public IEnumerable<Condotel> GetCondotelsByNameLocationAndDate(string? name, string? location, DateOnly? fromDate, DateOnly? toDate)
 		{
 			var query = _context.Condotels
 				.Include(c => c.Resort)
 					.ThenInclude(r => r.Location)
 				.Include(c => c.Host)
 				.Include(c => c.CondotelImages)
+				.Include(c => c.Bookings)
 				.AsQueryable();
 
-			if (!string.IsNullOrWhiteSpace(locationText))
+			if (!string.IsNullOrEmpty(name))
+				query = query.Where(c => c.Name.Contains(name));
+
+			if (!string.IsNullOrWhiteSpace(location))
 			{
 				query = query.Where(c =>
-					c.Resort.Location.Name.Contains(locationText));
+					c.Resort.Location.Name.Contains(location));
+			}
+
+			// Lọc theo khoảng ngày (DateOnly)
+			if (fromDate.HasValue && toDate.HasValue)
+			{
+				query = query.Where(c =>
+					!c.Bookings.Any(b =>
+						b.StartDate <= toDate.Value &&
+						b.EndDate >= fromDate.Value));
 			}
 
 			return query.ToList();

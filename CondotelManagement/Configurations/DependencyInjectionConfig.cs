@@ -73,7 +73,7 @@ namespace CondotelManagement.Configurations
             services.AddScoped<IBookingService, BookingService>();
 
             // --- Tenant Review & Reward ---
-            //services.AddScoped<ITenantReviewService, TenantReviewService>();
+            services.AddScoped<ITenantReviewService, TenantReviewService>();
             services.AddScoped<ITenantRewardService, TenantRewardService>();
 
             // --- Customer ---

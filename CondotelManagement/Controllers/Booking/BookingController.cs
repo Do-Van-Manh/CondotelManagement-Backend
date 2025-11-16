@@ -23,12 +23,11 @@ namespace CondotelManagement.Controllers
             return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
         }
 
-        // GET api/booking/my
         [HttpGet("my")]
-        public IActionResult GetMyBookings()
+        public async Task<IActionResult> GetMyBookings()
         {
             int customerId = GetCustomerId();
-            var bookings = _bookingService.GetBookingsByCustomer(customerId);
+            var bookings = await _bookingService.GetBookingsByCustomerAsync(customerId);
             return Ok(bookings);
         }
 
