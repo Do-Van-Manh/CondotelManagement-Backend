@@ -60,6 +60,10 @@ namespace CondotelManagement.Configurations
             services.AddScoped<ILocationRepository, LocationRepository>();
             services.AddScoped<ILocationService, LocationService>();
 
+            // --- Resort ---
+            services.AddScoped<IResortRepository, ResortRepository>();
+            services.AddScoped<IResortService, ResortService>();
+
             // --- Promotion ---
             services.AddScoped<IPromotionRepository, PromotionRepository>();
             services.AddScoped<IPromotionService, PromotionService>();

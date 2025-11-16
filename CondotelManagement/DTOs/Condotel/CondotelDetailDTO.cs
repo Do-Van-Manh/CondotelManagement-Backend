@@ -36,12 +36,4 @@ namespace CondotelManagement.DTOs
         public int UtilityId { get; set; }
         public string Name { get; set; }
     }
-
-
-
-    public class ResortDTO
-    {
-        public int ResortId { get; set; }
-        public string Name { get; set; }
-    }
 }
