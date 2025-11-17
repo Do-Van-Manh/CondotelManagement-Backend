@@ -1,10 +1,12 @@
 ﻿using CondotelManagement.Data;
+using CondotelManagement.DTOs;
 using CondotelManagement.DTOs.Host;
+using CondotelManagement.Models;
 using CondotelManagement.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 // Sử dụng tiền tố đầy đủ để tránh lỗi "ambiguous reference" và loại bỏ 'using CondotelManagement.Models;'
 
@@ -67,7 +69,7 @@ namespace CondotelManagement.Services.Implementations
 
                 isNewWallet = true;
 
-                // 5. Nâng cấp quyền
+                // 5. Nâng cấp quyền    
                 user.RoleId = 4;
             }
             // --- LOGIC: USER ĐÃ LÀ HOST (existingHost != null) ---
@@ -139,6 +141,16 @@ namespace CondotelManagement.Services.Implementations
         }
 
         public Task<bool> CanHostUploadCondotel(int hostId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<HostProfileDTO?> GetHostProfileAsync(int userId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> UpdateHostProfileAsync(int userId, UpdateHostProfileDTO dto)
         {
             throw new NotImplementedException();
         }

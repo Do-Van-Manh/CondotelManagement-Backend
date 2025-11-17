@@ -47,14 +47,41 @@ namespace CondotelManagement.Controllers.Host
         [HttpPost]
         public ActionResult Create([FromBody] CondotelCreateDTO condotelDto)
         {
-            if (condotelDto == null) return BadRequest("Invalid condotel data");
-            //current host login
-            var host = _hostService.GetByUserId(User.GetUserId());
-            condotelDto.HostId = host.HostId;
-            var created = _condotelService.CreateCondotel(condotelDto);
-            return CreatedAtAction(nameof(GetById),
-                new { id = created.CondotelId },
-                created);
+            if (condotelDto == null) 
+                return BadRequest(new { message = "Invalid condotel data" });
+
+            try
+            {
+                // Get current host from authenticated user
+                var host = _hostService.GetByUserId(User.GetUserId());
+                if (host == null)
+                    return Unauthorized(new { message = "Host not found or unauthorized" });
+
+                condotelDto.HostId = host.HostId;
+
+                // Validate ownership - ensure host is creating for themselves
+                var created = _condotelService.CreateCondotel(condotelDto);
+
+                return CreatedAtAction(nameof(GetById),
+                    new { id = created.CondotelId },
+                    new { message = "Condotel created successfully", data = created });
+            }
+            catch (ArgumentNullException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while creating condotel", error = ex.Message });
+            }
         }
 
         //PUT /api/condotel/{id}

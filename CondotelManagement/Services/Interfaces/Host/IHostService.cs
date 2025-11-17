@@ -1,17 +1,20 @@
-﻿using CondotelManagement.DTOs.Host;
-// SỬA: Bỏ alias và dùng tên đầy đủ để tránh nhầm lẫn
-// using HostModel = CondotelManagement.Models.Host; 
+﻿using CondotelManagement.DTOs;
+using CondotelManagement.DTOs.Host;
+using CondotelManagement.Models;
 
-namespace CondotelManagement.Services.Interfaces // Sửa: Thêm Interfaces
+namespace CondotelManagement.Services.Interfaces
 {
     public interface IHostService
     {
-        // SỬA: Dùng tên đầy đủ
-        CondotelManagement.Models.Host GetByUserId(int userId);
+        // Define rõ ràng kiểu Host
+        CondotelManagement.Models.Host? GetByUserId(int userId);
 
         Task<bool> CanHostUploadCondotel(int hostId);
 
-        // SỬA: Dùng tên đầy đủ
         Task<HostRegistrationResponseDto> RegisterHostAsync(int userId, HostRegisterRequestDto dto);
+
+        Task<HostProfileDTO?> GetHostProfileAsync(int userId);
+
+        Task<bool> UpdateHostProfileAsync(int userId, UpdateHostProfileDTO dto);
     }
 }

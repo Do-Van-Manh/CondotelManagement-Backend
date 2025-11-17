@@ -72,8 +72,10 @@ public partial class CondotelDbVer1Context : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-
     }
+
+
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AdminReport>(entity =>

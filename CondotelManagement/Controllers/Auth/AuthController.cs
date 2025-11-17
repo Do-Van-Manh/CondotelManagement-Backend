@@ -65,6 +65,18 @@ namespace CondotelManagement.Controllers.Auth
             return Ok(new { message = "Email verified successfully. You can now log in." });
         }
 
+        // THÊM MỚI: Endpoint Verify OTP (ví dụ cho quên mật khẩu)
+        [HttpPost("verify-otp")]
+        [AllowAnonymous]
+        public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
+        {
+            var success = await _authService.VerifyOtpAsync(request);
+            if (!success)
+                return BadRequest(new { message = "Invalid email, incorrect OTP, or OTP has expired." });
+
+            return Ok(new { message = "OTP verified successfully." });
+        }
+
 
         [HttpPost("logout")]
         [Authorize]

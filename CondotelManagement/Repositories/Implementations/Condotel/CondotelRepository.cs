@@ -119,36 +119,131 @@ namespace CondotelManagement.Repositories
                     .ToList();
         }
 
-		public IEnumerable<Condotel> GetCondotelsByNameLocationAndDate(string? name, string? location, DateOnly? fromDate, DateOnly? toDate)
+	public IEnumerable<Condotel> GetCondotelsByNameLocationAndDate(string? name, string? location, DateOnly? fromDate, DateOnly? toDate)
+	{
+		// Validate date range trước
+		if (fromDate.HasValue && toDate.HasValue && fromDate.Value > toDate.Value)
 		{
-			var query = _context.Condotels
-				.Include(c => c.Resort)
-					.ThenInclude(r => r.Location)
-				.Include(c => c.Host)
-				.Include(c => c.CondotelImages)
-				.Include(c => c.Bookings)
-				.AsQueryable();
-
-			if (!string.IsNullOrEmpty(name))
-				query = query.Where(c => c.Name.Contains(name));
-
-			if (!string.IsNullOrWhiteSpace(location))
-			{
-				query = query.Where(c =>
-					c.Resort.Location.Name.Contains(location));
-			}
-
-			// Lọc theo khoảng ngày (DateOnly)
-			if (fromDate.HasValue && toDate.HasValue)
-			{
-				query = query.Where(c =>
-					!c.Bookings.Any(b =>
-						b.StartDate <= toDate.Value &&
-						b.EndDate >= fromDate.Value));
-			}
-
-			return query.ToList();
+			throw new ArgumentException("FromDate cannot be greater than ToDate");
 		}
+
+		// Bắt đầu với query cơ bản
+		var query = _context.Condotels.AsQueryable();
+
+		// Lọc theo tên condotel
+		if (!string.IsNullOrWhiteSpace(name))
+		{
+			query = query.Where(c => c.Name.Contains(name));
+		}
+
+		// Lọc theo location - sử dụng join trực tiếp
+		if (!string.IsNullOrWhiteSpace(location))
+		{
+			query = query.Where(c => 
+				c.ResortId != null &&
+				_context.Resorts.Any(r => 
+					r.ResortId == c.ResortId && 
+					r.Location != null &&
+					r.Location.Name.Contains(location)));
+		}
+
+		// Lọc theo khoảng ngày - chỉ lấy condotel không có booking trong khoảng thời gian đó
+		if (fromDate.HasValue && toDate.HasValue)
+		{
+			var fromDateValue = fromDate.Value;
+			var toDateValue = toDate.Value;
+
+			// Lấy danh sách CondotelId đã bị booking (chỉ tính booking chưa bị hủy)
+			var bookedCondotelIds = _context.Bookings
+				.Where(b => 
+					b.Status != "Cancelled" &&
+					b.StartDate <= toDateValue &&
+					b.EndDate >= fromDateValue)
+				.Select(b => b.CondotelId)
+				.Distinct()
+				.ToList();
+
+			// Loại bỏ các condotel đã bị booking
+			if (bookedCondotelIds.Any())
+			{
+				query = query.Where(c => !bookedCondotelIds.Contains(c.CondotelId));
+			}
+		}
+
+		// Include các navigation properties sau khi đã filter
+		query = query
+			.Include(c => c.Resort)
+				.ThenInclude(r => r.Location)
+			.Include(c => c.Host)
+			.Include(c => c.CondotelImages);
+
+		return query.ToList();
+	}
+
+	public bool ResortExists(int? resortId)
+	{
+		if (!resortId.HasValue) return true; // ResortId là optional
+		return _context.Resorts.Any(r => r.ResortId == resortId.Value);
+	}
+
+	public bool AmenitiesExist(List<int>? amenityIds)
+	{
+		if (amenityIds == null || !amenityIds.Any()) return true; // Optional
+		var existingCount = _context.Amenities.Count(a => amenityIds.Contains(a.AmenityId));
+		return existingCount == amenityIds.Count;
+	}
+
+	public bool UtilitiesExist(List<int>? utilityIds)
+	{
+		if (utilityIds == null || !utilityIds.Any()) return true; // Optional
+		var existingCount = _context.Utilities.Count(u => utilityIds.Contains(u.UtilityId));
+		return existingCount == utilityIds.Count;
+	}
+
+	public bool HostExists(int hostId)
+	{
+		return _context.Hosts.Any(h => h.HostId == hostId);
+	}
+
+	public void AddCondotelImages(IEnumerable<CondotelImage> images)
+	{
+		if (images != null && images.Any())
+		{
+			_context.CondotelImages.AddRange(images);
+		}
+	}
+
+	public void AddCondotelPrices(IEnumerable<CondotelPrice> prices)
+	{
+		if (prices != null && prices.Any())
+		{
+			_context.CondotelPrices.AddRange(prices);
+		}
+	}
+
+	public void AddCondotelDetails(IEnumerable<CondotelDetail> details)
+	{
+		if (details != null && details.Any())
+		{
+			_context.CondotelDetails.AddRange(details);
+		}
+	}
+
+	public void AddCondotelAmenities(IEnumerable<CondotelAmenity> amenities)
+	{
+		if (amenities != null && amenities.Any())
+		{
+			_context.CondotelAmenities.AddRange(amenities);
+		}
+	}
+
+	public void AddCondotelUtilities(IEnumerable<CondotelUtility> utilities)
+	{
+		if (utilities != null && utilities.Any())
+		{
+			_context.CondotelUtilities.AddRange(utilities);
+		}
+	}
 
 	}
 }

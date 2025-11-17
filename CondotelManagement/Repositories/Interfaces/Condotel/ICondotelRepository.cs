@@ -14,5 +14,18 @@ namespace CondotelManagement.Repositories
 
         IEnumerable<Condotel> GetCondtelsByHost(int hostId);
 		IEnumerable<Condotel> GetCondotelsByNameLocationAndDate(string? name, string? location, DateOnly? fromDate, DateOnly? toDate);
+		
+		// Validation methods
+		bool ResortExists(int? resortId);
+		bool AmenitiesExist(List<int>? amenityIds);
+		bool UtilitiesExist(List<int>? utilityIds);
+		bool HostExists(int hostId);
+		
+		// Methods for adding child entities
+		void AddCondotelImages(IEnumerable<CondotelImage> images);
+		void AddCondotelPrices(IEnumerable<CondotelPrice> prices);
+		void AddCondotelDetails(IEnumerable<CondotelDetail> details);
+		void AddCondotelAmenities(IEnumerable<CondotelAmenity> amenities);
+		void AddCondotelUtilities(IEnumerable<CondotelUtility> utilities);
 	}
 }

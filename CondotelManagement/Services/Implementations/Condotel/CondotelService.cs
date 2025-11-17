@@ -15,72 +15,192 @@ public class CondotelService : ICondotelService
     }
     public CondotelUpdateDTO CreateCondotel(CondotelCreateDTO dto)
     {
+        // Validation
+        if (dto == null)
+            throw new ArgumentNullException(nameof(dto), "Condotel data cannot be null");
+
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            throw new ArgumentException("Condotel name is required", nameof(dto.Name));
+
+        if (dto.PricePerNight <= 0)
+            throw new ArgumentException("Price per night must be greater than 0", nameof(dto.PricePerNight));
+
+        if (dto.Beds <= 0)
+            throw new ArgumentException("Number of beds must be greater than 0", nameof(dto.Beds));
+
+        if (dto.Bathrooms <= 0)
+            throw new ArgumentException("Number of bathrooms must be greater than 0", nameof(dto.Bathrooms));
+
+        // Validate Host exists
+        if (!_condotelRepo.HostExists(dto.HostId))
+            throw new InvalidOperationException($"Host with ID {dto.HostId} does not exist");
+
+        // Validate Resort exists (if provided)
+        if (!_condotelRepo.ResortExists(dto.ResortId))
+            throw new InvalidOperationException($"Resort with ID {dto.ResortId} does not exist");
+
+        // Validate Amenities exist
+        if (!_condotelRepo.AmenitiesExist(dto.AmenityIds))
+            throw new InvalidOperationException("One or more Amenity IDs are invalid");
+
+        // Validate Utilities exist
+        if (!_condotelRepo.UtilitiesExist(dto.UtilityIds))
+            throw new InvalidOperationException("One or more Utility IDs are invalid");
+
+        // Validate Price date ranges
+        if (dto.Prices != null && dto.Prices.Any())
+        {
+            foreach (var price in dto.Prices)
+            {
+                if (price.StartDate >= price.EndDate)
+                    throw new ArgumentException($"Price date range is invalid: StartDate must be before EndDate");
+
+                if (price.BasePrice <= 0)
+                    throw new ArgumentException("Base price must be greater than 0");
+            }
+        }
+
+        // Set default Status if not provided
+        var status = string.IsNullOrWhiteSpace(dto.Status) ? "Pending" : dto.Status;
+
+        // Tạo Condotel chính trước
         var condotel = new Condotel
         {
             HostId = dto.HostId,
             ResortId = dto.ResortId,
-            Name = dto.Name,
-            Description = dto.Description,
+            Name = dto.Name.Trim(),
+            Description = dto.Description?.Trim(),
             PricePerNight = dto.PricePerNight,
             Beds = dto.Beds,
             Bathrooms = dto.Bathrooms,
-            Status = dto.Status,
-            CondotelImages = dto.Images?.Select(i => new CondotelImage
+            Status = status
+        };
+
+        // Add Condotel trước để lấy CondotelId
+        _condotelRepo.AddCondotel(condotel);
+        
+        if (!_condotelRepo.SaveChanges())
+            throw new InvalidOperationException("Failed to save condotel to database");
+
+        // Sau khi có CondotelId, tạo các child entities
+        var condotelId = condotel.CondotelId;
+        var childEntitiesToSave = false;
+
+        // Tạo Images
+        if (dto.Images != null && dto.Images.Any(i => !string.IsNullOrWhiteSpace(i.ImageUrl)))
+        {
+            var images = dto.Images
+                .Where(i => !string.IsNullOrWhiteSpace(i.ImageUrl))
+                .Select(i => new CondotelImage
+                {
+                    CondotelId = condotelId,
+                    ImageUrl = i.ImageUrl.Trim(),
+                    Caption = i.Caption?.Trim()
+                }).ToList();
+            _condotelRepo.AddCondotelImages(images);
+            condotel.CondotelImages = images;
+            childEntitiesToSave = true;
+        }
+
+        // Tạo Prices
+        if (dto.Prices != null && dto.Prices.Any())
+        {
+            var prices = dto.Prices.Select(p => new CondotelPrice
             {
-                ImageUrl = i.ImageUrl,
-                Caption = i.Caption
-            }).ToList(),
-            CondotelPrices = dto.Prices?.Select(p => new CondotelPrice
-            {
+                CondotelId = condotelId,
                 StartDate = p.StartDate,
                 EndDate = p.EndDate,
                 BasePrice = p.BasePrice,
-                PriceType = p.PriceType,
-                Description = p.Description
-            }).ToList(),
-            CondotelDetails = dto.Details?.Select(d => new CondotelDetail
+                PriceType = p.PriceType?.Trim() ?? "Normal", // Khớp với database default
+                Description = p.Description?.Trim(),
+                Status = "Active" // Set Status rõ ràng
+            }).ToList();
+            _condotelRepo.AddCondotelPrices(prices);
+            condotel.CondotelPrices = prices;
+            childEntitiesToSave = true;
+        }
+
+        // Tạo Details
+        if (dto.Details != null && dto.Details.Any())
+        {
+            var details = dto.Details.Select(d => new CondotelDetail
             {
-                BuildingName = d.BuildingName,
-                RoomNumber = d.RoomNumber,
+                CondotelId = condotelId,
+                BuildingName = d.BuildingName?.Trim(),
+                RoomNumber = d.RoomNumber?.Trim(),
                 Beds = d.Beds,
                 Bathrooms = d.Bathrooms,
-                SafetyFeatures = d.SafetyFeatures,
-                HygieneStandards = d.HygieneStandards
-            }).ToList(),
-            CondotelAmenities = dto.AmenityIds?.Select(aid => new CondotelAmenity
-            {
-                AmenityId = aid,
-                DateAdded = DateOnly.FromDateTime(DateTime.Now)
-            }).ToList(),
-            CondotelUtilities = dto.UtilityIds?.Select(uid => new CondotelUtility
-            {
-                UtilityId = uid,
-                DateAdded = DateOnly.FromDateTime(DateTime.Now)
-            }).ToList()
-        };
+                SafetyFeatures = d.SafetyFeatures?.Trim(),
+                HygieneStandards = d.HygieneStandards?.Trim(),
+                Status = "Active" // Set Status rõ ràng
+            }).ToList();
+            _condotelRepo.AddCondotelDetails(details);
+            condotel.CondotelDetails = details;
+            childEntitiesToSave = true;
+        }
 
-        _condotelRepo.AddCondotel(condotel);
-        _condotelRepo.SaveChanges();
+        // Tạo Amenities
+        if (dto.AmenityIds != null && dto.AmenityIds.Any())
+        {
+            var amenities = dto.AmenityIds.Select(aid => new CondotelAmenity
+            {
+                CondotelId = condotelId,
+                AmenityId = aid,
+                DateAdded = DateOnly.FromDateTime(DateTime.UtcNow),
+                Status = "Active" // Set Status rõ ràng
+            }).ToList();
+            _condotelRepo.AddCondotelAmenities(amenities);
+            condotel.CondotelAmenities = amenities;
+            childEntitiesToSave = true;
+        }
+
+        // Tạo Utilities
+        if (dto.UtilityIds != null && dto.UtilityIds.Any())
+        {
+            var utilities = dto.UtilityIds.Select(uid => new CondotelUtility
+            {
+                CondotelId = condotelId,
+                UtilityId = uid,
+                DateAdded = DateOnly.FromDateTime(DateTime.UtcNow),
+                Status = "Active" // Set Status rõ ràng
+            }).ToList();
+            _condotelRepo.AddCondotelUtilities(utilities);
+            condotel.CondotelUtilities = utilities;
+            childEntitiesToSave = true;
+        }
+
+        // Save các child entities nếu có
+        if (childEntitiesToSave)
+        {
+            if (!_condotelRepo.SaveChanges())
+                throw new InvalidOperationException("Failed to save condotel child entities to database");
+        }
+
+        // Reload Condotel từ database để lấy đầy đủ thông tin (bao gồm IDs của child entities)
+        var savedCondotel = _condotelRepo.GetCondotelById(condotel.CondotelId);
+        if (savedCondotel == null)
+            throw new InvalidOperationException("Failed to retrieve saved condotel from database");
+
         return new CondotelUpdateDTO
         {
-            CondotelId = condotel.CondotelId,
-            HostId = condotel.HostId,
-            ResortId = condotel.ResortId,
-            Name = condotel.Name,
-            Description = condotel.Description,
-            PricePerNight = condotel.PricePerNight,
-            Beds = condotel.Beds,
-            Bathrooms = condotel.Bathrooms,
-            Status = condotel.Status,
+            CondotelId = savedCondotel.CondotelId,
+            HostId = savedCondotel.HostId,
+            ResortId = savedCondotel.ResortId,
+            Name = savedCondotel.Name,
+            Description = savedCondotel.Description,
+            PricePerNight = savedCondotel.PricePerNight,
+            Beds = savedCondotel.Beds,
+            Bathrooms = savedCondotel.Bathrooms,
+            Status = savedCondotel.Status,
 
-            Images = condotel.CondotelImages?.Select(i => new ImageDTO
+            Images = savedCondotel.CondotelImages?.Select(i => new ImageDTO
             {
                 ImageId = i.ImageId,
                 ImageUrl = i.ImageUrl,
                 Caption = i.Caption
             }).ToList(),
 
-            Prices = condotel.CondotelPrices?.Select(p => new PriceDTO
+            Prices = savedCondotel.CondotelPrices?.Select(p => new PriceDTO
             {
                 PriceId = p.PriceId,
                 StartDate = p.StartDate,
@@ -90,7 +210,7 @@ public class CondotelService : ICondotelService
                 Description = p.Description
             }).ToList(),
 
-            Details = condotel.CondotelDetails?.Select(d => new DetailDTO
+            Details = savedCondotel.CondotelDetails?.Select(d => new DetailDTO
             {
                 BuildingName = d.BuildingName,
                 RoomNumber = d.RoomNumber,
@@ -100,8 +220,8 @@ public class CondotelService : ICondotelService
                 HygieneStandards = d.HygieneStandards
             }).ToList(),
 
-            AmenityIds = condotel.CondotelAmenities?.Select(a => a.AmenityId).ToList(),
-            UtilityIds = condotel.CondotelUtilities?.Select(u => u.UtilityId).ToList()
+            AmenityIds = savedCondotel.CondotelAmenities?.Select(a => a.AmenityId).ToList(),
+            UtilityIds = savedCondotel.CondotelUtilities?.Select(u => u.UtilityId).ToList()
         };
     }
 

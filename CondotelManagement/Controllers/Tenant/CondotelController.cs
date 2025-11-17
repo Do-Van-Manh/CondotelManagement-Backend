@@ -17,12 +17,25 @@ namespace CondotelManagement.Controllers
 			_condotelService = condotelService;
 		}
 
-		// GET api/tenant/condotels?name=abc&location=abc?...
+		// GET api/tenant/condotels?name=abc&location=abc&fromDate=...&toDate=...
 		[HttpGet]
+		[AllowAnonymous]
 		public ActionResult<IEnumerable<CondotelDTO>> GetCondotelsByNameAndLocation([FromQuery] string? name, [FromQuery] string? location, [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate)
 		{
 			var condotels = _condotelService.GetCondotelsByNameLocationAndDate(name, location, fromDate, toDate);
 			return Ok(condotels);
+		}
+
+		// GET api/tenant/condotels/{id} - Lấy chi tiết condotel (không cần đăng nhập)
+		[HttpGet("{id}")]
+		[AllowAnonymous]
+		public ActionResult<CondotelDetailDTO> GetCondotelById(int id)
+		{
+			var condotel = _condotelService.GetCondotelById(id);
+			if (condotel == null)
+				return NotFound(new { message = "Condotel not found" });
+
+			return Ok(condotel);
 		}
 	}
 }
