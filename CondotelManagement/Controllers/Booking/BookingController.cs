@@ -53,9 +53,18 @@ namespace CondotelManagement.Controllers
         public IActionResult CreateBooking([FromBody] BookingDTO dto)
         {
             dto.CustomerId = GetCustomerId();
+
             var result = _bookingService.CreateBooking(dto);
-            return CreatedAtAction(nameof(GetBookingById), new { id = result.BookingId }, result);
+
+            if (!result.Success)
+                return BadRequest(result);
+
+            // Ép kiểu data về BookingDTO
+            var booking = (BookingDTO)result.Data;
+
+            return CreatedAtAction(nameof(GetBookingById), new { id = booking.BookingId }, result);
         }
+
 
         // PUT api/booking/{id}
         [HttpPut("{id}")]

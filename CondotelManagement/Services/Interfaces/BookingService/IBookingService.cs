@@ -1,4 +1,5 @@
 ﻿using CondotelManagement.DTOs;
+using CondotelManagement.DTOs.Booking;
 
 namespace CondotelManagement.Services.Interfaces.BookingService
 {
@@ -6,7 +7,8 @@ namespace CondotelManagement.Services.Interfaces.BookingService
     {
         Task<IEnumerable<BookingDTO>> GetBookingsByCustomerAsync(int customerId);
         BookingDTO GetBookingById(int id);
-        BookingDTO CreateBooking(BookingDTO booking);
+        ServiceResultDTO CreateBooking(BookingDTO booking);
+
         BookingDTO UpdateBooking(BookingDTO booking);
         bool CancelBooking(int bookingId, int customerId);
 
