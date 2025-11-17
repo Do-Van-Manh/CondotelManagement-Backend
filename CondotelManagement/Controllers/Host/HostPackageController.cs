@@ -1,90 +1,86 @@
-﻿using CondotelManagement.DTOs.Package;
+﻿using CondotelManagement.Data;
+using CondotelManagement.DTOs.Package;
+using CondotelManagement.Models;                    // ← Thêm để dùng Host
 using CondotelManagement.Services.Interfaces;
-using CondotelManagement.Services.Interfaces.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks; // Them Using
-using System; // Them Using
-using System.Linq; // Them Using
-
-// Them alias de tranh loi 'Host'
-using HostModel = CondotelManagement.Models.Host;
+using Microsoft.EntityFrameworkCore;                 // ← Quan trọng: để dùng FirstOrDefaultAsync
+using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace CondotelManagement.Controllers.Host
 {
     [Route("api/host/packages")]
     [ApiController]
-    [Authorize(Roles = "Host")] // Chi Host
-    public class HostPackageController : ControllerBase // SUA: Phai la ControllerBase
+    [Authorize(Roles = "Host")]
+    public class HostPackageController : ControllerBase
     {
         private readonly IPackageService _packageService;
-        private readonly IAuthService _authService;
+        private readonly CondotelDbVer1Context _context;   // ← Thêm DbContext (hoặc IHostRepository nếu có)
 
-        public HostPackageController(IPackageService packageService, IAuthService authService)
+        // Nếu bạn có IHostRepository thì inject nó thay cho _context cũng được
+        public HostPackageController(IPackageService packageService, CondotelDbVer1Context context)
         {
             _packageService = packageService;
-            _authService = authService;
+            _context = context;
         }
 
-        // Lấy HostId từ token
-        private async Task<int> GetCurrentHostId()
+        /// <summary>
+        /// Lấy HostId từ bảng Hosts một cách an toàn, không phụ thuộc vào GetCurrentUserAsync()
+        /// </summary>
+        private async Task<int?> GetCurrentHostIdOrNullAsync()
         {
-            var user = await _authService.GetCurrentUserAsync(); // (Ham nay da Include Role)
-            if (user == null)
-            {
-                throw new Exception("Xac thuc that bai.");
-            }
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+                return null;
 
-            // Lay Host tu User (Model User co ICollection<Host> Hosts)
-            var host = user.Hosts.FirstOrDefault();
-            if (host == null)
-            {
-                // Logic nay can ban xem lai:
-                // Neu user co Role "Host" nhung chua co record [Host] tuong ung
-                // thi se bi loi. 
-                throw new Exception("Khong tim thay thong tin Host tuong ung voi UserID nay.");
-            }
-            return host.HostId;
+            var host = await _context.Hosts
+                .FirstOrDefaultAsync(h => h.UserId == userId);
+
+            return host?.HostId;
         }
 
+        /// <summary>
+        /// GET api/host/packages/my-package
+        /// </summary>
         [HttpGet("my-package")]
         public async Task<IActionResult> GetMyPackage()
         {
-            try
-            {
-                var hostId = await GetCurrentHostId();
-                var myPackage = await _packageService.GetMyActivePackageAsync(hostId);
-                if (myPackage == null)
-                {
-                    // Tra ve 200 OK voi message thay vi 404
-                    return Ok(new { message = "Bạn hiện không có gói dịch vụ nào." });
-                }
-                return Ok(myPackage);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
+            var hostId = await GetCurrentHostIdOrNullAsync();
+
+            // Chưa đăng ký làm Host → trả null (FE sẽ hiện form hoặc thông báo)
+            if (!hostId.HasValue)
+                return Ok(null);
+
+            var package = await _packageService.GetMyActivePackageAsync(hostId.Value);
+            return Ok(package ?? null);
         }
 
+        /// <summary>
+        /// POST api/host/packages/purchase
+        /// </summary>
         [HttpPost("purchase")]
         public async Task<IActionResult> PurchasePackage([FromBody] PurchasePackageRequestDto request)
         {
-            if (request.PackageId <= 0)
-            {
+            if (request == null || request.PackageId <= 0)
                 return BadRequest(new { message = "PackageId không hợp lệ." });
-            }
+
+            var hostId = await GetCurrentHostIdOrNullAsync();
+
+            // Chưa hoàn tất đăng ký Host → chặn mua gói
+            if (!hostId.HasValue)
+                return BadRequest(new { message = "Vui lòng hoàn tất đăng ký làm Host trước khi mua gói dịch vụ." });
 
             try
             {
-                var hostId = await GetCurrentHostId();
-                var newPackage = await _packageService.PurchaseOrUpgradePackageAsync(hostId, request.PackageId);
-                return Ok(newPackage);
+                var result = await _packageService.PurchaseOrUpgradePackageAsync(hostId.Value, request.PackageId);
+                return Ok(result);   // result thường là PaymentUrl hoặc thông tin gói mới
             }
             catch (Exception ex)
             {
+                // Log ex nếu cần
                 return BadRequest(new { message = ex.Message });
             }
         }
-    } // Ket thuc Class
-} // Ket thuc Namespace
+    }
+}

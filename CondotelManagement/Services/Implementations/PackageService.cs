@@ -66,42 +66,41 @@ namespace CondotelManagement.Services.Implementations
 
         public async Task<HostPackageDetailsDto> PurchaseOrUpgradePackageAsync(int hostId, int packageId)
         {
-            var packageToBuy = await _context.Packages.FindAsync(packageId);
-            if (packageToBuy == null || packageToBuy.Status != "Active")
+            var packageToBuy = await _context.Packages
+                .FirstOrDefaultAsync(p => p.PackageId == packageId && p.Status == "Active");
+
+            if (packageToBuy == null)
+                throw new Exception("Gói dịch vụ không hợp lệ hoặc đã ngừng hoạt động.");
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var durationDays = ParseDuration(packageToBuy.Duration);
+            var endDate = today.AddDays(durationDays);
+
+            // DÙNG TÊN BẢNG ĐÚNG CỦA BẠN: HostPackage (số ít)
+            // XÓA GÓI CŨ (nếu có)
+            await _context.Database.ExecuteSqlRawAsync(
+                "DELETE FROM HostPackage WHERE HostID = {0}", hostId);
+
+            // THÊM GÓI MỚI – ĐÚNG TÊN CỘT TRONG DB CỦA BẠN
+            await _context.Database.ExecuteSqlRawAsync(
+                @"INSERT INTO HostPackage (HostID, PackageID, StartDate, EndDate, Status) 
+          VALUES ({0}, {1}, {2}, {3}, 'Active')",
+                hostId, packageId, today, endDate);
+
+            // Trả về thông tin gói mới
+            var currentListings = await _context.Condotels
+                .CountAsync(c => c.HostId == hostId && c.Status != "Deleted");
+
+            return new HostPackageDetailsDto
             {
-                throw new Exception("Gói dịch vụ không hợp lệ.");
-            }
-
-            // (LOGIC THANH TOAN DAT O DAY)
-
-            // 2. Huy goi cu
-            var oldPackages = await _context.HostPackages
-                .Where(hp => hp.HostId == hostId && hp.Status == "Active")
-                .ToListAsync();
-
-            foreach (var oldPkg in oldPackages)
-            {
-                oldPkg.Status = "Upgraded";
-            }
-
-            // 3. Tao goi moi
-            var today = DateOnly.FromDateTime(DateTime.UtcNow); // Lấy ngày hôm nay
-            var newHostPackage = new HostPackage
-            {
-                HostId = hostId,
-                PackageId = packageId,
-                // SỬA: Gán DateOnly
+                PackageName = packageToBuy.Name,
+                Status = "Active",
                 StartDate = today,
-                // SỬA: Tinh toan EndDate (AddDays trả về DateTime, nên phải convert lại)
-                EndDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(ParseDuration(packageToBuy.Duration))),
-                Status = "Active"
+                EndDate = endDate,
+                CurrentListings = currentListings,
+                MaxListings = _featureService.GetMaxListingCount(packageId),
+                CanUseFeaturedListing = _featureService.CanUseFeaturedListing(packageId)
             };
-
-            _context.HostPackages.Add(newHostPackage);
-            await _context.SaveChangesAsync();
-
-            newHostPackage.Package = packageToBuy;
-            return MapToDetailsDto(newHostPackage, 0);
         }
 
         // Ham helper de parse "30 days", "90 days"

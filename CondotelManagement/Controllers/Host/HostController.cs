@@ -20,7 +20,7 @@ namespace CondotelManagement.Controllers.Host
             _hostService = hostService;
         }
 
-        [HttpPost("register")]
+        [HttpPost("register-as-host")]
         public async Task<IActionResult> RegisterHost([FromBody] HostRegisterRequestDto dto)
         {
             try
