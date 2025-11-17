@@ -2,6 +2,7 @@
 using CondotelManagement.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using CondotelManagement.Services.Interfaces;
 
 namespace CondotelManagement.Controllers.Host
 {

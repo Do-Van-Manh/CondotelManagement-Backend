@@ -60,6 +60,10 @@ namespace CondotelManagement.Configurations
             services.AddScoped<ILocationRepository, LocationRepository>();
             services.AddScoped<ILocationService, LocationService>();
 
+            // --- Resort ---
+            services.AddScoped<IResortRepository, ResortRepository>();
+            services.AddScoped<IResortService, ResortService>();
+
             // --- Promotion ---
             services.AddScoped<IPromotionRepository, PromotionRepository>();
             services.AddScoped<IPromotionService, PromotionService>();
@@ -98,8 +102,14 @@ namespace CondotelManagement.Configurations
 			services.AddScoped<IReviewRepository, ReviewRepository>();
 			services.AddScoped<IReviewService, ReviewService>();
 
-			// --- Cấu hình JWT Authentication ---
-			services.AddAuthentication(options =>
+            // --- 2. THEM CAC DONG MOI O DAY ---
+            // Dang ky Service cho Package
+            services.AddScoped<IPackageService, PackageService>();
+            // Dang ky Service cho Quyen loi (Singleton vi no la hard-code, khong doi)
+            services.AddSingleton<IPackageFeatureService, PackageFeatureService>();
+
+            // --- Cấu hình JWT Authentication ---
+            services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;

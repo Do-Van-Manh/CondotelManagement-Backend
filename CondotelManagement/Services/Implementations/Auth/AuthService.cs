@@ -10,7 +10,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using CondotelManagement.DTOs.Auth;
+
 namespace CondotelManagement.Services.Implementations.Auth
 {
     public class AuthService : IAuthService
@@ -141,6 +141,26 @@ namespace CondotelManagement.Services.Implementations.Auth
             // 3. Cập nhật user (Cần IUserRepository)
             return await _userRepo.UpdateUserAsync(user);
         }
+
+        public async Task<bool> VerifyOtpAsync(VerifyOtpRequest request)
+        {
+            var user = await _repo.GetByEmailAsync(request.Email);
+            if (user == null)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(user.PasswordResetToken) ||
+                user.PasswordResetToken != request.Otp ||
+                user.ResetTokenExpires < DateTime.UtcNow)
+            {
+                return false;
+            }
+
+            // Only verify validity; do not clear OTP here so it can be used for reset-password-with-otp.
+            return true;
+        }
+
         public async Task<object?> GoogleLoginAsync(GoogleLoginRequest request)
         {
             try
