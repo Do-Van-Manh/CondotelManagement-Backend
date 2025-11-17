@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using CondotelManagement.Data;
 using CondotelManagement.DTOs;
+using CondotelManagement.DTOs.Booking;
 using CondotelManagement.Models;
 using CondotelManagement.Repositories;
 using CondotelManagement.Services.Interfaces.BookingService;
@@ -62,42 +63,61 @@ namespace CondotelManagement.Services
 
         public bool CheckAvailability(int condotelId, DateOnly checkIn, DateOnly checkOut)
         {
-            var bookings = _bookingRepo.GetBookingsByCondotel(condotelId);
+            var today = DateOnly.FromDateTime(DateTime.Today);
+
+            var bookings = _bookingRepo.GetBookingsByCondotel(condotelId)
+                .Where(b =>
+                    b.Status != "Cancelled" &&
+                    b.EndDate >= today   // Chỉ check những phòng chưa kết thúc
+                )
+                .ToList();
+
             return !bookings.Any(b =>
-                b.Status != "Cancelled" && (checkIn < b.EndDate && checkOut > b.StartDate)
+                checkIn < b.EndDate &&
+                checkOut > b.StartDate
             );
         }
 
-        public BookingDTO CreateBooking(BookingDTO dto)
+
+        public ServiceResultDTO CreateBooking(BookingDTO dto)
         {
+            var today = DateOnly.FromDateTime(DateTime.Now);
+
+            // Không được đặt ngày trong quá khứ
+            if (dto.StartDate < today)
+                return ServiceResultDTO.Fail("Start date cannot be in the past.");
+
+            if (dto.EndDate < today)
+                return ServiceResultDTO.Fail("End date cannot be in the past.");
+
+            // Kiểm tra date range hợp lệ
+            int days = (dto.EndDate.ToDateTime(TimeOnly.MinValue) - dto.StartDate.ToDateTime(TimeOnly.MinValue)).Days;
+            if (days <= 0)
+                return ServiceResultDTO.Fail("Invalid date range.");
+
             // Kiểm tra trống
             if (!CheckAvailability(dto.CondotelId, dto.StartDate, dto.EndDate))
-                throw new InvalidOperationException("Condotel is not available in this period.");
+                return ServiceResultDTO.Fail("Condotel is not available in this period.");
 
-            // Lấy giá phòng
+            // Lấy giá
             var condotel = _condotelRepo.GetCondotelById(dto.CondotelId);
             if (condotel == null)
-                throw new InvalidOperationException("Condotel not found.");
-
-            // Tính tổng tiền
-            int days = (dto.EndDate.ToDateTime(TimeOnly.MinValue) - dto.StartDate.ToDateTime(TimeOnly.MinValue)).Days;
-            if (days <= 0) throw new InvalidOperationException("Invalid date range.");
+                return ServiceResultDTO.Fail("Condotel not found.");
 
             decimal price = condotel.PricePerNight * days;
 
-            // Giảm giá khuyến mãi (nếu có)
+            // Promotion
             if (dto.PromotionId.HasValue)
             {
                 var promo = _condotelRepo.GetPromotionById(dto.PromotionId.Value);
                 if (promo != null)
                     price -= price * (promo.DiscountPercentage / 100m);
             }
+
             if (dto.PromotionId == 0)
-            {
                 dto.PromotionId = null;
-            }
 
-
+            // Set fields
             dto.TotalPrice = price;
             dto.Status = "Pending";
             dto.CreatedAt = DateTime.Now;
@@ -107,8 +127,11 @@ namespace CondotelManagement.Services
             _bookingRepo.SaveChanges();
 
             dto.BookingId = entity.BookingId;
-            return dto;
+
+            return ServiceResultDTO.Ok("Booking created successfully.", dto);
         }
+
+
 
         public BookingDTO UpdateBooking(BookingDTO dto)
         {
@@ -173,5 +196,7 @@ namespace CondotelManagement.Services
         {
             return _bookingRepo.GetBookingsByHostAndCustomer(hostId, customerId);
         }
+
+      
     }
 }
