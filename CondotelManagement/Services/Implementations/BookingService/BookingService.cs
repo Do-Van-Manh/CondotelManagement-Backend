@@ -13,12 +13,15 @@ namespace CondotelManagement.Services
 {
     public class BookingService : IBookingService
     {
-        private readonly CondotelDbVer1Context _context = new CondotelDbVer1Context();
+        private readonly CondotelDbVer1Context _context;
+
+    
         private readonly IBookingRepository _bookingRepo;
         private readonly ICondotelRepository _condotelRepo; // để lấy giá phòng
 
-        public BookingService(IBookingRepository bookingRepo, ICondotelRepository condotelRepo)
+        public BookingService(CondotelDbVer1Context context,IBookingRepository bookingRepo,ICondotelRepository condotelRepo)
         {
+            _context = context;
             _bookingRepo = bookingRepo;
             _condotelRepo = condotelRepo;
         }
