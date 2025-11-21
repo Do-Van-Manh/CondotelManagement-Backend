@@ -20,6 +20,8 @@ using CondotelManagement.Services.Interfaces.Blog;
 using CondotelManagement.Services.Interfaces.BookingService;
 using CondotelManagement.Services.Interfaces.Shared;
 using CondotelManagement.Services.Interfaces.Tenant;
+using CondotelManagement.Services.Interfaces.Payment;
+using CondotelManagement.Services.Implementations.Payment;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -101,6 +103,25 @@ namespace CondotelManagement.Configurations
 			// --- Review ---
 			services.AddScoped<IReviewRepository, ReviewRepository>();
 			services.AddScoped<IReviewService, ReviewService>();
+
+            // --- Payment (PayOS) ---
+            services.AddHttpClient<IPayOSService, PayOSService>((serviceProvider, client) =>
+            {
+                var config = serviceProvider.GetRequiredService<IConfiguration>();
+                var baseUrl = config["PayOS:BaseUrl"] ?? "https://api-merchant.payos.vn";
+                var clientId = config["PayOS:ClientId"];
+                var apiKey = config["PayOS:ApiKey"];
+                
+                client.BaseAddress = new Uri(baseUrl);
+                client.Timeout = TimeSpan.FromSeconds(30);
+                
+                // Thêm headers
+                if (!string.IsNullOrEmpty(clientId))
+                    client.DefaultRequestHeaders.Add("x-client-id", clientId);
+                if (!string.IsNullOrEmpty(apiKey))
+                    client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+                client.DefaultRequestHeaders.Add("User-Agent", "CondotelManagement/1.0");
+            });
 
             // --- 2. THEM CAC DONG MOI O DAY ---
             // Dang ky Service cho Package

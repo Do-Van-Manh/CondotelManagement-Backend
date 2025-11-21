@@ -37,3 +37,7 @@ namespace CondotelManagement.Repositories
     }
 }
 
+
+
+
+
