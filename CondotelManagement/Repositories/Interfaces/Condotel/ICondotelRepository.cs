@@ -13,8 +13,16 @@ namespace CondotelManagement.Repositories
         Promotion? GetPromotionById(int promotionId);
 
         IEnumerable<Condotel> GetCondtelsByHost(int hostId);
-		IEnumerable<Condotel> GetCondotelsByNameLocationAndDate(string? name, string? location, DateOnly? fromDate, DateOnly? toDate);
-		
+		IEnumerable<Condotel> GetCondotelsByFilters(
+			string? name,
+			string? location,
+			DateOnly? fromDate,
+			DateOnly? toDate,
+			decimal? minPrice,
+			decimal? maxPrice,
+			int? beds,
+			int? bathrooms);
+
 		// Validation methods
 		bool ResortExists(int? resortId);
 		bool AmenitiesExist(List<int>? amenityIds);

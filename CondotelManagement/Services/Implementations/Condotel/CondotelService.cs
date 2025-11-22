@@ -329,9 +329,17 @@ public class CondotelService : ICondotelService
                 });
     }
 
-	public IEnumerable<CondotelDTO> GetCondotelsByNameLocationAndDate(string? name, string? location, DateOnly? fromDate, DateOnly? toDate)
+	public IEnumerable<CondotelDTO> GetCondotelsByFilters(
+			string? name,
+			string? location,
+			DateOnly? fromDate,
+			DateOnly? toDate,
+			decimal? minPrice,
+			decimal? maxPrice,
+			int? beds,
+			int? bathrooms)
 	{
-		return _condotelRepo.GetCondotelsByNameLocationAndDate(name, location, fromDate, toDate)
+		return _condotelRepo.GetCondotelsByFilters(name, location, fromDate, toDate, minPrice, maxPrice, beds, bathrooms)
 				.Select(c => new CondotelDTO
 				{
 					CondotelId = c.CondotelId,

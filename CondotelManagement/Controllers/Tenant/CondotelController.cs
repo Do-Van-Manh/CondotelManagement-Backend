@@ -20,9 +20,17 @@ namespace CondotelManagement.Controllers
 		// GET api/tenant/condotels?name=abc&location=abc&fromDate=...&toDate=...
 		[HttpGet]
 		[AllowAnonymous]
-		public ActionResult<IEnumerable<CondotelDTO>> GetCondotelsByNameAndLocation([FromQuery] string? name, [FromQuery] string? location, [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate)
+		public ActionResult<IEnumerable<CondotelDTO>> GetCondotelsByFilters(
+				[FromQuery] string? name, 
+				[FromQuery] string? location, 
+				[FromQuery] DateOnly? fromDate, 
+				[FromQuery] DateOnly? toDate,
+				[FromQuery] decimal? minPrice,
+				[FromQuery] decimal? maxPrice,
+				[FromQuery] int? beds,
+				[FromQuery] int? bathrooms)
 		{
-			var condotels = _condotelService.GetCondotelsByNameLocationAndDate(name, location, fromDate, toDate);
+			var condotels = _condotelService.GetCondotelsByFilters(name, location, fromDate, toDate, minPrice, maxPrice, beds, bathrooms);
 			return Ok(condotels);
 		}
 
