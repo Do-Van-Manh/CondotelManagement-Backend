@@ -8,5 +8,7 @@
         public double OccupancyRate { get; set; } // ví dụ: 45.5 (phần trăm)
         public int TotalBookings { get; set; }
         public int TotalCancellations { get; set; }
-    }
+		public int CompletedBookings { get; set; }
+
+	}
 }

@@ -129,8 +129,12 @@ namespace CondotelManagement.Configurations
             // Dang ky Service cho Quyen loi (Singleton vi no la hard-code, khong doi)
             services.AddSingleton<IPackageFeatureService, PackageFeatureService>();
 
-            // --- Cấu hình JWT Authentication ---
-            services.AddAuthentication(options =>
+			// --- Utility ---
+			services.AddScoped<IUtilitiesRepository, UtilitiesRepository>();
+			services.AddScoped<IUtilitiesService, UtilitiesService>();
+
+			// --- Cấu hình JWT Authentication ---
+			services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
