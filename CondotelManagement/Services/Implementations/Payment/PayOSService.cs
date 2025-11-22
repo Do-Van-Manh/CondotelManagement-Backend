@@ -362,59 +362,66 @@ namespace CondotelManagement.Services.Implementations.Payment
                     return false;
                 }
 
-                // Extract BookingId from OrderCode
-                // OrderCode format: BookingId * 1000000 + random 6 digits
                 var orderCode = webhookData.Data.OrderCode;
-                var bookingId = (int)(orderCode / 1000000);
+                var isSuccess = (webhookData.Code == "00" || webhookData.Success == true) &&
+                                (webhookData.Data.Code == "00" || webhookData.Data.Code == "PAID");
 
-                Console.WriteLine($"Processing webhook - OrderCode: {orderCode}, BookingId: {bookingId}, Code: {webhookData.Code}, Data.Code: {webhookData.Data.Code}, Success: {webhookData.Success}");
+                Console.WriteLine($"[Webhook] Nhận thanh toán - OrderCode: {orderCode}, Status: {(isSuccess ? "THÀNH CÔNG" : "THẤT BẠI")}");
 
-                // Check if payment successful
-                // PayOS webhook format:
-                // - code: "00" (success) or other (error)
-                // - success: true/false
-                // - data.code: "00" (Thành công) or other
-                // - data.desc: Description
-                var isSuccess = (webhookData.Code == "00" || webhookData.Success == true) && 
-                    (webhookData.Data.Code == "00" || webhookData.Data.Code == "PAID");
-                
-                if (isSuccess)
+                if (!isSuccess)
                 {
-                    // Get booking
-                    var booking = await _context.Bookings
-                        .FirstOrDefaultAsync(b => b.BookingId == bookingId);
+                    Console.WriteLine($"[Webhook] Thanh toán không thành công - Code: {webhookData.Code}, Data.Code: {webhookData.Data.Code}");
+                    return false;
+                }
 
-                    if (booking == null)
-                    {
-                        Console.WriteLine($"Booking {bookingId} not found for webhook");
-                        return false;
-                    }
+                // === 1. XỬ LÝ BOOKING (GIỮ NGUYÊN HOÀN TOÀN NHƯ CŨ) ===
+                var bookingId = (int)(orderCode / 1000000);
+                var booking = await _context.Bookings
+                    .FirstOrDefaultAsync(b => b.BookingId == bookingId);
 
-                    // Check if already confirmed (idempotent)
+                if (booking != null)
+                {
                     if (booking.Status == "Confirmed" || booking.Status == "Completed")
                     {
-                        Console.WriteLine($"Booking {bookingId} already confirmed, skipping update");
+                        Console.WriteLine($"[Webhook] Booking {bookingId} đã xác nhận trước đó → bỏ qua");
                         return true;
                     }
 
-                    // Update booking status to Confirmed
                     booking.Status = "Confirmed";
                     await _context.SaveChangesAsync();
-
-                    Console.WriteLine($"Booking {bookingId} status updated to Confirmed from webhook (PaymentLinkId: {webhookData.Data.PaymentLinkId}, Reference: {webhookData.Data.Reference})");
+                    Console.WriteLine($"[Webhook] ĐÃ XÁC NHẬN BOOKING {bookingId} THÀNH CÔNG!");
                     return true;
                 }
-                else
+
+                // === 2. NẾU KHÔNG PHẢI BOOKING → XỬ LÝ PACKAGE (MỚI THÊM) ===
+                var packageOrder = await _context.HostPackages
+                    .Include(hp => hp.Package)
+                    .FirstOrDefaultAsync(hp => hp.OrderCode == orderCode && hp.Status == "PendingPayment");
+
+                if (packageOrder != null)
                 {
-                    Console.WriteLine($"Webhook indicates payment not successful - Code: {webhookData.Code}, Data.Code: {webhookData.Data.Code}, Desc: {webhookData.Data.Desc}");
+                    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+                    var durationDays = packageOrder.DurationDays ?? 30;
+
+                    packageOrder.Status = "Active";
+                    packageOrder.StartDate = today;
+                    packageOrder.EndDate = today.AddDays(durationDays);
+
+                    await _context.SaveChangesAsync();
+
+                    Console.WriteLine($"[Webhook] ĐÃ KÍCH HOẠT GÓI DỊCH VỤ \"{packageOrder.Package?.Name}\" CHO HOST {packageOrder.HostId}!");
+                    Console.WriteLine($"[Webhook] Thời hạn: {durationDays} ngày (từ {today:yyyy-MM-dd} đến {packageOrder.EndDate:yyyy-MM-dd})");
+
+                    return true;
                 }
 
+                // Nếu không tìm thấy gì
+                Console.WriteLine($"[Webhook] Không tìm thấy Booking hoặc Package nào cho OrderCode: {orderCode}");
                 return false;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error processing webhook: {ex.Message}");
-                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+                Console.WriteLine($"[Webhook] LỖI XỬ LÝ: {ex.Message}\n{ex.StackTrace}");
                 return false;
             }
         }

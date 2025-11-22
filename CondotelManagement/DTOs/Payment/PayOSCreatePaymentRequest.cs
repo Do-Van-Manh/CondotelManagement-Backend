@@ -12,7 +12,7 @@ namespace CondotelManagement.DTOs.Payment
         public List<PayOSItem> Items { get; set; } = new();
         public string CancelUrl { get; set; } = string.Empty;
         public string ReturnUrl { get; set; } = string.Empty;
-        public long? ExpiredAt { get; set; }
+        public long? ExpiredAt { get; set; }    
     }
 
     public class PayOSItem
