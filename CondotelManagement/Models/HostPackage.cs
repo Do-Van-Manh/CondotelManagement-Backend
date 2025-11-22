@@ -14,6 +14,8 @@ public partial class HostPackage
     public DateOnly EndDate { get; set; }
 
     public string Status { get; set; } = null!;
+    public long? OrderCode { get; set; }        
+    public int? DurationDays { get; set; }
 
     public virtual Host Host { get; set; } = null!;
 

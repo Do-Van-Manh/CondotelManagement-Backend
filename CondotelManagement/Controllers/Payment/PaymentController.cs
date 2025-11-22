@@ -85,7 +85,7 @@ namespace CondotelManagement.Controllers.Payment
                 var random = new Random();
                 var randomSuffix = random.Next(100000, 999999); // 6 chữ số ngẫu nhiên
                 var orderCode = (long)request.BookingId * 1000000L + randomSuffix;
-                
+
                 Console.WriteLine($"Creating payment - BookingId: {request.BookingId}, OrderCode: {orderCode}, TotalPrice: {booking.TotalPrice}");
 
                 // Create PayOS payment request
@@ -107,13 +107,13 @@ namespace CondotelManagement.Controllers.Payment
                 // Nhưng để đảm bảo, kiểm tra cả hai format
                 var totalPriceVnd = (int)booking.TotalPrice.Value;
                 var amount = totalPriceVnd; // Sử dụng VND trực tiếp
-                
+
                 // PayOS minimum amount is 10,000 VND
                 if (amount < 10000)
                 {
                     return BadRequest(new { success = false, message = "Amount must be at least 10,000 VND" });
                 }
-                
+
                 // PayOS description must be <= 25 characters
                 const int payOsDescriptionLimit = 25;
                 var condotelName = booking.Condotel?.Name?.Trim();
@@ -123,7 +123,7 @@ namespace CondotelManagement.Controllers.Payment
                 var description = baseDescription.Length > payOsDescriptionLimit
                     ? baseDescription.Substring(0, payOsDescriptionLimit)
                     : baseDescription;
-                
+
 
                 // Route PayOS callbacks back to API (it will redirect to frontend after processing)
                 var returnUrl = $"{backendBaseUrl}/api/payment/payos/return";
@@ -141,8 +141,8 @@ namespace CondotelManagement.Controllers.Payment
                         new PayOSItem
                         {
                             // Giữ nguyên ký tự tiếng Việt trong item name
-                            Name = !string.IsNullOrWhiteSpace(booking.Condotel?.Name) 
-                                ? booking.Condotel.Name 
+                            Name = !string.IsNullOrWhiteSpace(booking.Condotel?.Name)
+                                ? booking.Condotel.Name
                                 : $"Đặt phòng #{request.BookingId}",
                             Quantity = 1,
                             Price = amount
@@ -156,14 +156,14 @@ namespace CondotelManagement.Controllers.Payment
                 PayOSCreatePaymentResponse? response = null;
                 int maxRetries = 3;
                 int retryCount = 0;
-                
+
                 while (retryCount < maxRetries)
                 {
                     try
                     {
                         // Tạo payment link mới
                         response = await _payOSService.CreatePaymentLinkAsync(payOSRequest);
-                        
+
                         // Nếu thành công, break khỏi loop
                         if (response.Code == "00")
                         {
@@ -178,13 +178,13 @@ namespace CondotelManagement.Controllers.Payment
                     {
                         retryCount++;
                         Console.WriteLine($"Code: 20 error received (attempt {retryCount}/{maxRetries}). Generating new orderCode...");
-                        
+
                         // Tạo orderCode mới với random suffix khác
                         var newRandom = new Random();
                         var newRandomSuffix = newRandom.Next(100000, 999999);
                         orderCode = (long)request.BookingId * 1000000L + newRandomSuffix;
                         payOSRequest.OrderCode = orderCode;
-                        
+
                         Console.WriteLine($"New OrderCode: {orderCode}");
                         await Task.Delay(1000); // Đợi một chút trước khi retry
                     }
@@ -194,13 +194,13 @@ namespace CondotelManagement.Controllers.Payment
                         throw;
                     }
                 }
-                
+
                 // Kiểm tra response có giá trị
                 if (response == null)
                 {
                     throw new InvalidOperationException("Failed to create payment link after retries");
                 }
-                
+
                 // Nếu vẫn lỗi sau khi retry
                 if (response.Code != "00")
                 {
@@ -211,7 +211,7 @@ namespace CondotelManagement.Controllers.Payment
                 {
                     // Store paymentLinkId and orderCode for future reference (optional - can be stored in database)
                     Console.WriteLine($"Payment link created - BookingId: {request.BookingId}, OrderCode: {response.Data.OrderCode}, PaymentLinkId: {response.Data.PaymentLinkId}");
-                    
+
                     return Ok(new
                     {
                         success = true,
@@ -239,10 +239,10 @@ namespace CondotelManagement.Controllers.Payment
             {
                 Console.WriteLine($"Create PayOS Payment Error: {ex.Message}");
                 Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-                
+
                 // Check if it's a connection error
-                if (ex.Message.Contains("Cannot connect to PayOS API") || 
-                    ex.Message.Contains("timed out") || 
+                if (ex.Message.Contains("Cannot connect to PayOS API") ||
+                    ex.Message.Contains("timed out") ||
                     ex.InnerException is System.Net.Http.HttpRequestException)
                 {
                     return StatusCode(503, new
@@ -251,7 +251,7 @@ namespace CondotelManagement.Controllers.Payment
                         message = ex.Message
                     });
                 }
-                
+
                 return StatusCode(500, new
                 {
                     success = false,
@@ -297,10 +297,10 @@ namespace CondotelManagement.Controllers.Payment
             {
                 Console.WriteLine($"Get Payment Status Error: {ex.Message}");
                 Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-                
+
                 // Check if it's a connection error
-                if (ex.Message.Contains("Cannot connect to PayOS API") || 
-                    ex.Message.Contains("timed out") || 
+                if (ex.Message.Contains("Cannot connect to PayOS API") ||
+                    ex.Message.Contains("timed out") ||
                     ex.InnerException is System.Net.Http.HttpRequestException)
                 {
                     return StatusCode(503, new
@@ -309,7 +309,7 @@ namespace CondotelManagement.Controllers.Payment
                         message = ex.Message
                     });
                 }
-                
+
                 return StatusCode(500, new
                 {
                     success = false,
@@ -330,10 +330,10 @@ namespace CondotelManagement.Controllers.Payment
         [HttpGet("payos/return")]
         [AllowAnonymous]
         public async Task<IActionResult> PayOSReturnUrl(
-            [FromQuery] string? code, 
-            [FromQuery] string? id, 
-            [FromQuery] string? cancel, 
-            [FromQuery] string? status, 
+            [FromQuery] string? code,
+            [FromQuery] string? id,
+            [FromQuery] string? cancel,
+            [FromQuery] string? status,
             [FromQuery] long? orderCode)
         {
             try
@@ -374,7 +374,7 @@ namespace CondotelManagement.Controllers.Payment
                 // Process based on status and cancel flag
                 // Status values: PAID, PENDING, PROCESSING, CANCELLED
                 // Cancel: "true" = cancelled, "false" = paid/pending
-                
+
                 if (status == "PAID" && cancel != "true")
                 {
                     // Payment successful
@@ -384,7 +384,7 @@ namespace CondotelManagement.Controllers.Payment
                         await _context.SaveChangesAsync();
                         Console.WriteLine($"Booking {bookingId} status updated to Confirmed from Return URL (Payment Link Id: {id})");
                     }
-                    
+
                     return Redirect($"{frontendUrl}/pay-done?bookingId={bookingId}&status=success&orderCode={orderCode}&paymentLinkId={id}");
                 }
                 else if (status == "CANCELLED" || cancel == "true")
@@ -536,10 +536,10 @@ namespace CondotelManagement.Controllers.Payment
             {
                 Console.WriteLine($"Cancel Payment Error: {ex.Message}");
                 Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-                
+
                 // Check if it's a connection error
-                if (ex.Message.Contains("Cannot connect to PayOS API") || 
-                    ex.Message.Contains("timed out") || 
+                if (ex.Message.Contains("Cannot connect to PayOS API") ||
+                    ex.Message.Contains("timed out") ||
                     ex.InnerException is System.Net.Http.HttpRequestException)
                 {
                     return StatusCode(503, new
@@ -548,7 +548,7 @@ namespace CondotelManagement.Controllers.Payment
                         message = ex.Message
                     });
                 }
-                
+
                 return StatusCode(500, new
                 {
                     success = false,
@@ -569,7 +569,7 @@ namespace CondotelManagement.Controllers.Payment
                 var clientId = _configuration["PayOS:ClientId"];
                 var apiKey = _configuration["PayOS:ApiKey"];
                 var baseUrl = _configuration["PayOS:BaseUrl"];
-                
+
                 return Ok(new
                 {
                     success = true,
@@ -622,14 +622,15 @@ namespace CondotelManagement.Controllers.Payment
                 // Or better: PayOS might allow canceling by OrderCode range
                 // For now, we'll try to cancel using the base OrderCode (BookingId * 1000000)
                 // But this won't work if the random suffix is needed
-                
+
                 // Better approach: Try to get payment info using OrderCode pattern
                 // Since we can't know exact OrderCode, we'll need to store it when creating payment
                 // For now, return error asking for paymentLinkId
-                
-                return BadRequest(new { 
-                    success = false, 
-                    message = "Cannot cancel payment without exact OrderCode. Please use the paymentLinkId returned when creating the payment link, or use endpoint: POST /api/payment/payos/cancel/{paymentLinkId}" 
+
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Cannot cancel payment without exact OrderCode. Please use the paymentLinkId returned when creating the payment link, or use endpoint: POST /api/payment/payos/cancel/{paymentLinkId}"
                 });
             }
             catch (Exception ex)
@@ -647,7 +648,7 @@ namespace CondotelManagement.Controllers.Payment
 
             var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
             var sb = new System.Text.StringBuilder();
-            
+
             foreach (var c in normalized)
             {
                 var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
@@ -656,9 +657,9 @@ namespace CondotelManagement.Controllers.Payment
                     sb.Append(c);
                 }
             }
-            
+
             var result = sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
-            
+
             // Replace specific Vietnamese characters
             var replacements = new Dictionary<string, string>
             {
@@ -688,17 +689,102 @@ namespace CondotelManagement.Controllers.Payment
                 { "Ư", "U" }, { "Ừ", "U" }, { "Ứ", "U" }, { "Ự", "U" }, { "Ử", "U" }, { "Ữ", "U" },
                 { "Ỳ", "Y" }, { "Ý", "Y" }, { "Ỵ", "Y" }, { "Ỷ", "Y" }, { "Ỹ", "Y" }
             };
-            
+
             foreach (var replacement in replacements)
             {
                 result = result.Replace(replacement.Key, replacement.Value);
             }
-            
+
             return result;
+        }
+
+        // 1. SỬA DTO: OrderCode là string
+        public class CreatePackagePaymentRequest
+        {
+            public string OrderCode { get; set; } = string.Empty;  // ← STRING LUÔN!
+            public int Amount { get; set; }
+            public string? Description { get; set; }
+        }
+
+        [HttpPost("create-package-payment")]
+        [Authorize]
+        public async Task<IActionResult> CreatePackagePayment([FromBody] CreatePackagePaymentRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.OrderCode) || request.Amount <= 0)
+                return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ" });
+
+            try
+            {
+                // FIX DUY NHẤT – XỬ LÝ ORDERCODE LỚN CHÍNH XÁC 100%
+                long orderCodeLong;
+                if (!long.TryParse(request.OrderCode.Trim(), System.Globalization.NumberStyles.None, null, out orderCodeLong))
+                {
+                    // Nếu là dạng khoa học (e+24), ép về string nguyên rồi parse lại
+                    var cleanOrderCode = new string(request.OrderCode.Where(char.IsDigit).ToArray());
+                    if (!long.TryParse(cleanOrderCode, out orderCodeLong))
+                    {
+                        return BadRequest(new { success = false, message = "OrderCode không hợp lệ" });
+                    }
+                }
+                // ĐẾN ĐÂY LÀ ORDERCODE ĐÃ LÀ LONG CHÍNH XÁC 100%!!!
+
+                var description = string.IsNullOrWhiteSpace(request.Description)
+                    ? "Nâng cấp gói dịch vụ"
+                    : request.Description.Length > 25 ? request.Description.Substring(0, 25) : request.Description;
+
+                var frontendUrl = _configuration["AppSettings:FrontendUrl"] ?? "http://localhost:3000";
+                var returnUrl = $"{frontendUrl}/payment/success?type=package";
+                var cancelUrl = $"{frontendUrl}/pricing";
+
+                var payOSRequest = new PayOSCreatePaymentRequest
+                {
+                    OrderCode = orderCodeLong,  // BÂY GIỜ ĐÃ AN TOÀN HOÀN TOÀN
+                    Amount = request.Amount,
+                    Description = description,
+                    Items = new List<PayOSItem>
+        {
+            new PayOSItem { Name = description, Quantity = 1, Price = request.Amount }
+        },
+                    ReturnUrl = returnUrl,
+                    CancelUrl = cancelUrl
+                };
+
+                var response = await _payOSService.CreatePaymentLinkAsync(payOSRequest);
+
+                if (response?.Code == "00" && response.Data != null)
+                {
+                    return Ok(new
+                    {
+                        success = true,
+                        message = "Tạo link thanh toán thành công!",
+                        data = new
+                        {
+                            checkoutUrl = response.Data.CheckoutUrl,
+                            qrCode = response.Data.QrCode ?? "",
+                            orderCode = response.Data.OrderCode,
+                            paymentLinkId = response.Data.PaymentLinkId
+                        }
+                    });
+                }
+
+                return BadRequest(new { success = false, message = response?.Desc ?? "Lỗi từ PayOS" });
+            }
+            catch (FormatException ex)
+            {
+                // ← Bắt riêng lỗi parse để dễ debug
+                Console.WriteLine($"[CreatePackagePayment] OrderCode không hợp lệ: {request.OrderCode}");
+                return StatusCode(500, new { success = false, message = "OrderCode không hợp lệ" });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CreatePackagePayment] ERROR: {ex.Message}\n{ex.StackTrace}");
+                return StatusCode(500, new { success = false, message = "Lỗi hệ thống khi tạo link thanh toán" });
+            }
         }
     }
 
-    public class CreatePaymentRequest
+
+        public class CreatePaymentRequest
     {
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "BookingId is required")]
         [System.ComponentModel.DataAnnotations.Range(1, int.MaxValue, ErrorMessage = "BookingId must be greater than 0")]

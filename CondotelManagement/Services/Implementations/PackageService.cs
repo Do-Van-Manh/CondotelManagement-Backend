@@ -74,32 +74,37 @@ namespace CondotelManagement.Services.Implementations
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             var durationDays = ParseDuration(packageToBuy.Duration);
-            var endDate = today.AddDays(durationDays);
 
-            // DÙNG TÊN BẢNG ĐÚNG CỦA BẠN: HostPackage (số ít)
+            // TẠO ORDERCODE AN TOÀN 100% CHO PAYOS – 14 CHỮ SỐ – ĐẸP NHƯ MÃ VẬN ĐƠN!
+            var orderCode = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
+            // Ví dụ: 20251122153045 → 14 chữ số → PayOS yêu thương liền!
+
             // XÓA GÓI CŨ (nếu có)
             await _context.Database.ExecuteSqlRawAsync(
                 "DELETE FROM HostPackage WHERE HostID = {0}", hostId);
 
-            // THÊM GÓI MỚI – ĐÚNG TÊN CỘT TRONG DB CỦA BẠN
+            // TẠO GÓI MỚI – STATUS = PendingPayment, CHƯA CÓ STARTDATE & ENDDATE
             await _context.Database.ExecuteSqlRawAsync(
-                @"INSERT INTO HostPackage (HostID, PackageID, StartDate, EndDate, Status) 
-          VALUES ({0}, {1}, {2}, {3}, 'Active')",
-                hostId, packageId, today, endDate);
+                @"INSERT INTO HostPackage (HostID, PackageID, StartDate, EndDate, Status, OrderCode, DurationDays)
+          VALUES ({0}, {1}, NULL, NULL, 'PendingPayment', {2}, {3})",
+                hostId, packageId, orderCode, durationDays);
 
-            // Trả về thông tin gói mới
             var currentListings = await _context.Condotels
                 .CountAsync(c => c.HostId == hostId && c.Status != "Deleted");
 
             return new HostPackageDetailsDto
             {
                 PackageName = packageToBuy.Name,
-                Status = "Active",
-                StartDate = today,
-                EndDate = endDate,
+                Status = "PendingPayment", // Đang chờ thanh toán
+                StartDate = null,          // Chưa có (webhook sẽ fill khi thành công)
+                EndDate = null,            // Chưa có
                 CurrentListings = currentListings,
                 MaxListings = _featureService.GetMaxListingCount(packageId),
-                CanUseFeaturedListing = _featureService.CanUseFeaturedListing(packageId)
+                CanUseFeaturedListing = _featureService.CanUseFeaturedListing(packageId),
+                Message = "Đã tạo đơn hàng thành công! Đang chuyển đến cổng thanh toán PayOS...",
+                PaymentUrl = null,
+                OrderCode = orderCode,     // ← Quan trọng: trả về cho FE
+                Amount = packageToBuy.Price.GetValueOrDefault(0)
             };
         }
 
@@ -120,13 +125,17 @@ namespace CondotelManagement.Services.Implementations
         {
             return new HostPackageDetailsDto
             {
-                PackageName = hostPackage.Package.Name,
+                PackageName = hostPackage.Package?.Name ?? "Không xác định",
                 Status = hostPackage.Status,
-                StartDate = hostPackage.StartDate, // Model la DateOnly
-                EndDate = hostPackage.EndDate,     // Model la DateOnly
+                StartDate = hostPackage.StartDate.ToString("yyyy-MM-dd"),  // ← ĐÃ FIX
+                EndDate = hostPackage.EndDate.ToString("yyyy-MM-dd"),      // ← ĐÃ FIX
                 CurrentListings = currentListings,
                 MaxListings = _featureService.GetMaxListingCount(hostPackage.PackageId),
-                CanUseFeaturedListing = _featureService.CanUseFeaturedListing(hostPackage.PackageId)
+                CanUseFeaturedListing = _featureService.CanUseFeaturedListing(hostPackage.PackageId),
+                Message = null,
+                PaymentUrl = null,
+                OrderCode = 0,
+                Amount = 0
             };
         }
     }
