@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Google.Apis.Util;
+using System;
 using System.Collections.Generic;
 
 namespace CondotelManagement.Models;
@@ -24,4 +25,6 @@ public partial class Host
     public virtual User User { get; set; } = null!;
 
     public virtual ICollection<Wallet> Wallets { get; set; } = new List<Wallet>();
+
+	public virtual ICollection<Utility> Utilities { get; set; } = new List<Utility>();
 }
