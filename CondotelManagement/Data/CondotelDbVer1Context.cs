@@ -69,6 +69,8 @@ public partial class CondotelDbVer1Context : DbContext
     public virtual DbSet<Voucher> Vouchers { get; set; }
 
     public virtual DbSet<Wallet> Wallets { get; set; }
+    public DbSet<ChatConversation> ChatConversations { get; set; } = null!;
+    public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -546,6 +548,28 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Active");
+        });
+        modelBuilder.Entity<ChatConversation>()
+        .ToTable("ChatConversation");
+        modelBuilder.Entity<ChatMessage>()
+        .ToTable("ChatMessage");
+        modelBuilder.Entity<ChatConversation>(b =>
+        {
+            b.HasKey(c => c.ConversationId);
+            b.Property(c => c.Name).HasMaxLength(255);
+            b.Property(c => c.ConversationType).HasMaxLength(20).IsRequired();
+            b.Property(c => c.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+        });
+        modelBuilder.Entity<ChatMessage>(b =>
+        {
+            b.HasKey(m => m.MessageId);
+            b.Property(m => m.SentAt).HasDefaultValueSql("GETUTCDATE()");
+            b.Property(m => m.Content).HasColumnType("nvarchar(max)");
+            b.HasOne(m => m.Conversation)
+             .WithMany(c => c.Messages)
+             .HasForeignKey(m => m.ConversationId)
+             .OnDelete(DeleteBehavior.Cascade);
+
         });
 
         modelBuilder.Entity<User>(entity =>
