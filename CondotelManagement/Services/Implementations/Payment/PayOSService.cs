@@ -356,6 +356,7 @@ namespace CondotelManagement.Services.Implementations.Payment
         {
             try
             {
+                // --- 1. VALIDATE DỮ LIỆU (GIỮ NGUYÊN) ---
                 if (webhookData.Data == null)
                 {
                     Console.WriteLine("Webhook data is null");
@@ -370,12 +371,15 @@ namespace CondotelManagement.Services.Implementations.Payment
 
                 if (!isSuccess)
                 {
-                    Console.WriteLine($"[Webhook] Thanh toán không thành công - Code: {webhookData.Code}, Data.Code: {webhookData.Data.Code}");
                     return false;
                 }
 
-                // === 1. XỬ LÝ BOOKING (GIỮ NGUYÊN HOÀN TOÀN NHƯ CŨ) ===
+                // ========================================================================
+                // PHẦN 1: XỬ LÝ BOOKING (GIỮ NGUYÊN 100% - KHÔNG ĐỘNG VÀO)
+                // ========================================================================
                 var bookingId = (int)(orderCode / 1000000);
+
+                // Chỉ tìm thử, nếu có thì xử lý, không có thì thôi
                 var booking = await _context.Bookings
                     .FirstOrDefaultAsync(b => b.BookingId == bookingId);
 
@@ -390,38 +394,82 @@ namespace CondotelManagement.Services.Implementations.Payment
                     booking.Status = "Confirmed";
                     await _context.SaveChangesAsync();
                     Console.WriteLine($"[Webhook] ĐÃ XÁC NHẬN BOOKING {bookingId} THÀNH CÔNG!");
+
+                    // QUAN TRỌNG: Return true ngay lập tức để không chạy xuống phần Package
                     return true;
                 }
 
-                // === 2. NẾU KHÔNG PHẢI BOOKING → XỬ LÝ PACKAGE (MỚI THÊM) ===
-                var packageOrder = await _context.HostPackages
-                    .Include(hp => hp.Package)
-                    .FirstOrDefaultAsync(hp => hp.OrderCode == orderCode && hp.Status == "PendingPayment");
+                // ========================================================================
+                // PHẦN 2: XỬ LÝ PACKAGE (PHẦN CỦA BẠN - ĐÃ SỬA DÙNG SQL UPDATE TRỰC TIẾP)
+                // ========================================================================
 
-                if (packageOrder != null)
+                // Tính toán ID
+                var hostId = (int)(orderCode / 1_000_000_000L);
+                var packageId = (int)((orderCode % 1_000_000_000L) / 1_000_000L);
+
+                Console.WriteLine($"[Webhook] Đang check Package cho Host: {hostId}, Pack: {packageId}");
+
+                // Kiểm tra xem đơn hàng này có tồn tại không
+                // Không cần Include Package hay Host ở đây để tối ưu query
+                var packageOrderExists = await _context.HostPackages
+                    .Where(hp => hp.HostId == hostId
+                              && hp.PackageId == packageId
+                              && hp.Status == "PendingPayment")
+                    .Select(hp => new { hp.DurationDays }) // Chỉ lấy cái cần
+                    .FirstOrDefaultAsync();
+
+                if (packageOrderExists != null)
                 {
                     var today = DateOnly.FromDateTime(DateTime.UtcNow);
-                    var durationDays = packageOrder.DurationDays ?? 30;
+                    var durationDays = packageOrderExists.DurationDays ?? 30;
+                    var endDate = today.AddDays(durationDays);
 
-                    packageOrder.Status = "Active";
-                    packageOrder.StartDate = today;
-                    packageOrder.EndDate = today.AddDays(durationDays);
+                    // A. UPDATE HOST PACKAGE (Dùng ExecuteUpdateAsync cho chắc chắn)
+                    var rowsPkg = await _context.HostPackages
+                        .Where(hp => hp.HostId == hostId && hp.PackageId == packageId)
+                        .ExecuteUpdateAsync(s => s
+                            .SetProperty(hp => hp.Status, "Active")
+                            .SetProperty(hp => hp.StartDate, today)
+                            .SetProperty(hp => hp.EndDate, endDate)
+                        );
 
-                    await _context.SaveChangesAsync();
+                    if (rowsPkg > 0)
+                    {
+                        Console.WriteLine($"[Webhook] ✅ Đã Active gói HostPackage (SQL Direct Update).");
+                    }
 
-                    Console.WriteLine($"[Webhook] ĐÃ KÍCH HOẠT GÓI DỊCH VỤ \"{packageOrder.Package?.Name}\" CHO HOST {packageOrder.HostId}!");
-                    Console.WriteLine($"[Webhook] Thời hạn: {durationDays} ngày (từ {today:yyyy-MM-dd} đến {packageOrder.EndDate:yyyy-MM-dd})");
+                    // B. UPDATE ROLE USER (Dùng ExecuteUpdateAsync)
+                    // Tìm UserId từ bảng Host
+                    var userId = await _context.Hosts
+                        .Where(h => h.HostId == hostId)
+                        .Select(h => h.UserId)
+                        .FirstOrDefaultAsync();
+
+                    if (userId != 0) // Kiểm tra khác 0 (int mặc định là 0 nếu không tìm thấy)
+                    {
+                        // Bắn SQL Update Role ngay lập tức
+                        await _context.Users
+                            .Where(u => u.UserId == userId && u.RoleId != 4)
+                            .ExecuteUpdateAsync(s => s.SetProperty(u => u.RoleId, 4));
+
+                        Console.WriteLine($"[Webhook] ✅ Đã nâng RoleID = 4 cho UserID: {userId}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[Webhook] ⚠️ Không tìm thấy UserID cho HostID: {hostId}");
+                    }
 
                     return true;
                 }
 
-                // Nếu không tìm thấy gì
-                Console.WriteLine($"[Webhook] Không tìm thấy Booking hoặc Package nào cho OrderCode: {orderCode}");
+                // ========================================================================
+
+                Console.WriteLine($"[Webhook] Không tìm thấy đơn hàng nào khớp với OrderCode: {orderCode}");
                 return false;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Webhook] LỖI XỬ LÝ: {ex.Message}\n{ex.StackTrace}");
+                Console.WriteLine($"[Webhook CRITICAL ERROR] {ex.Message}");
                 return false;
             }
         }

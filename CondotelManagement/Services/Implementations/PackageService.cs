@@ -72,22 +72,45 @@ namespace CondotelManagement.Services.Implementations
             if (packageToBuy == null)
                 throw new Exception("Gói dịch vụ không hợp lệ hoặc đã ngừng hoạt động.");
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
             var durationDays = ParseDuration(packageToBuy.Duration);
 
-            // TẠO ORDERCODE AN TOÀN 100% CHO PAYOS – 14 CHỮ SỐ – ĐẸP NHƯ MÃ VẬN ĐƠN!
-            var orderCode = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
-            // Ví dụ: 20251122153045 → 14 chữ số → PayOS yêu thương liền!
+            // XÓA GÓI CŨ
+            var oldPackage = await _context.HostPackages.FirstOrDefaultAsync(hp => hp.HostId == hostId);
+            if (oldPackage != null)
+                _context.HostPackages.Remove(oldPackage);
 
-            // XÓA GÓI CŨ (nếu có)
-            await _context.Database.ExecuteSqlRawAsync(
-                "DELETE FROM HostPackage WHERE HostID = {0}", hostId);
+            // TẠO ORDERCODE TRƯỚC (để tránh lỗi null)
+            var randomPart = new Random().Next(100000, 999999);
+            var orderCode = (long)hostId * 1_000_000_000L + (long)packageId * 1_000_000L + randomPart;
 
-            // TẠO GÓI MỚI – STATUS = PendingPayment, CHƯA CÓ STARTDATE & ENDDATE
-            await _context.Database.ExecuteSqlRawAsync(
-                @"INSERT INTO HostPackage (HostID, PackageID, StartDate, EndDate, Status, OrderCode, DurationDays)
-          VALUES ({0}, {1}, NULL, NULL, 'PendingPayment', {2}, {3})",
-                hostId, packageId, orderCode, durationDays);
+            while (orderCode > 99999999999999L)
+            {
+                randomPart = new Random().Next(100000, 999999);
+                orderCode = (long)hostId * 1_000_000_000L + (long)packageId * 1_000_000L + randomPart;
+            }
+
+            // TẠO BẢN GHI MỚI – GÁN GIÁ TRỊ MẶC ĐỊNH CHO DateOnly (non-nullable)
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var futureDate = today.AddYears(100); // ngày xa xỉ để tạm = "chưa kích hoạt"
+
+            var newHostPackage = new HostPackage
+            {
+                HostId = hostId,
+                PackageId = packageId,
+                Status = "PendingPayment",
+                DurationDays = durationDays,
+                OrderCode = orderCode.ToString(),
+                StartDate = futureDate,  // GÁN GIÁ TRỊ MẶC ĐỊNH ĐỂ TRÁNH LỖI
+                EndDate = futureDate     // GÁN GIÁ TRỊ MẶC ĐỊNH
+            };
+
+            _context.HostPackages.Add(newHostPackage);
+            await _context.SaveChangesAsync();
+
+            // Cập nhật lại thành NULL (hoặc để trống) SAU khi đã Add
+            newHostPackage.StartDate = null;  // BÂY GIỜ MỚI GÁN NULL ĐƯỢC (vì đã qua EF validation)
+            newHostPackage.EndDate = null;
+            await _context.SaveChangesAsync();
 
             var currentListings = await _context.Condotels
                 .CountAsync(c => c.HostId == hostId && c.Status != "Deleted");
@@ -95,15 +118,15 @@ namespace CondotelManagement.Services.Implementations
             return new HostPackageDetailsDto
             {
                 PackageName = packageToBuy.Name,
-                Status = "PendingPayment", // Đang chờ thanh toán
-                StartDate = null,          // Chưa có (webhook sẽ fill khi thành công)
-                EndDate = null,            // Chưa có
+                Status = "PendingPayment",
+                StartDate = null,
+                EndDate = null,
                 CurrentListings = currentListings,
                 MaxListings = _featureService.GetMaxListingCount(packageId),
                 CanUseFeaturedListing = _featureService.CanUseFeaturedListing(packageId),
                 Message = "Đã tạo đơn hàng thành công! Đang chuyển đến cổng thanh toán PayOS...",
                 PaymentUrl = null,
-                OrderCode = orderCode,     // ← Quan trọng: trả về cho FE
+                OrderCode = orderCode,
                 Amount = packageToBuy.Price.GetValueOrDefault(0)
             };
         }
@@ -127,8 +150,8 @@ namespace CondotelManagement.Services.Implementations
             {
                 PackageName = hostPackage.Package?.Name ?? "Không xác định",
                 Status = hostPackage.Status,
-                StartDate = hostPackage.StartDate.ToString("yyyy-MM-dd"),  // ← ĐÃ FIX
-                EndDate = hostPackage.EndDate.ToString("yyyy-MM-dd"),      // ← ĐÃ FIX
+                StartDate = hostPackage.StartDate?.ToString("yyyy-MM-dd"),
+                EndDate = hostPackage.EndDate?.ToString("yyyy-MM-dd"),
                 CurrentListings = currentListings,
                 MaxListings = _featureService.GetMaxListingCount(hostPackage.PackageId),
                 CanUseFeaturedListing = _featureService.CanUseFeaturedListing(hostPackage.PackageId),
