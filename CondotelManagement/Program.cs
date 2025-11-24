@@ -2,9 +2,11 @@
 using System.Text.Json.Serialization;
 using CondotelManagement.Configurations;
 using CondotelManagement.Data;
+using CondotelManagement.Hub;
 using CondotelManagement.Models;
 using CondotelManagement.Services.CloudinaryService;
 using CondotelManagement.Services.Interfaces.Cloudinary;
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 
@@ -123,6 +125,10 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseCors("AllowFrontend");
+app.MapHub<ChatHub>("/hubs/chat", options =>
+{
+    options.Transports = HttpTransportType.WebSockets;
+});
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

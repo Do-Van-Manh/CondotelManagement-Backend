@@ -25,6 +25,10 @@ using CondotelManagement.Services.Implementations.Payment;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using CondotelManagement.Repositories.Implementations.Chat;
+using CondotelManagement.Repositories.Interfaces.Chat;
+using CondotelManagement.Services.Implementations.Chat;
+using CondotelManagement.Services.Interfaces.Chat;
 
 namespace CondotelManagement.Configurations
 {
@@ -103,6 +107,11 @@ namespace CondotelManagement.Configurations
 			// --- Review ---
 			services.AddScoped<IReviewRepository, ReviewRepository>();
 			services.AddScoped<IReviewService, ReviewService>();
+
+            //--Chat--
+            services.AddScoped<IChatService, ChatService>();
+            services.AddScoped<IChatRepository, ChatRepository>();
+            services.AddSignalR();
 
             // --- Payment (PayOS) ---
             services.AddHttpClient<IPayOSService, PayOSService>((serviceProvider, client) =>
