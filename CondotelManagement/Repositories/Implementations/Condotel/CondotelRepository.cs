@@ -119,7 +119,15 @@ namespace CondotelManagement.Repositories
                     .ToList();
         }
 
-	public IEnumerable<Condotel> GetCondotelsByNameLocationAndDate(string? name, string? location, DateOnly? fromDate, DateOnly? toDate)
+	public IEnumerable<Condotel> GetCondotelsByFilters(
+			string? name,
+			string? location,
+			DateOnly? fromDate,
+			DateOnly? toDate,
+			decimal? minPrice,
+			decimal? maxPrice,
+			int? beds,
+			int? bathrooms)
 	{
 		// Validate date range trước
 		if (fromDate.HasValue && toDate.HasValue && fromDate.Value > toDate.Value)
@@ -170,8 +178,40 @@ namespace CondotelManagement.Repositories
 			}
 		}
 
-		// Include các navigation properties sau khi đã filter
-		query = query
+			// ------------------------------------
+			// 3. Lọc theo PricePerNight
+			// ------------------------------------
+			if (minPrice.HasValue)
+				query = query.Where(c => c.PricePerNight >= minPrice.Value);
+
+			if (maxPrice.HasValue)
+				query = query.Where(c => c.PricePerNight <= maxPrice.Value);
+
+			// ------------------------------------
+			// 4. Lọc theo Beds & Bathrooms (join CondotelDetails)
+			// ------------------------------------
+			if (beds.HasValue)
+			{
+				query = query.Where(c =>
+					_context.CondotelDetails.Any(d =>
+						d.CondotelId == c.CondotelId &&
+						d.Beds >= beds.Value
+					)
+				);
+			}
+
+			if (bathrooms.HasValue)
+			{
+				query = query.Where(c =>
+					_context.CondotelDetails.Any(d =>
+						d.CondotelId == c.CondotelId &&
+						d.Bathrooms >= bathrooms.Value
+					)
+				);
+			}
+
+			// Include các navigation properties sau khi đã filter
+			query = query
 			.Include(c => c.Resort)
 				.ThenInclude(r => r.Location)
 			.Include(c => c.Host)

@@ -86,6 +86,10 @@ namespace CondotelManagement.Repositories
 			//Occupancy rate = số đêm phòng được đặt / số đêm phòng có thể bán trong khoảng thời gian đó
 			double occupancyRate = possibleNights > 0 ? (bookedNights / possibleNights) * 100 : 0;
 
+			int completedBookings = await bookings
+				.Where(b => b.Status == "Completed")
+				.CountAsync();
+
 			return new HostReportDTO
 			{
 				Revenue = Math.Round(revenue, 2),
@@ -93,7 +97,8 @@ namespace CondotelManagement.Repositories
 				RoomsBooked = roomsBooked,
 				OccupancyRate = Math.Round(occupancyRate, 2),
 				TotalBookings = totalBookings,
-				TotalCancellations = totalCancellations
+				TotalCancellations = totalCancellations,
+				CompletedBookings = completedBookings
 			};
         }
     }

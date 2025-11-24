@@ -20,6 +20,8 @@ using CondotelManagement.Services.Interfaces.Blog;
 using CondotelManagement.Services.Interfaces.BookingService;
 using CondotelManagement.Services.Interfaces.Shared;
 using CondotelManagement.Services.Interfaces.Tenant;
+using CondotelManagement.Services.Interfaces.Payment;
+using CondotelManagement.Services.Implementations.Payment;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -136,8 +138,12 @@ namespace CondotelManagement.Configurations
             // Dang ky Service cho Quyen loi (Singleton vi no la hard-code, khong doi)
             services.AddSingleton<IPackageFeatureService, PackageFeatureService>();
 
-            // --- Cấu hình JWT Authentication ---
-            services.AddAuthentication(options =>
+			// --- Utility ---
+			services.AddScoped<IUtilitiesRepository, UtilitiesRepository>();
+			services.AddScoped<IUtilitiesService, UtilitiesService>();
+
+			// --- Cấu hình JWT Authentication ---
+			services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
