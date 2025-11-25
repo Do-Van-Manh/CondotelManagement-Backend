@@ -19,6 +19,9 @@
 
 		// ------ PACKAGE INFO ------
 		public List<HostPackageDTO> Packages { get; set; }
+
+		public WalletDTO Wallet { get; set; }
+
 	}
 
 	public class HostPackageDTO
@@ -28,4 +31,13 @@
 		public DateOnly? StartDate { get; set; }
 		public DateOnly? EndDate { get; set; }
 	}
+
+	public class WalletDTO
+	{
+		public int WalletID { get; set; }
+		public string BankName { get; set; }
+		public string AccountNumber { get; set; }
+		public string AccountHolderName { get; set; }
+	}
+
 }

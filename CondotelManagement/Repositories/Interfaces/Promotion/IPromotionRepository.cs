@@ -11,6 +11,7 @@ namespace CondotelManagement.Repositories
         Task UpdateAsync(Promotion promotion);
         Task DeleteAsync(Promotion promotion);
 		Task<bool> CheckOverlapAsync(int? condotelId, DateOnly startDate, DateOnly endDate);
+		Task<IEnumerable<Promotion>> GetAllByHostAsync(int hostId);
 	}
 }
 

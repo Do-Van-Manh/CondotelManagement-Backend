@@ -13,9 +13,9 @@ namespace CondotelManagement.Services
             _repo = repo;
         }
 
-        public async Task<IEnumerable<ServicePackageDTO>> GetAllAsync()
-        {
-            var data = await _repo.GetAllAsync();
+        public async Task<IEnumerable<ServicePackageDTO>> GetAllByHostAsync(int hostId)
+		{
+            var data = await _repo.GetAllByHostAsync(hostId);
             return data.Select(x => new ServicePackageDTO
             {
                 ServiceId = x.ServiceId,

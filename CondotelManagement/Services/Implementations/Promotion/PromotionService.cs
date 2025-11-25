@@ -152,6 +152,23 @@ namespace CondotelManagement.Services
             await _promotionRepo.DeleteAsync(promotion);
             return true;
         }
-    }
+
+		public async Task<IEnumerable<PromotionDTO>> GetAllByHostAsync(int hostId)
+		{
+			var promotions = await _promotionRepo.GetAllByHostAsync(hostId);
+			return promotions.Select(p => new PromotionDTO
+			{
+				PromotionId = p.PromotionId,
+				Name = p.Name,
+				StartDate = p.StartDate,
+				EndDate = p.EndDate,
+				DiscountPercentage = p.DiscountPercentage,
+				TargetAudience = p.TargetAudience,
+				Status = p.Status,
+				CondotelId = p.CondotelId,
+				CondotelName = p.Condotel?.Name
+			});
+		}
+	}
 }
 
