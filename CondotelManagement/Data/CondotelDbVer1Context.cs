@@ -56,6 +56,8 @@ public partial class CondotelDbVer1Context : DbContext
 
     public virtual DbSet<Review> Reviews { get; set; }
 
+    public virtual DbSet<RefundRequest> RefundRequests { get; set; }
+
     public virtual DbSet<RewardPoint> RewardPoints { get; set; }
 
     public virtual DbSet<Role> Roles { get; set; }
@@ -506,6 +508,62 @@ public partial class CondotelDbVer1Context : DbContext
 				.HasDefaultValue("Visible")
 				.IsRequired();
 		});
+
+        modelBuilder.Entity<RefundRequest>(entity =>
+        {
+            entity.ToTable("RefundRequests");
+
+            entity.Property(e => e.Id).HasColumnName("Id");
+            entity.Property(e => e.BookingId).HasColumnName("BookingId");
+            entity.Property(e => e.CustomerId).HasColumnName("CustomerId");
+            entity.Property(e => e.CustomerName)
+                .HasMaxLength(255)
+                .IsRequired();
+            entity.Property(e => e.CustomerEmail).HasMaxLength(255);
+            
+            entity.Property(e => e.RefundAmount)
+                .HasColumnType("decimal(18,2)")
+                .IsRequired();
+            entity.Property(e => e.Status)
+                .HasMaxLength(50)
+                .HasDefaultValue("Pending")
+                .IsRequired();
+            
+            entity.Property(e => e.BankCode).HasMaxLength(50);
+            entity.Property(e => e.AccountNumber).HasMaxLength(50);
+            entity.Property(e => e.AccountHolder).HasMaxLength(255);
+            
+            entity.Property(e => e.Reason).HasMaxLength(500);
+            entity.Property(e => e.CancelDate).HasColumnType("datetime");
+            entity.Property(e => e.ProcessedBy).HasColumnName("ProcessedBy");
+            entity.Property(e => e.ProcessedAt).HasColumnType("datetime");
+            entity.Property(e => e.TransactionId).HasMaxLength(100);
+            entity.Property(e => e.PaymentMethod).HasMaxLength(50);
+            
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()")
+                .IsRequired();
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime");
+
+            entity.HasOne(d => d.Booking)
+                .WithMany()
+                .HasForeignKey(d => d.BookingId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_RefundRequests_Bookings");
+
+            entity.HasOne(d => d.Customer)
+                .WithMany()
+                .HasForeignKey(d => d.CustomerId)
+                .OnDelete(DeleteBehavior.NoAction)
+                .HasConstraintName("FK_RefundRequests_Users_Customer");
+
+            entity.HasOne(d => d.ProcessedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.ProcessedBy)
+                .OnDelete(DeleteBehavior.NoAction)
+                .HasConstraintName("FK_RefundRequests_Users_Admin");
+        });
 
         modelBuilder.Entity<RewardPoint>(entity =>
         {

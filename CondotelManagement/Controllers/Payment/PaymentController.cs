@@ -358,9 +358,56 @@ namespace CondotelManagement.Controllers.Payment
                 }
 
                 // Extract BookingId from OrderCode
-                // OrderCode format: BookingId * 1000000 + random 6 digits
+                // OrderCode format: BookingId * 1000000 + random 6 digits (hoặc 999999 cho refund)
+                var orderCodeSuffix = orderCode.Value % 1000000;
+                var isRefundPayment = orderCodeSuffix == 999999;
                 var bookingId = (int)(orderCode.Value / 1000000);
 
+                if (isRefundPayment)
+                {
+                    // === XỬ LÝ REFUND PAYMENT ===
+                    var refundRequest = await _context.RefundRequests
+                        .Include(r => r.Booking)
+                        .FirstOrDefaultAsync(r => r.BookingId == bookingId && r.Status == "Pending");
+
+                    if (refundRequest == null)
+                    {
+                        Console.WriteLine($"RefundRequest not found for booking {bookingId} and orderCode {orderCode}");
+                        return Redirect($"{frontendUrl}/refund-error?message=Refund request not found");
+                    }
+
+                    if (status == "PAID" && cancel != "true")
+                    {
+                        // Refund payment successful - customer đã nhận tiền
+                        refundRequest.Status = "Refunded";
+                        refundRequest.ProcessedAt = DateTime.Now;
+                        refundRequest.UpdatedAt = DateTime.Now;
+                        // Booking status giữ nguyên "Cancelled", không đổi thành "Refunded"
+                        await _context.SaveChangesAsync();
+                        Console.WriteLine($"RefundRequest {refundRequest.Id} (Booking {bookingId}) status updated to Refunded from Return URL (Payment Link Id: {id})");
+                        return Redirect($"{frontendUrl}/refund-success?bookingId={bookingId}&status=success&orderCode={orderCode}&paymentLinkId={id}");
+                    }
+                    else if (status == "CANCELLED" || cancel == "true")
+                    {
+                        // Refund payment was cancelled
+                        Console.WriteLine($"Refund payment cancelled for booking {bookingId} (Payment Link Id: {id})");
+                        return Redirect($"{frontendUrl}/refund-cancel?bookingId={bookingId}&status=cancelled&orderCode={orderCode}&paymentLinkId={id}");
+                    }
+                    else if (status == "PENDING" || status == "PROCESSING")
+                    {
+                        // Refund payment is still pending/processing
+                        Console.WriteLine($"Refund payment pending/processing for booking {bookingId} (Payment Link Id: {id})");
+                        return Redirect($"{frontendUrl}/refund-pending?bookingId={bookingId}&status=pending&orderCode={orderCode}");
+                    }
+                    else
+                    {
+                        // Unknown status
+                        Console.WriteLine($"Unknown refund payment status '{status}' for booking {bookingId}");
+                        return Redirect($"{frontendUrl}/refund-pending?bookingId={bookingId}&status=unknown&orderCode={orderCode}");
+                    }
+                }
+
+                // === XỬ LÝ BOOKING PAYMENT (BÌNH THƯỜNG) ===
                 // Get booking
                 var booking = await _context.Bookings
                     .FirstOrDefaultAsync(b => b.BookingId == bookingId);
@@ -696,6 +743,77 @@ namespace CondotelManagement.Controllers.Payment
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Tạo QR code để chuyển tiền với thông tin: tên, tài khoản, số tiền
+        /// </summary>
+        [HttpPost("generate-qr")]
+        [AllowAnonymous]
+        public IActionResult GenerateQRCode([FromBody] GenerateQRRequestDTO request)
+        {
+            if (request == null)
+                return BadRequest(new { success = false, message = "Request body is required" });
+
+            if (string.IsNullOrWhiteSpace(request.BankCode))
+                return BadRequest(new { success = false, message = "Bank code is required" });
+
+            if (string.IsNullOrWhiteSpace(request.AccountNumber))
+                return BadRequest(new { success = false, message = "Account number is required" });
+
+            if (request.Amount < 1000)
+                return BadRequest(new { success = false, message = "Amount must be at least 1,000 VND" });
+
+            if (string.IsNullOrWhiteSpace(request.AccountHolderName))
+                return BadRequest(new { success = false, message = "Account holder name is required" });
+
+            try
+            {
+                // Tạo nội dung chuyển khoản
+                var content = string.IsNullOrWhiteSpace(request.Content) 
+                    ? "Chuyen tien" 
+                    : request.Content;
+
+                // Encode các tham số
+                var encodedContent = Uri.EscapeDataString(content);
+                var encodedAccountName = Uri.EscapeDataString(request.AccountHolderName);
+
+                // Tạo URL QR code từ VietQR
+                // Format: https://img.vietqr.io/image/{bankCode}-{accountNumber}-{template}.jpg?amount={amount}&addInfo={content}&accountName={accountName}
+                var baseUrl = "https://img.vietqr.io/image";
+                var qrCodeUrlCompact = $"{baseUrl}/{request.BankCode}-{request.AccountNumber}-compact.jpg?amount={request.Amount}&addInfo={encodedContent}&accountName={encodedAccountName}";
+                var qrCodeUrlPrint = $"{baseUrl}/{request.BankCode}-{request.AccountNumber}-print.jpg?amount={request.Amount}&addInfo={encodedContent}&accountName={encodedAccountName}";
+
+                var response = new GenerateQRResponseDTO
+                {
+                    QrCodeUrl = qrCodeUrlCompact, // Default URL
+                    QrCodeUrlCompact = qrCodeUrlCompact,
+                    QrCodeUrlPrint = qrCodeUrlPrint,
+                    BankCode = request.BankCode,
+                    AccountNumber = request.AccountNumber,
+                    Amount = request.Amount,
+                    AccountHolderName = request.AccountHolderName,
+                    Content = content
+                };
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "QR code generated successfully",
+                    data = response
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Generate QR Code Error: {ex.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Error generating QR code: " + ex.Message
+                });
+            }
         }
 
         // 1. SỬA DTO: OrderCode là string

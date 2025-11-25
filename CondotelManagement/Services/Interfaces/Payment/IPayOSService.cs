@@ -11,6 +11,9 @@ namespace CondotelManagement.Services.Interfaces.Payment
         Task<PayOSCreatePaymentResponse> CancelPaymentLinkByOrderCodeAsync(long orderCode, string? cancellationReason = null);
         bool VerifyWebhookSignature(string signature, string body);
         Task<bool> ProcessWebhookAsync(PayOSWebhookData webhookData);
+        
+        // Refund: Tạo payment link mới cho customer để nhận tiền hoàn lại
+        Task<PayOSCreatePaymentResponse> CreateRefundPaymentLinkAsync(int bookingId, decimal refundAmount, string customerName, string? customerEmail = null, string? customerPhone = null);
     }
 }
 
