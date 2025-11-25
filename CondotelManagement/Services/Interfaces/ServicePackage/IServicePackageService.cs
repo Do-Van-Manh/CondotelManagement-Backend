@@ -4,7 +4,7 @@ namespace CondotelManagement.Services
 {
     public interface IServicePackageService
     {
-        Task<IEnumerable<ServicePackageDTO>> GetAllAsync();
+        Task<IEnumerable<ServicePackageDTO>> GetAllByHostAsync(int hostId);
         Task<ServicePackageDTO?> GetByIdAsync(int id);
         Task<ServicePackageDTO> CreateAsync(CreateServicePackageDTO dto);
         Task<ServicePackageDTO?> UpdateAsync(int id, UpdateServicePackageDTO dto);

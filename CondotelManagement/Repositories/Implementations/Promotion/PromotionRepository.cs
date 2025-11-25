@@ -61,6 +61,14 @@ namespace CondotelManagement.Repositories
 				p.StartDate <= endDate && p.EndDate >= startDate
 			);
 		}
+
+		public async Task<IEnumerable<Promotion>> GetAllByHostAsync(int hostId)
+		{
+			return await _context.Promotions
+				.Include(p => p.Condotel)
+				.Where(v => v.Condotel != null && v.Condotel.HostId == hostId)
+				.ToListAsync();
+		}
 	}
 }
 

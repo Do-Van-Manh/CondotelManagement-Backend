@@ -11,7 +11,8 @@ namespace CondotelManagement.Services
 		Task<ResponseDTO<PromotionDTO>> CreateAsync(PromotionCreateUpdateDTO dto);
 		Task<ResponseDTO<Promotion>> UpdateAsync(int id, PromotionCreateUpdateDTO dto);
         Task<bool> DeleteAsync(int id);
-    }
+		Task<IEnumerable<PromotionDTO>> GetAllByHostAsync(int hostId);
+	}
 }
 
 
