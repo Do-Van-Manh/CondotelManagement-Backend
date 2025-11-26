@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using CondotelManagement.DTOs.Tenant;
 using CondotelManagement.Services.Interfaces.Tenant;
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
+using CondotelManagement.Data;
 
 
 namespace CondotelManagement.Controllers.Tenant
@@ -14,10 +16,12 @@ namespace CondotelManagement.Controllers.Tenant
     {
         private readonly ITenantReviewService _reviewService;
         private readonly ILogger<TenantReviewController> _logger;
+        private readonly CondotelDbVer1Context _context;
 
         public TenantReviewController(
             ITenantReviewService reviewService,
-            ILogger<TenantReviewController> logger)
+            ILogger<TenantReviewController> logger,
+            CondotelDbVer1Context context)
         {
             _reviewService = reviewService;
             _logger = logger;
@@ -85,12 +89,12 @@ namespace CondotelManagement.Controllers.Tenant
                 return StatusCode(500, new
                 {
                     message = "An error occurred while getting reviews",
-                    detail = ex.Message // ← Development only
+                    detail = ex.Message 
                 });
             }
         }
 
-
+        
 
         /// <summary>
         /// Lấy chi tiết 1 review
@@ -187,9 +191,48 @@ namespace CondotelManagement.Controllers.Tenant
             }
         }
 
+        [HttpGet("condotel/{condotelId}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetReviewsByCondotel(int condotelId, [FromQuery] ReviewQueryDTO query)
+        {
+            try
+            {
+                // Set default values nếu không có
+                query.Page = query.Page <= 0 ? 1 : query.Page;
+                query.PageSize = query.PageSize <= 0 ? 10 : query.PageSize;
+                query.PageSize = Math.Min(query.PageSize, 50); // Giới hạn page size
 
-        // Helper method để lấy UserId từ JWT token
-        private int GetCurrentUserId()
+                var (reviews, totalCount) = await _reviewService.GetReviewsByCondotelAsync(condotelId, query);
+
+                return Ok(new
+                {
+                    success = true,
+                    data = reviews,
+                    pagination = new
+                    {
+                        page = query.Page,
+                        pageSize = query.PageSize,
+                        totalCount,
+                        totalPages = (int)Math.Ceiling(totalCount / (double)query.PageSize)
+                    }
+                });
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "Condotel not found")
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting reviews for condotel {condotelId}");
+                return StatusCode(500, new { message = "An error occurred while getting reviews" });
+            }
+        }
+
+    
+
+
+    // Helper method để lấy UserId từ JWT token
+    private int GetCurrentUserId()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
