@@ -1,5 +1,7 @@
 using CondotelManagement.DTOs;
+using CondotelManagement.Helpers;
 using CondotelManagement.Services;
+using CondotelManagement.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Org.BouncyCastle.Asn1.Ocsp;
@@ -7,18 +9,20 @@ using Org.BouncyCastle.Asn1.Ocsp;
 namespace CondotelManagement.Controllers.Promotion
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api")]
     public class PromotionController : ControllerBase
     {
         private readonly IPromotionService _promotionService;
+		private readonly IHostService _hostService;
 
-        public PromotionController(IPromotionService promotionService)
+		public PromotionController(IPromotionService promotionService, IHostService hostService)
         {
             _promotionService = promotionService;
+            _hostService = hostService;
         }
 
         // GET /api/promotion
-        [HttpGet]
+        [HttpGet("promotions")]
         public async Task<ActionResult<IEnumerable<PromotionDTO>>> GetAll()
         {
             var promotions = await _promotionService.GetAllAsync();
@@ -26,7 +30,7 @@ namespace CondotelManagement.Controllers.Promotion
         }
 
         // GET /api/promotion/{id}
-        [HttpGet("{id}")]
+        [HttpGet("promotion/{id}")]
         public async Task<ActionResult<PromotionDTO>> GetById(int id)
         {
             var promotion = await _promotionService.GetByIdAsync(id);
@@ -37,16 +41,26 @@ namespace CondotelManagement.Controllers.Promotion
         }
 
         // GET /api/promotion/condotel/{condotelId}
-        [HttpGet("condotel/{condotelId}")]
+        [HttpGet("promotions/condotel/{condotelId}")]
         public async Task<ActionResult<IEnumerable<PromotionDTO>>> GetByCondotelId(int condotelId)
         {
             var promotions = await _promotionService.GetByCondotelIdAsync(condotelId);
             return Ok(promotions);
         }
 
-        // POST /api/promotion
-        [HttpPost]
-        [Authorize(Roles = "Host,Admin")]
+		// GET /api/promotion
+		[HttpGet("host/promotions")]
+		public async Task<ActionResult<IEnumerable<PromotionDTO>>> GetAllByHost()
+		{
+			//current host login
+			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
+			var promotions = await _promotionService.GetAllByHostAsync(hostId);
+			return Ok(promotions);
+		}
+
+		// POST /api/promotion
+		[HttpPost("host/promotion")]
+        [Authorize(Roles = "Host")]
         public async Task<ActionResult<PromotionDTO>> Create([FromBody] PromotionCreateUpdateDTO dto)
         {
             if (dto == null) return BadRequest(new { message = "Invalid promotion data" });
@@ -60,8 +74,8 @@ namespace CondotelManagement.Controllers.Promotion
         }
 
         // PUT /api/promotion/{id}
-        [HttpPut("{id}")]
-        [Authorize(Roles = "Host,Admin")]
+        [HttpPut("host/promotion/{id}")]
+        [Authorize(Roles = "Host")]
         public async Task<ActionResult> Update(int id, [FromBody] PromotionCreateUpdateDTO dto)
         {
             if (dto == null) return BadRequest(new { message = "Invalid promotion data" });
@@ -74,8 +88,8 @@ namespace CondotelManagement.Controllers.Promotion
         }
 
         // DELETE /api/promotion/{id}
-        [HttpDelete("{id}")]
-        [Authorize(Roles = "Host,Admin")]
+        [HttpDelete("host/promotion/{id}")]
+        [Authorize(Roles = "Host")]
         public async Task<ActionResult> Delete(int id)
         {
             var success = await _promotionService.DeleteAsync(id);

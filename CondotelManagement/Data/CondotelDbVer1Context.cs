@@ -548,7 +548,14 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Active");
-        });
+			entity.Property(e => e.HostID)
+	            .HasColumnName("HostID")
+	            .IsRequired();
+			entity.HasOne(e => e.Host)
+				.WithMany(h => h.ServicePackages)
+				.HasForeignKey(e => e.HostID)
+				.OnDelete(DeleteBehavior.Restrict);
+		});
         modelBuilder.Entity<ChatConversation>()
         .ToTable("ChatConversation");
         modelBuilder.Entity<ChatMessage>()
@@ -651,19 +658,21 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.AccountNumber).HasMaxLength(50);
             entity.Property(e => e.BankName).HasMaxLength(100);
             entity.Property(e => e.HostId).HasColumnName("HostID");
-            entity.Property(e => e.Status)
-                .HasMaxLength(20)
-                .HasDefaultValue("Active");
             entity.Property(e => e.UserId).HasColumnName("UserID");
-
-            entity.HasOne(d => d.Host).WithMany(p => p.Wallets)
-                .HasForeignKey(d => d.HostId)
-                .HasConstraintName("FK_Wallet_Host");
 
             entity.HasOne(d => d.User).WithMany(p => p.Wallets)
                 .HasForeignKey(d => d.UserId)
                 .HasConstraintName("FK_Wallet_User");
-        });
+
+			entity.HasOne(w => w.Host)
+		        .WithOne(h => h.Wallet)
+		        .HasForeignKey<Wallet>(w => w.HostId)
+		        .OnDelete(DeleteBehavior.Restrict);
+
+			//(HostID UNIQUE)
+			entity.HasIndex(w => w.HostId)
+				.IsUnique();
+		});
 
         OnModelCreatingPartial(modelBuilder);
     }

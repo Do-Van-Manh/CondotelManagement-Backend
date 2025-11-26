@@ -13,12 +13,14 @@ namespace CondotelManagement.Repositories
         {
             _context = context;
         }
-        public async Task<IEnumerable<ServicePackage>> GetAllAsync()
-        {
-            return await _context.ServicePackages.Where(s => s.Status == "Active").ToListAsync();
-        }
+		public async Task<IEnumerable<ServicePackage>> GetAllByHostAsync(int hostId)
+		{
+			return await _context.ServicePackages
+				.Where(s => s.HostID == hostId && s.Status == "Active")
+				.ToListAsync();
+		}
 
-        public async Task<ServicePackage?> GetByIdAsync(int id)
+		public async Task<ServicePackage?> GetByIdAsync(int id)
         {
             return await _context.ServicePackages.FindAsync(id);
         }

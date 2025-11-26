@@ -14,5 +14,10 @@
 		public DateOnly? DateOfBirth { get; set; }
 		public string UserAddress { get; set; }
 		public string ImageUrl { get; set; }
+
+		//Wallet
+		public string BankName { get; set; }
+		public string AccountNumber { get; set; }
+		public string AccountHolderName { get; set; }
 	}
 }

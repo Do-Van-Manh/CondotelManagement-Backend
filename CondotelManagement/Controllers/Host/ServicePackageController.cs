@@ -1,5 +1,7 @@
 ﻿using CondotelManagement.DTOs;
+using CondotelManagement.Helpers;
 using CondotelManagement.Services;
+using CondotelManagement.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,16 +13,20 @@ namespace CondotelManagement.Controllers.Host
     public class ServicePackageController : ControllerBase
     {
         private readonly IServicePackageService _service;
+		private readonly IHostService _hostService;
 
-        public ServicePackageController(IServicePackageService service)
+		public ServicePackageController(IServicePackageService service, IHostService hostService)
         {
             _service = service;
+            _hostService = hostService;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAllByHost()
         {
-            return Ok(await _service.GetAllAsync());
+			//current host login
+			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
+			return Ok(await _service.GetAllByHostAsync(hostId));
         }
 
         [HttpGet("{id}")]

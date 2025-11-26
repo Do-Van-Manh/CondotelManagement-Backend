@@ -15,5 +15,9 @@ public partial class ServicePackage
 
     public string Status { get; set; } = null!;
 
-    public virtual ICollection<BookingDetail> BookingDetails { get; set; } = new List<BookingDetail>();
+	public int HostID { get; set; }
+
+	public Host Host { get; set; }
+
+	public virtual ICollection<BookingDetail> BookingDetails { get; set; } = new List<BookingDetail>();
 }
