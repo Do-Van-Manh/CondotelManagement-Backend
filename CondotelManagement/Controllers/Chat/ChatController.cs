@@ -1,4 +1,5 @@
 ﻿using CondotelManagement.Services.Interfaces.Chat;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CondotelManagement.Controllers.Chat
@@ -6,6 +7,7 @@ namespace CondotelManagement.Controllers.Chat
     
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class ChatController : ControllerBase
     {
         private readonly IChatService _chatService;

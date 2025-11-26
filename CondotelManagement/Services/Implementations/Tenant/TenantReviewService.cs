@@ -83,9 +83,9 @@ namespace CondotelManagement.Services.Implementations.Tenant
                 .Include(r => r.Condotel)
                 .Where(r => r.UserId == userId)
                 .OrderByDescending(r => r.CreatedAt)
-                .ToListAsync(); // Lấy dữ liệu trước
+                .ToListAsync(); 
 
-            // Bây giờ tính toán CanEdit/CanDelete ở phía bộ nhớ (LINQ to Objects)
+            
             return reviews.Select(r => new ReviewResponseDTO
             {
                 ReviewId = r.ReviewId,
@@ -159,21 +159,54 @@ namespace CondotelManagement.Services.Implementations.Tenant
 
             return true;
         }
+
         public async Task<(List<ReviewResponseDTO> Reviews, int TotalCount)> GetReviewsByCondotelAsync(int condotelId, ReviewQueryDTO query)
         {
+            // Validate condotel exists
+            var condotelExists = await _context.Condotels.AnyAsync(c => c.CondotelId == condotelId);
+            if (!condotelExists)
+            {
+                throw new InvalidOperationException("Condotel not found");
+            }
+
+            // Base query
             var reviewsQuery = _context.Reviews
                 .Include(r => r.User)
                 .Include(r => r.Condotel)
                 .Where(r => r.CondotelId == condotelId);
 
+            // Apply filtering by rating if provided
+            if (query.MinRating.HasValue && query.MinRating > 0)
+            {
+                reviewsQuery = reviewsQuery.Where(r => r.Rating >= query.MinRating.Value);
+            }
+
+            // Apply sorting
+            switch (query.SortBy?.ToLower())
+            {
+                case "rating":
+                    reviewsQuery = query.SortDescending ?? false
+                        ? reviewsQuery.OrderByDescending(r => r.Rating)
+                        : reviewsQuery.OrderBy(r => r.Rating);
+                    break;
+                case "date":
+                default:
+                    reviewsQuery = (query.SortDescending ?? false)
+                        ? reviewsQuery.OrderByDescending(r => r.CreatedAt)
+                        : reviewsQuery.OrderBy(r => r.CreatedAt);
+                    break;
+            }
+
+            // Get total count before pagination
             var totalCount = await reviewsQuery.CountAsync();
 
+            // Apply pagination
             var reviews = await reviewsQuery
-                .OrderByDescending(r => r.CreatedAt)
                 .Skip((query.Page - 1) * query.PageSize)
                 .Take(query.PageSize)
                 .ToListAsync();
 
+            // Map to DTO
             var reviewDTOs = reviews.Select(r => new ReviewResponseDTO
             {
                 ReviewId = r.ReviewId,
