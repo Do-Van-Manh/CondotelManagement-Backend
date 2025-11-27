@@ -88,22 +88,87 @@ namespace CondotelManagement.Controllers.Host
         [HttpPut("{id}")]
         public ActionResult Update(int id, [FromBody] CondotelUpdateDTO condotelDto)
         {
-            if (condotelDto == null || condotelDto.CondotelId != id) return BadRequest();
-            //current host login
-            var host = _hostService.GetByUserId(User.GetUserId());
-            condotelDto.HostId = host.HostId;
-            var updated = _condotelService.UpdateCondotel(condotelDto);
-            if (updated == null) return NotFound();
-            return Ok(updated);
+            if (condotelDto == null)
+                return BadRequest(new { message = "Invalid condotel data" });
+
+            if (condotelDto.CondotelId != id)
+                return BadRequest(new { message = "Condotel ID mismatch" });
+
+            try
+            {
+                // Get current host from authenticated user
+                var host = _hostService.GetByUserId(User.GetUserId());
+                if (host == null)
+                    return Unauthorized(new { message = "Host not found or unauthorized" });
+
+                // Kiểm tra ownership - đảm bảo condotel thuộc về host này
+                var existingCondotel = _condotelService.GetCondotelById(id);
+                if (existingCondotel == null)
+                    return NotFound(new { message = "Condotel not found" });
+
+                if (existingCondotel.HostId != host.HostId)
+                    return StatusCode(403, new { message = "You do not have permission to update this condotel" });
+
+                // Set HostId từ authenticated user (không cho client set)
+                condotelDto.HostId = host.HostId;
+
+                var updated = _condotelService.UpdateCondotel(condotelDto);
+                if (updated == null)
+                    return NotFound(new { message = "Condotel not found" });
+
+                return Ok(new { message = "Condotel updated successfully", data = updated });
+            }
+            catch (ArgumentNullException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while updating condotel", error = ex.Message });
+            }
         }
 
         //DELETE /api/condotel/{id}
         [HttpDelete("{id}")]
         public ActionResult Delete(int id)
         {
-            var success = _condotelService.DeleteCondotel(id);
-            if (!success) return NotFound();
-            return Ok(new { message = "Condotel deleted successfully" });
+            try
+            {
+                // Get current host from authenticated user
+                var host = _hostService.GetByUserId(User.GetUserId());
+                if (host == null)
+                    return Unauthorized(new { message = "Host not found or unauthorized" });
+
+                // Kiểm tra ownership - đảm bảo condotel thuộc về host này
+                var existingCondotel = _condotelService.GetCondotelById(id);
+                if (existingCondotel == null)
+                    return NotFound(new { message = "Condotel not found" });
+
+                if (existingCondotel.HostId != host.HostId)
+                    return StatusCode(403, new { message = "You do not have permission to delete this condotel" });
+
+                var success = _condotelService.DeleteCondotel(id);
+                if (!success)
+                    return NotFound(new { message = "Condotel not found or already deleted" });
+
+                return Ok(new { message = "Condotel deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while deleting condotel", error = ex.Message });
+            }
         }
     }
 }

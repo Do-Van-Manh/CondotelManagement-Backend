@@ -22,6 +22,10 @@ using CondotelManagement.Services.Interfaces.Shared;
 using CondotelManagement.Services.Interfaces.Tenant;
 using CondotelManagement.Services.Interfaces.Payment;
 using CondotelManagement.Services.Implementations.Payment;
+using CondotelManagement.Repositories.Interfaces.Amenity;
+using CondotelManagement.Repositories.Implementations.Amenity;
+using CondotelManagement.Services.Interfaces.Amenity;
+using CondotelManagement.Services.Implementations.Amenity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -151,6 +155,10 @@ namespace CondotelManagement.Configurations
 			// --- Utility ---
 			services.AddScoped<IUtilitiesRepository, UtilitiesRepository>();
 			services.AddScoped<IUtilitiesService, UtilitiesService>();
+
+			// --- Amenity ---
+			services.AddScoped<IAmenityRepository, AmenityRepository>();
+			services.AddScoped<IAmenityService, AmenityService>();
 
 			// --- Cấu hình JWT Authentication ---
 			services.AddAuthentication(options =>
