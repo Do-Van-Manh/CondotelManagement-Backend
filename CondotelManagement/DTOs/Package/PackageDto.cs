@@ -1,16 +1,20 @@
 ﻿namespace CondotelManagement.DTOs.Package
 {
-    // DTO nay dung de hien thi thong tin Goc cua cac goi (tren trang Bang gia)
     public class PackageDto
     {
         public int PackageId { get; set; }
-        public string Name { get; set; }
-        public decimal Price { get; set; } // SỬA: Giữ là decimal (DTO không nên nullable)
-        public string Duration { get; set; } // SỬA: Dùng string Duration (khớp với Model)
-        public string Description { get; set; }
+        public string Name { get; set; } = null!;
+        public decimal Price { get; set; }
+        public string Duration { get; set; } = null!;
+        public string Description { get; set; } = null!;
 
-        // Quyen loi
         public int MaxListings { get; set; }
         public bool CanUseFeaturedListing { get; set; }
+
+        // === THÊM CÁC TRƯỜNG MỚI ===
+        public int MaxBlogRequestsPerMonth { get; set; }
+        public bool IsVerifiedBadgeEnabled { get; set; }
+        public string? DisplayColorTheme { get; set; }
+        public int PriorityLevel { get; set; }
     }
 }

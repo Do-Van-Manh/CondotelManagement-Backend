@@ -15,7 +15,7 @@ public partial class CondotelDbVer1Context : DbContext
         : base(options)
     {
     }
-
+    public virtual DbSet<BlogRequest> BlogRequests { get; set; } = null!;
     public virtual DbSet<AdminReport> AdminReports { get; set; }
 
     public virtual DbSet<Amenity> Amenities { get; set; }
@@ -392,6 +392,50 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasForeignKey(d => d.PackageId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_HostPackage_Package");
+        });
+        modelBuilder.Entity<BlogRequest>(entity =>
+        {
+            entity.ToTable("BlogRequests");
+
+            entity.HasKey(e => e.BlogRequestId);
+
+            entity.Property(e => e.BlogRequestId)
+                .HasColumnName("BlogRequestID");
+
+            entity.Property(e => e.HostId)
+                .HasColumnName("HostID");
+
+            entity.Property(e => e.Title)
+                .HasMaxLength(500)
+                .IsRequired();
+
+            entity.Property(e => e.Content)
+                .IsRequired();
+
+            entity.Property(e => e.Status)
+                .HasMaxLength(50)
+                .HasDefaultValue("Pending");
+
+            entity.Property(e => e.RequestDate)
+                .HasColumnType("datetime2(0)")
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.ProcessedDate)
+                .HasColumnType("datetime2(0)");
+
+            entity.Property(e => e.ProcessedByUserId)
+                .HasColumnName("ProcessedByUserID");
+
+            // Relationships
+            entity.HasOne(d => d.Host)
+                .WithMany(p => p.BlogRequests)
+                .HasForeignKey(d => d.HostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.ProcessedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.ProcessedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<Location>(entity =>

@@ -1,6 +1,7 @@
 ﻿using Google.Apis.Util;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CondotelManagement.Models;
 
@@ -21,7 +22,7 @@ public partial class Host
     public virtual ICollection<Condotel> Condotels { get; set; } = new List<Condotel>();
 
     public virtual ICollection<HostPackage> HostPackages { get; set; } = new List<HostPackage>();
-
+    [ForeignKey("UserId")]
     public virtual User User { get; set; } = null!;
 
     public virtual Wallet Wallet { get; set; }
@@ -29,4 +30,7 @@ public partial class Host
 	public virtual ICollection<Utility> Utilities { get; set; } = new List<Utility>();
 
 	public virtual ICollection<ServicePackage> ServicePackages { get; set; }
+    
+
+    public virtual ICollection<BlogRequest> BlogRequests { get; set; } = new List<BlogRequest>();
 }
