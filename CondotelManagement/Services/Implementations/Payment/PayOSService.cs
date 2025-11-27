@@ -375,32 +375,60 @@ namespace CondotelManagement.Services.Implementations.Payment
                 }
 
                 // ========================================================================
-                // PHẦN 1: XỬ LÝ BOOKING (GIỮ NGUYÊN 100% - KHÔNG ĐỘNG VÀO)
+                // PHẦN 1: XỬ LÝ REFUND PAYMENT (Kiểm tra trước tiên)
                 // ========================================================================
-                var bookingId = (int)(orderCode / 1000000);
+                // Kiểm tra xem có phải refund payment không (OrderCode có suffix 999999)
+                var orderCodeSuffix = orderCode % 1000000;
+                var isRefundPayment = orderCodeSuffix == 999999;
 
-                // Chỉ tìm thử, nếu có thì xử lý, không có thì thôi
+                if (isRefundPayment)
+                {
+                    // === XỬ LÝ REFUND PAYMENT ===
+                    var bookingId = (int)(orderCode / 1000000);
+                    var refundRequest = await _context.RefundRequests
+                        .Include(r => r.Booking)
+                        .FirstOrDefaultAsync(r => r.BookingId == bookingId && r.Status == "Pending");
+
+                    if (refundRequest != null)
+                    {
+                        refundRequest.Status = "Refunded";
+                        refundRequest.ProcessedAt = DateTime.Now;
+                        refundRequest.UpdatedAt = DateTime.Now;
+                        // Booking status giữ nguyên "Cancelled", không đổi thành "Refunded"
+                        await _context.SaveChangesAsync();
+                        Console.WriteLine($"[Webhook] ĐÃ HOÀN TIỀN THÀNH CÔNG CHO REFUND REQUEST {refundRequest.Id} (Booking {bookingId})!");
+                        return true;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[Webhook] Không tìm thấy RefundRequest Pending cho Booking {bookingId}");
+                        return false;
+                    }
+                }
+
+                // ========================================================================
+                // PHẦN 2: XỬ LÝ BOOKING PAYMENT
+                // ========================================================================
+                var bookingId_normal = (int)(orderCode / 1000000);
                 var booking = await _context.Bookings
-                    .FirstOrDefaultAsync(b => b.BookingId == bookingId);
+                    .FirstOrDefaultAsync(b => b.BookingId == bookingId_normal);
 
                 if (booking != null)
                 {
                     if (booking.Status == "Confirmed" || booking.Status == "Completed")
                     {
-                        Console.WriteLine($"[Webhook] Booking {bookingId} đã xác nhận trước đó → bỏ qua");
+                        Console.WriteLine($"[Webhook] Booking {bookingId_normal} đã xác nhận trước đó → bỏ qua");
                         return true;
                     }
 
                     booking.Status = "Confirmed";
                     await _context.SaveChangesAsync();
-                    Console.WriteLine($"[Webhook] ĐÃ XÁC NHẬN BOOKING {bookingId} THÀNH CÔNG!");
-
-                    // QUAN TRỌNG: Return true ngay lập tức để không chạy xuống phần Package
+                    Console.WriteLine($"[Webhook] ĐÃ XÁC NHẬN BOOKING {bookingId_normal} THÀNH CÔNG!");
                     return true;
                 }
 
                 // ========================================================================
-                // PHẦN 2: XỬ LÝ PACKAGE (PHẦN CỦA BẠN - ĐÃ SỬA DÙNG SQL UPDATE TRỰC TIẾP)
+                // PHẦN 3: XỬ LÝ PACKAGE PAYMENT (PHẦN CỦA BẠN - ĐÃ SỬA DÙNG SQL UPDATE TRỰC TIẾP)
                 // ========================================================================
 
                 // Tính toán ID
@@ -471,6 +499,119 @@ namespace CondotelManagement.Services.Implementations.Payment
             {
                 Console.WriteLine($"[Webhook CRITICAL ERROR] {ex.Message}");
                 return false;
+            }
+        }
+
+        public async Task<PayOSCreatePaymentResponse> CreateRefundPaymentLinkAsync(int bookingId, decimal refundAmount, string customerName, string? customerEmail = null, string? customerPhone = null)
+        {
+            try
+            {
+                // Validate amount
+                var amount = (int)refundAmount;
+                if (amount <= 0)
+                {
+                    throw new InvalidOperationException("Refund amount must be greater than 0");
+                }
+
+                if (amount < 10000) // PayOS minimum is 10,000 VND
+                {
+                    throw new InvalidOperationException("Refund amount must be at least 10,000 VND");
+                }
+
+                // Tạo OrderCode cho refund: BookingId * 1000000 + 999999 (để phân biệt với payment gốc)
+                var refundOrderCode = (long)bookingId * 1000000L + 999999L;
+
+                // Tạo description
+                var description = $"Hoan tien #{bookingId}";
+                if (description.Length > PayOsDescriptionLimit)
+                {
+                    description = description.Substring(0, PayOsDescriptionLimit);
+                }
+
+                // Frontend URL để customer nhận tiền
+                var frontendUrl = _configuration["AppSettings:FrontendUrl"] ?? "http://localhost:3000";
+                var returnUrl = $"{frontendUrl}/refund-success?bookingId={bookingId}";
+                var cancelUrl = $"{frontendUrl}/refund-cancel?bookingId={bookingId}";
+
+                // Tạo payment link request (customer sẽ nhận tiền qua link này)
+                var requestBodyDict = new Dictionary<string, object>
+                {
+                    { "orderCode", refundOrderCode },
+                    { "amount", amount },
+                    { "description", description },
+                    { "returnUrl", returnUrl },
+                    { "cancelUrl", cancelUrl },
+                    { "items", new List<Dictionary<string, object>>
+                    {
+                        new Dictionary<string, object>
+                        {
+                            { "name", $"Hoan tien dat phong #{bookingId}" },
+                            { "quantity", 1 },
+                            { "price", amount }
+                        }
+                    }}
+                };
+
+                // Thêm thông tin customer nếu có
+                if (!string.IsNullOrWhiteSpace(customerName))
+                    requestBodyDict["buyerName"] = customerName;
+                if (!string.IsNullOrWhiteSpace(customerEmail))
+                    requestBodyDict["buyerEmail"] = customerEmail;
+                if (!string.IsNullOrWhiteSpace(customerPhone))
+                    requestBodyDict["buyerPhone"] = customerPhone;
+
+                // Generate signature
+                var signature = GenerateCreatePaymentSignature(
+                    amount,
+                    cancelUrl,
+                    description,
+                    refundOrderCode,
+                    returnUrl);
+                requestBodyDict["signature"] = signature;
+
+                var json = JsonSerializer.Serialize(requestBodyDict, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    WriteIndented = false
+                });
+
+                Console.WriteLine($"=== PayOS Refund Payment Link Request ===");
+                Console.WriteLine($"BookingId: {bookingId}, RefundOrderCode: {refundOrderCode}, Amount: {amount}");
+                Console.WriteLine($"Request JSON: {json}");
+                Console.WriteLine($"=====================");
+
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync("/v2/payment-requests", content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                Console.WriteLine($"PayOS Refund Response Status: {response.StatusCode}");
+                Console.WriteLine($"PayOS Refund Response: {responseContent}");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new HttpRequestException($"PayOS API error: {response.StatusCode} - {responseContent}");
+                }
+
+                var result = JsonSerializer.Deserialize<PayOSCreatePaymentResponse>(responseContent, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (result == null)
+                    throw new InvalidOperationException("Failed to parse PayOS response");
+
+                if (result.Code != "00")
+                {
+                    var errorMessage = result.Desc ?? "Unknown error";
+                    var errorCode = result.Code ?? "Unknown";
+                    throw new InvalidOperationException($"PayOS error: {errorMessage} (Code: {errorCode})");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Error creating PayOS refund payment link: {ex.Message}", ex);
             }
         }
     }

@@ -24,3 +24,7 @@ namespace CondotelManagement.DTOs.Payment
 }
 
 
+
+
+
+

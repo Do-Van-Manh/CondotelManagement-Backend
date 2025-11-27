@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using CondotelManagement.DTOs;
+using CondotelManagement.DTOs.Booking;
 using CondotelManagement.Services.Interfaces.BookingService;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
@@ -76,12 +77,36 @@ namespace CondotelManagement.Controllers
             return Ok(updated);
         }
 
-        // DELETE api/booking/{id}
-        [HttpDelete("{id}")]
-        public IActionResult CancelBooking(int id)
+        // POST api/booking/{id}/refund - Đặt trước DELETE để tránh route conflict
+        [HttpPost("{id}/refund")]
+        public async Task<IActionResult> RefundBooking(int id, [FromBody] RefundBookingRequestDTO? request = null)
         {
             int customerId = GetCustomerId();
-            var success = _bookingService.CancelBooking(id, customerId);
+            
+            // Log request để debug
+            Console.WriteLine($"[RefundBooking] BookingId: {id}, CustomerId: {customerId}");
+            if (request != null)
+            {
+                Console.WriteLine($"[RefundBooking] BankCode: {request.BankCode}, AccountNumber: {request.AccountNumber}, AccountHolder: {request.AccountHolder}");
+            }
+            else
+            {
+                Console.WriteLine("[RefundBooking] Request body is null");
+            }
+            
+            var result = await _bookingService.RefundBooking(id, customerId, request?.BankCode, request?.AccountNumber, request?.AccountHolder);
+            if (!result.Success)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
+
+        // DELETE api/booking/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> CancelBooking(int id)
+        {
+            int customerId = GetCustomerId();
+            var success = await _bookingService.CancelBooking(id, customerId);
             if (!success) return NotFound();
             return NoContent();
         }

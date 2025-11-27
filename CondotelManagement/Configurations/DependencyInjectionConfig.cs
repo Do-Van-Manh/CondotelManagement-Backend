@@ -22,6 +22,10 @@ using CondotelManagement.Services.Interfaces.Shared;
 using CondotelManagement.Services.Interfaces.Tenant;
 using CondotelManagement.Services.Interfaces.Payment;
 using CondotelManagement.Services.Implementations.Payment;
+using CondotelManagement.Repositories.Interfaces.Amenity;
+using CondotelManagement.Repositories.Implementations.Amenity;
+using CondotelManagement.Services.Interfaces.Amenity;
+using CondotelManagement.Services.Implementations.Amenity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -132,6 +136,25 @@ namespace CondotelManagement.Configurations
                 client.DefaultRequestHeaders.Add("User-Agent", "CondotelManagement/1.0");
             });
 
+            // --- Payment (VietQR) ---
+            services.AddHttpClient<IVietQRService, VietQRService>((serviceProvider, client) =>
+            {
+                var config = serviceProvider.GetRequiredService<IConfiguration>();
+                var baseUrl = config["VietQR:BaseUrl"] ?? "https://api.vietqr.io";
+                var clientId = config["VietQR:ClientId"];
+                var apiKey = config["VietQR:ApiKey"];
+                
+                client.BaseAddress = new Uri(baseUrl);
+                client.Timeout = TimeSpan.FromSeconds(30);
+                
+                // Thêm headers
+                if (!string.IsNullOrEmpty(clientId))
+                    client.DefaultRequestHeaders.Add("x-client-id", clientId);
+                if (!string.IsNullOrEmpty(apiKey))
+                    client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+                client.DefaultRequestHeaders.Add("User-Agent", "CondotelManagement/1.0");
+            });
+
             // --- 2. THEM CAC DONG MOI O DAY ---
             // Dang ky Service cho Package
             services.AddScoped<IPackageService, PackageService>();
@@ -141,6 +164,10 @@ namespace CondotelManagement.Configurations
 			// --- Utility ---
 			services.AddScoped<IUtilitiesRepository, UtilitiesRepository>();
 			services.AddScoped<IUtilitiesService, UtilitiesService>();
+
+			// --- Amenity ---
+			services.AddScoped<IAmenityRepository, AmenityRepository>();
+			services.AddScoped<IAmenityService, AmenityService>();
 
 			// --- Cấu hình JWT Authentication ---
 			services.AddAuthentication(options =>

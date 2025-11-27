@@ -64,7 +64,7 @@ namespace CondotelManagement.Repositories
 
     public void UpdateCondotel(Condotel condotel)
     {
-        // Xóa và thêm lại các bảng con nếu có
+        // Lấy entity hiện có từ database
         var existing = _context.Condotels
             .Include(c => c.CondotelImages)
             .Include(c => c.CondotelAmenities)
@@ -73,31 +73,77 @@ namespace CondotelManagement.Repositories
             .Include(c => c.CondotelUtilities)
             .FirstOrDefault(c => c.CondotelId == condotel.CondotelId);
 
-        if (existing != null)
+        if (existing == null)
+            throw new InvalidOperationException($"Condotel with ID {condotel.CondotelId} not found");
+
+        // Cập nhật các trường chính của Condotel
+        existing.Name = condotel.Name;
+        existing.Description = condotel.Description;
+        existing.PricePerNight = condotel.PricePerNight;
+        existing.Beds = condotel.Beds;
+        existing.Bathrooms = condotel.Bathrooms;
+        existing.Status = condotel.Status;
+        existing.ResortId = condotel.ResortId;
+        // HostId không được thay đổi khi update
+
+        // Xóa các child entities cũ
+        _context.CondotelImages.RemoveRange(existing.CondotelImages);
+        _context.CondotelAmenities.RemoveRange(existing.CondotelAmenities);
+        _context.CondotelPrices.RemoveRange(existing.CondotelPrices);
+        _context.CondotelDetails.RemoveRange(existing.CondotelDetails);
+        _context.CondotelUtilities.RemoveRange(existing.CondotelUtilities);
+
+        // Thêm các child entities mới nếu có
+        if (condotel.CondotelImages != null && condotel.CondotelImages.Any())
         {
-            // Xóa dữ liệu cũ
-            _context.CondotelImages.RemoveRange(existing.CondotelImages);
-            _context.CondotelAmenities.RemoveRange(existing.CondotelAmenities);
-            _context.CondotelPrices.RemoveRange(existing.CondotelPrices);
-            _context.CondotelDetails.RemoveRange(existing.CondotelDetails);
-            _context.CondotelUtilities.RemoveRange(existing.CondotelUtilities);
-
-            // Thêm dữ liệu mới
-            if (condotel.CondotelImages != null)
-                _context.CondotelImages.AddRange(condotel.CondotelImages);
-
-            if (condotel.CondotelAmenities != null)
-                _context.CondotelAmenities.AddRange(condotel.CondotelAmenities);
-
-            if (condotel.CondotelPrices != null)
-                _context.CondotelPrices.AddRange(condotel.CondotelPrices);
-
-            if (condotel.CondotelDetails != null)
-                _context.CondotelDetails.AddRange(condotel.CondotelDetails);
-
-            if (condotel.CondotelUtilities != null)
-                _context.CondotelUtilities.AddRange(condotel.CondotelUtilities);
+            foreach (var image in condotel.CondotelImages)
+            {
+                image.CondotelId = existing.CondotelId;
+                image.ImageId = 0; // Reset ID để tạo mới
+            }
+            _context.CondotelImages.AddRange(condotel.CondotelImages);
         }
+
+        if (condotel.CondotelAmenities != null && condotel.CondotelAmenities.Any())
+        {
+            foreach (var amenity in condotel.CondotelAmenities)
+            {
+                amenity.CondotelId = existing.CondotelId;
+            }
+            _context.CondotelAmenities.AddRange(condotel.CondotelAmenities);
+        }
+
+        if (condotel.CondotelPrices != null && condotel.CondotelPrices.Any())
+        {
+            foreach (var price in condotel.CondotelPrices)
+            {
+                price.CondotelId = existing.CondotelId;
+                price.PriceId = 0; // Reset ID để tạo mới
+            }
+            _context.CondotelPrices.AddRange(condotel.CondotelPrices);
+        }
+
+        if (condotel.CondotelDetails != null && condotel.CondotelDetails.Any())
+        {
+            foreach (var detail in condotel.CondotelDetails)
+            {
+                detail.CondotelId = existing.CondotelId;
+                detail.DetailId = 0; // Reset ID để tạo mới
+            }
+            _context.CondotelDetails.AddRange(condotel.CondotelDetails);
+        }
+
+        if (condotel.CondotelUtilities != null && condotel.CondotelUtilities.Any())
+        {
+            foreach (var utility in condotel.CondotelUtilities)
+            {
+                utility.CondotelId = existing.CondotelId;
+            }
+            _context.CondotelUtilities.AddRange(condotel.CondotelUtilities);
+        }
+
+        // Mark entity as modified
+        _context.Condotels.Update(existing);
     }
         public bool SaveChanges()
         {
@@ -238,6 +284,13 @@ namespace CondotelManagement.Repositories
 		if (utilityIds == null || !utilityIds.Any()) return true; // Optional
 		var existingCount = _context.Utilities.Count(u => utilityIds.Contains(u.UtilityId));
 		return existingCount == utilityIds.Count;
+	}
+
+	public bool UtilitiesBelongToHost(List<int>? utilityIds, int hostId)
+	{
+		if (utilityIds == null || !utilityIds.Any()) return true; // Optional
+		var validCount = _context.Utilities.Count(u => utilityIds.Contains(u.UtilityId) && u.HostId == hostId);
+		return validCount == utilityIds.Count;
 	}
 
 	public bool HostExists(int hostId)
