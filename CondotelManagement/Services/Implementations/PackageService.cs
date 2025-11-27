@@ -3,12 +3,7 @@ using CondotelManagement.DTOs.Package;
 using CondotelManagement.Models;
 using CondotelManagement.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using CondotelManagement.Repositories.Interfaces.Admin;
 using System.Text.RegularExpressions;
-using CondotelManagement.Services.Interfaces.Auth;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace CondotelManagement.Services.Implementations
 {
@@ -16,13 +11,11 @@ namespace CondotelManagement.Services.Implementations
     {
         private readonly CondotelDbVer1Context _context;
         private readonly IPackageFeatureService _featureService;
-        private readonly IUserRepository _userRepo;
 
-        public PackageService(CondotelDbVer1Context context, IPackageFeatureService featureService, IUserRepository userRepo)
+        public PackageService(CondotelDbVer1Context context, IPackageFeatureService featureService)
         {
             _context = context;
             _featureService = featureService;
-            _userRepo = userRepo;
         }
 
         public async Task<IEnumerable<PackageDto>> GetAvailablePackagesAsync()
@@ -36,24 +29,29 @@ namespace CondotelManagement.Services.Implementations
                 PackageId = p.PackageId,
                 Name = p.Name,
                 Price = p.Price.GetValueOrDefault(0),
-                Duration = p.Duration, // Giữ string Duration
-                Description = p.Description,
+                Duration = p.Duration ?? "30 days",
+                Description = p.Description ?? "",
                 MaxListings = _featureService.GetMaxListingCount(p.PackageId),
-                CanUseFeaturedListing = _featureService.CanUseFeaturedListing(p.PackageId)
+                CanUseFeaturedListing = _featureService.CanUseFeaturedListing(p.PackageId),
+                MaxBlogRequestsPerMonth = _featureService.GetMaxBlogRequestsPerMonth(p.PackageId),
+                IsVerifiedBadgeEnabled = _featureService.IsVerifiedBadgeEnabled(p.PackageId),
+                DisplayColorTheme = _featureService.GetDisplayColorTheme(p.PackageId),
+                PriorityLevel = _featureService.GetPriorityLevel(p.PackageId)
             });
         }
 
         public async Task<HostPackageDetailsDto?> GetMyActivePackageAsync(int hostId)
         {
-            // SỬA: Chuyển DateTime.UtcNow sang DateOnly để so sánh
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
+            // SỬA: Tìm HostPackage active, không cần composite key
             var activePackage = await _context.HostPackages
                 .Include(hp => hp.Package)
                 .Where(hp => hp.HostId == hostId &&
                              hp.Status == "Active" &&
-                             // SỬA: So sanh DateOnly >= DateOnly
-                             hp.EndDate >= today)
+                             hp.EndDate.HasValue &&
+                             hp.EndDate.Value >= today)
+                .OrderByDescending(hp => hp.EndDate) // Lấy gói mới nhất
                 .FirstOrDefaultAsync();
 
             if (activePackage == null) return null;
@@ -61,7 +59,12 @@ namespace CondotelManagement.Services.Implementations
             var currentListings = await _context.Condotels
                 .CountAsync(c => c.HostId == hostId && c.Status != "Deleted");
 
-            return MapToDetailsDto(activePackage, currentListings);
+            // Đếm số blog request trong tháng
+            var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+            var usedBlogRequests = await _context.BlogRequests
+                .CountAsync(br => br.HostId == hostId && br.RequestDate >= startOfMonth);
+
+            return MapToDetailsDto(activePackage, currentListings, usedBlogRequests);
         }
 
         public async Task<HostPackageDetailsDto> PurchaseOrUpgradePackageAsync(int hostId, int packageId)
@@ -72,14 +75,19 @@ namespace CondotelManagement.Services.Implementations
             if (packageToBuy == null)
                 throw new Exception("Gói dịch vụ không hợp lệ hoặc đã ngừng hoạt động.");
 
-            var durationDays = ParseDuration(packageToBuy.Duration);
+            var durationDays = ParseDuration(packageToBuy.Duration ?? "30 days");
 
-            // XÓA GÓI CŨ
-            var oldPackage = await _context.HostPackages.FirstOrDefaultAsync(hp => hp.HostId == hostId);
-            if (oldPackage != null)
-                _context.HostPackages.Remove(oldPackage);
+            // SỬA: Đánh dấu tất cả gói cũ là Inactive thay vì xóa
+            var oldPackages = await _context.HostPackages
+                .Where(hp => hp.HostId == hostId && hp.Status == "Active")
+                .ToListAsync();
 
-            // TẠO ORDERCODE TRƯỚC (để tránh lỗi null)
+            foreach (var old in oldPackages)
+            {
+                old.Status = "Inactive";
+            }
+
+            // TẠO ORDERCODE
             var randomPart = new Random().Next(100000, 999999);
             var orderCode = (long)hostId * 1_000_000_000L + (long)packageId * 1_000_000L + randomPart;
 
@@ -89,10 +97,7 @@ namespace CondotelManagement.Services.Implementations
                 orderCode = (long)hostId * 1_000_000_000L + (long)packageId * 1_000_000L + randomPart;
             }
 
-            // TẠO BẢN GHI MỚI – GÁN GIÁ TRỊ MẶC ĐỊNH CHO DateOnly (non-nullable)
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            var futureDate = today.AddYears(100); // ngày xa xỉ để tạm = "chưa kích hoạt"
-
+            // TẠO BẢN GHI MỚI với HostPackageId tự động tăng
             var newHostPackage = new HostPackage
             {
                 HostId = hostId,
@@ -100,16 +105,11 @@ namespace CondotelManagement.Services.Implementations
                 Status = "PendingPayment",
                 DurationDays = durationDays,
                 OrderCode = orderCode.ToString(),
-                StartDate = futureDate,  // GÁN GIÁ TRỊ MẶC ĐỊNH ĐỂ TRÁNH LỖI
-                EndDate = futureDate     // GÁN GIÁ TRỊ MẶC ĐỊNH
+                StartDate = null,  // Sẽ được cập nhật sau khi thanh toán thành công
+                EndDate = null
             };
 
             _context.HostPackages.Add(newHostPackage);
-            await _context.SaveChangesAsync();
-
-            // Cập nhật lại thành NULL (hoặc để trống) SAU khi đã Add
-            newHostPackage.StartDate = null;  // BÂY GIỜ MỚI GÁN NULL ĐƯỢC (vì đã qua EF validation)
-            newHostPackage.EndDate = null;
             await _context.SaveChangesAsync();
 
             var currentListings = await _context.Condotels
@@ -124,6 +124,11 @@ namespace CondotelManagement.Services.Implementations
                 CurrentListings = currentListings,
                 MaxListings = _featureService.GetMaxListingCount(packageId),
                 CanUseFeaturedListing = _featureService.CanUseFeaturedListing(packageId),
+                MaxBlogRequestsPerMonth = _featureService.GetMaxBlogRequestsPerMonth(packageId),
+                UsedBlogRequestsThisMonth = 0,
+                IsVerifiedBadgeEnabled = _featureService.IsVerifiedBadgeEnabled(packageId),
+                DisplayColorTheme = _featureService.GetDisplayColorTheme(packageId),
+                PriorityLevel = _featureService.GetPriorityLevel(packageId),
                 Message = "Đã tạo đơn hàng thành công! Đang chuyển đến cổng thanh toán PayOS...",
                 PaymentUrl = null,
                 OrderCode = orderCode,
@@ -131,20 +136,18 @@ namespace CondotelManagement.Services.Implementations
             };
         }
 
-        // Ham helper de parse "30 days", "90 days"
         private int ParseDuration(string duration)
         {
-            if (string.IsNullOrEmpty(duration)) return 0;
+            if (string.IsNullOrEmpty(duration)) return 30;
             var match = Regex.Match(duration, @"\d+");
             if (match.Success && int.TryParse(match.Value, out int days))
             {
                 return days;
             }
-            return 30; // Mac dinh 30 ngay
+            return 30;
         }
 
-        // Ham helper de map DTO
-        private HostPackageDetailsDto MapToDetailsDto(HostPackage hostPackage, int currentListings)
+        private HostPackageDetailsDto MapToDetailsDto(HostPackage hostPackage, int currentListings, int usedBlogRequests)
         {
             return new HostPackageDetailsDto
             {
@@ -155,6 +158,11 @@ namespace CondotelManagement.Services.Implementations
                 CurrentListings = currentListings,
                 MaxListings = _featureService.GetMaxListingCount(hostPackage.PackageId),
                 CanUseFeaturedListing = _featureService.CanUseFeaturedListing(hostPackage.PackageId),
+                MaxBlogRequestsPerMonth = _featureService.GetMaxBlogRequestsPerMonth(hostPackage.PackageId),
+                UsedBlogRequestsThisMonth = usedBlogRequests,
+                IsVerifiedBadgeEnabled = _featureService.IsVerifiedBadgeEnabled(hostPackage.PackageId),
+                DisplayColorTheme = _featureService.GetDisplayColorTheme(hostPackage.PackageId),
+                PriorityLevel = _featureService.GetPriorityLevel(hostPackage.PackageId),
                 Message = null,
                 PaymentUrl = null,
                 OrderCode = 0,

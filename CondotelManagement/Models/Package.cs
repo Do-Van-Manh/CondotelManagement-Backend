@@ -1,21 +1,33 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CondotelManagement.Models;
 
+[Table("Package")]
 public partial class Package
 {
+    [Key]
     public int PackageId { get; set; }
 
+    [Required]
+    [StringLength(150)]
     public string Name { get; set; } = null!;
 
+    [StringLength(255)]
     public string? Description { get; set; }
 
+    [Column(TypeName = "decimal(12, 2)")]
     public decimal? Price { get; set; }
 
+    [StringLength(50)]
     public string? Duration { get; set; }
 
-    public string Status { get; set; } = null!;
+    [Required]
+    [StringLength(20)]
+    public string Status { get; set; } = "Active";
 
+    // Navigation
     public virtual ICollection<HostPackage> HostPackages { get; set; } = new List<HostPackage>();
 }
