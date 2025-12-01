@@ -40,7 +40,8 @@ namespace CondotelManagement.Controllers.Host
         [HttpPost]
         public async Task<IActionResult> Create(CreateServicePackageDTO dto)
         {
-            return Ok(await _service.CreateAsync(dto));
+			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
+			return Ok(await _service.CreateAsync(hostId,dto));
         }
 
         [HttpPut("{id}")]

@@ -6,7 +6,7 @@ namespace CondotelManagement.Services
     {
         Task<IEnumerable<ServicePackageDTO>> GetAllByHostAsync(int hostId);
         Task<ServicePackageDTO?> GetByIdAsync(int id);
-        Task<ServicePackageDTO> CreateAsync(CreateServicePackageDTO dto);
+        Task<ServicePackageDTO> CreateAsync(int hostId, CreateServicePackageDTO dto);
         Task<ServicePackageDTO?> UpdateAsync(int id, UpdateServicePackageDTO dto);
         Task<bool> DeleteAsync(int id);
     }
