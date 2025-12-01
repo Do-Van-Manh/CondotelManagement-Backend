@@ -17,15 +17,17 @@ namespace CondotelManagement.Repositories
         {
             return await _context.Bookings
             .Where(b => b.Condotel.HostId == hostId)
-            .Select(b => new CustomerBookingDTO
+			.Select(b => b.Customer)
+		    .Distinct()  // DISTINCT Customer
+			.Select(b => new CustomerBookingDTO
             {
-                UserId = b.Customer.UserId,
-                FullName = b.Customer.FullName,
-                Email = b.Customer.Email,
-                Phone = b.Customer.Phone,
-                Gender = b.Customer.Gender,
-                DateOfBirth = b.Customer.DateOfBirth,
-                Address = b.Customer.Address
+                UserId = b.UserId,
+                FullName = b.FullName,
+                Email = b.Email,
+                Phone = b.Phone,
+                Gender = b.Gender,
+                DateOfBirth = b.DateOfBirth,
+                Address = b.Address
             })
             .OrderByDescending(x => x.UserId)
             .ToListAsync();
