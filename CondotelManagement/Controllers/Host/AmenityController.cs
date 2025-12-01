@@ -1,4 +1,6 @@
 using CondotelManagement.DTOs.Amenity;
+using CondotelManagement.Helpers;
+using CondotelManagement.Services.Interfaces;
 using CondotelManagement.Services.Interfaces.Amenity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,10 +13,12 @@ namespace CondotelManagement.Controllers.Host
     public class HostAmenityController : ControllerBase
     {
         private readonly IAmenityService _amenityService;
+		private readonly IHostService _hostService;
 
-        public HostAmenityController(IAmenityService amenityService)
+		public HostAmenityController(IAmenityService amenityService, IHostService hostService)
         {
             _amenityService = amenityService;
+            _hostService = hostService;
         }
 
         // GET: /api/host/amenities
@@ -24,7 +28,9 @@ namespace CondotelManagement.Controllers.Host
         {
             try
             {
-                var amenities = await _amenityService.GetAllAsync();
+				//current host login
+				var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
+				var amenities = await _amenityService.GetAllAsync(hostId);
                 return Ok(amenities);
             }
             catch (Exception ex)
@@ -59,7 +65,9 @@ namespace CondotelManagement.Controllers.Host
         {
             try
             {
-                var allAmenities = await _amenityService.GetAllAsync();
+				//current host login
+				var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
+				var allAmenities = await _amenityService.GetAllAsync(hostId);
                 var filtered = allAmenities.Where(a => 
                     !string.IsNullOrWhiteSpace(a.Category) && 
                     a.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
@@ -82,7 +90,9 @@ namespace CondotelManagement.Controllers.Host
 
             try
             {
-                var created = await _amenityService.CreateAsync(dto);
+				//current host login
+				var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
+				var created = await _amenityService.CreateAsync(hostId,dto);
                 return CreatedAtAction(nameof(GetById), new { id = created.AmenityId }, created);
             }
             catch (ArgumentException ex)
