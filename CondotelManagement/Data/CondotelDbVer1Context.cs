@@ -110,7 +110,14 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.Category).HasMaxLength(50);
             entity.Property(e => e.Description).HasMaxLength(255);
             entity.Property(e => e.Name).HasMaxLength(100);
-        });
+			entity.Property(e => e.HostID)
+	            .HasColumnName("HostID")
+	            .IsRequired();
+			entity.HasOne(e => e.Host)
+				.WithMany(h => h.Amenities)
+				.HasForeignKey(e => e.HostID)
+				.OnDelete(DeleteBehavior.Restrict);
+		});
 
         modelBuilder.Entity<BlogCategory>(entity =>
         {

@@ -33,4 +33,6 @@ public partial class Host
     
 
     public virtual ICollection<BlogRequest> BlogRequests { get; set; } = new List<BlogRequest>();
+
+	public virtual ICollection<Amenity> Amenities { get; set; }
 }
