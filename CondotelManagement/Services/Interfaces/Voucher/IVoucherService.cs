@@ -1,4 +1,5 @@
 ﻿using CondotelManagement.DTOs;
+using CondotelManagement.DTOs.Voucher;
 
 namespace CondotelManagement.Services
 {
@@ -9,5 +10,8 @@ namespace CondotelManagement.Services
 		Task<VoucherDTO?> CreateVoucherAsync(VoucherCreateDTO dto);
 		Task<VoucherDTO?> UpdateVoucherAsync(int id, VoucherCreateDTO dto);
 		Task<bool> DeleteVoucherAsync(int id);
+		Task<List<VoucherDTO>> CreateVoucherAfterBookingAsync(int bookingId);
+		Task<HostVoucherSettingDetailDTO?> GetSettingAsync(int hostId);
+		Task<HostVoucherSettingDetailDTO> SaveSettingAsync(int hostId, HostVoucherSettingDTO dto);
 	}
 }
