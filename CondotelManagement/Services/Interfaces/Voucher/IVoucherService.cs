@@ -1,5 +1,4 @@
 ﻿using CondotelManagement.DTOs;
-using CondotelManagement.DTOs.Voucher;
 
 namespace CondotelManagement.Services
 {

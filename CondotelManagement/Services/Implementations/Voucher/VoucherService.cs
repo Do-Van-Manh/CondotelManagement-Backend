@@ -1,7 +1,6 @@
 ﻿using CondotelManagement.DTOs;
 using CondotelManagement.Repositories;
 using CondotelManagement.Models;
-using CondotelManagement.DTOs.Voucher;
 using Microsoft.EntityFrameworkCore;
 
 namespace CondotelManagement.Services
