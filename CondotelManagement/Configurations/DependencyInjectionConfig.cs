@@ -169,8 +169,9 @@ namespace CondotelManagement.Configurations
 			services.AddScoped<IAmenityRepository, AmenityRepository>();
 			services.AddScoped<IAmenityService, AmenityService>();
 
-			// --- Cấu hình JWT Authentication ---
-			services.AddAuthentication(options =>
+            // --- Cấu hình JWT Authentication ---
+            // --- Cấu hình JWT Authentication ---
+            services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -185,7 +186,27 @@ namespace CondotelManagement.Configurations
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = configuration["Jwt:Issuer"],
                     ValidAudience = configuration["Jwt:Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]))
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"])),
+
+                    // THÊM 3 DÒNG NÀY → SIGNALR HẾT 401 NGAY!!!
+                    NameClaimType = "nameid",
+                    RoleClaimType = "role",
+                    ClockSkew = TimeSpan.FromMinutes(5)
+                };
+
+                // THÊM KHỐI NÀY → SIGNALR ĐỌC ĐƯỢC TOKEN TỪ access_token=...
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
                 };
             });
         }
