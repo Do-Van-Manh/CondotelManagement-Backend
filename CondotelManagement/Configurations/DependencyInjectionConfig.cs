@@ -176,39 +176,52 @@ namespace CondotelManagement.Configurations
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
             })
-            .AddJwtBearer(options =>
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = configuration["Jwt:Issuer"],
+        ValidAudience = configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"])),
+
+        // QUAN TRỌNG: Để mặc định hoặc map đúng với token của bạn
+        // NameClaimType = ClaimTypes.NameIdentifier, // Hoặc để mặc định
+        // RoleClaimType = ClaimTypes.Role,
+
+        ClockSkew = TimeSpan.Zero // Không cần skew nếu frontend/backend cùng timezone
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
             {
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = configuration["Jwt:Issuer"],
-                    ValidAudience = configuration["Jwt:Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"])),
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        },
 
-                    // THÊM 3 DÒNG NÀY → SIGNALR HẾT 401 NGAY!!!
-                    NameClaimType = "nameid",
-                    RoleClaimType = "role",
-                    ClockSkew = TimeSpan.FromMinutes(5)
-                };
+        // THÊM để debug authentication failures
+        OnAuthenticationFailed = context =>
+        {
+            Console.WriteLine($"Authentication failed: {context.Exception.Message}");
+            return Task.CompletedTask;
+        },
 
-                // THÊM KHỐI NÀY → SIGNALR ĐỌC ĐƯỢC TOKEN TỪ access_token=...
-                options.Events = new JwtBearerEvents
-                {
-                    OnMessageReceived = context =>
-                    {
-                        var accessToken = context.Request.Query["access_token"];
-                        var path = context.Request.Path;
-                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
-                        {
-                            context.Token = accessToken;
-                        }
-                        return Task.CompletedTask;
-                    }
-                };
-            });
+        OnTokenValidated = context =>
+        {
+            Console.WriteLine($"Token validated for user: {context.Principal.Identity.Name}");
+            return Task.CompletedTask;
+        }
+    };
+});
         }
     }
 }
