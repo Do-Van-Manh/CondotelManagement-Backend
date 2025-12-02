@@ -9,7 +9,7 @@ namespace CondotelManagement.Controllers.Host
 {
 	[ApiController]
 	[Route("api/host/settings/voucher")]
-	//[Authorize(Roles = "Host")]
+	[Authorize(Roles = "Host")]
 	public class HostVoucherSettingController : ControllerBase
 	{
 		private readonly IVoucherService _voucherService;
