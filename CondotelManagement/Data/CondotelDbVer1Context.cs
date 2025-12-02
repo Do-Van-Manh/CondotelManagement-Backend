@@ -73,8 +73,9 @@ public partial class CondotelDbVer1Context : DbContext
     public virtual DbSet<Wallet> Wallets { get; set; }
     public DbSet<ChatConversation> ChatConversations { get; set; } = null!;
     public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
+	public virtual DbSet<HostVoucherSetting> HostVoucherSettings { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+	protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
     }
 
@@ -756,7 +757,14 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasForeignKey(d => d.CondotelId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_Voucher_Condotel");
-        });
+
+			entity.Property(e => e.UserId).HasColumnName("UserID");
+			entity.HasOne(d => d.User)
+				.WithMany(p => p.Vouchers)
+				.HasForeignKey(d => d.UserId)
+				.OnDelete(DeleteBehavior.SetNull)
+				.HasConstraintName("FK_Voucher_User");
+		});
 
         modelBuilder.Entity<Wallet>(entity =>
         {
@@ -783,7 +791,23 @@ public partial class CondotelDbVer1Context : DbContext
 				.IsUnique();
 		});
 
-        OnModelCreatingPartial(modelBuilder);
+		modelBuilder.Entity<HostVoucherSetting>(entity =>
+		{
+			entity.ToTable("HostVoucherSetting");
+
+			entity.HasKey(e => e.SettingID);
+
+			entity.Property(e => e.DiscountPercentage).HasColumnType("decimal(5, 2)");
+			entity.Property(e => e.DiscountAmount).HasColumnType("decimal(10, 2)");
+
+			entity.HasOne(e => e.Host)
+				.WithOne(h => h.VoucherSetting)
+				.HasForeignKey<HostVoucherSetting>(e => e.HostID)
+				.OnDelete(DeleteBehavior.Cascade)
+				.HasConstraintName("FK_HostVoucherSetting_Host");
+		});
+
+		OnModelCreatingPartial(modelBuilder);
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
