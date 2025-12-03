@@ -21,13 +21,11 @@ public partial class Booking
 
     public int? PromotionId { get; set; }
 
-    public bool IsUsingRewardPoints { get; set; }
-
     public DateTime CreatedAt { get; set; }
 
     public int? VoucherId { get; set; }
 
-    public bool IsPaidToHost { get; set; }
+    public bool? IsPaidToHost { get; set; }
 
     public DateTime? PaidToHostAt { get; set; }
 

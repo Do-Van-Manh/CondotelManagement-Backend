@@ -15,7 +15,7 @@ namespace CondotelManagement.Repositories
 			return await _db.Reviews
 				.Include(r => r.Condotel)
 				.Include(r => r.User)
-				.Where(r => r.Condotel.HostId == hostId)
+				.Where(r => r.Condotel.HostId == hostId && r.Status != "Deleted") // Không hiển thị review đã bị xóa
 				.ToListAsync();
 		}
 

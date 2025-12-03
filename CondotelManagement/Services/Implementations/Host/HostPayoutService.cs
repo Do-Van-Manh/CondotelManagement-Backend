@@ -2,6 +2,7 @@ using CondotelManagement.Data;
 using CondotelManagement.DTOs.Host;
 using CondotelManagement.Models;
 using CondotelManagement.Services.Interfaces.Host;
+using CondotelManagement.Services.Interfaces.Shared;
 using Microsoft.EntityFrameworkCore;
 
 namespace CondotelManagement.Services.Implementations.Host
@@ -9,10 +10,21 @@ namespace CondotelManagement.Services.Implementations.Host
     public class HostPayoutService : IHostPayoutService
     {
         private readonly CondotelDbVer1Context _context;
+        private readonly IEmailService _emailService;
 
-        public HostPayoutService(CondotelDbVer1Context context)
+        public HostPayoutService(CondotelDbVer1Context context, IEmailService emailService)
         {
             _context = context;
+            _emailService = emailService;
+        }
+
+        // Helper method để check status "Completed" (hỗ trợ cả tiếng Anh và tiếng Việt)
+        private bool IsCompletedStatus(string? status)
+        {
+            if (string.IsNullOrWhiteSpace(status)) return false;
+            var trimmedStatus = status.Trim();
+            return trimmedStatus.Equals("Completed", StringComparison.OrdinalIgnoreCase) ||
+                   trimmedStatus.Equals("Hoàn thành", StringComparison.OrdinalIgnoreCase);
         }
 
         public async Task<HostPayoutResponseDTO> ProcessPayoutsAsync()
@@ -21,15 +33,21 @@ namespace CondotelManagement.Services.Implementations.Host
             var cutoffDate = today.AddDays(-15); // 15 ngày trước
 
             // Lấy các booking đã completed >= 15 ngày, chưa được trả tiền
-            var eligibleBookings = await _context.Bookings
+            var allEligibleBookings = await _context.Bookings
                 .Include(b => b.Condotel)
                     .ThenInclude(c => c.Host)
-                .Where(b => b.Status == "Completed"
-                    && b.EndDate <= cutoffDate
-                    && !b.IsPaidToHost
+                        .ThenInclude(h => h.User)
+                .Include(b => b.Customer)
+                .Where(b => b.EndDate <= cutoffDate
+                    && (b.IsPaidToHost == null || b.IsPaidToHost == false)
                     && b.TotalPrice.HasValue
                     && b.TotalPrice.Value > 0)
                 .ToListAsync();
+            
+            // Filter completed status (hỗ trợ cả tiếng Anh và tiếng Việt)
+            var eligibleBookings = allEligibleBookings
+                .Where(b => IsCompletedStatus(b.Status))
+                .ToList();
 
             // Kiểm tra xem có refund request nào không
             var bookingIds = eligibleBookings.Select(b => b.BookingId).ToList();
@@ -49,27 +67,75 @@ namespace CondotelManagement.Services.Implementations.Host
 
             foreach (var booking in bookingsToProcess)
             {
+                // Lấy thông tin tài khoản ngân hàng của host từ Wallet
+                // Ưu tiên wallet default hoặc active để thực hiện thanh toán
+                var hostWallet = await _context.Wallets
+                    .Where(w => w.HostId == booking.Condotel.HostId && w.Status == "Active")
+                    .OrderByDescending(w => w.IsDefault)
+                    .FirstOrDefaultAsync();
+
                 // Đánh dấu đã trả tiền
                 booking.IsPaidToHost = true;
                 booking.PaidToHostAt = DateTime.UtcNow;
 
                 var daysSinceCompleted = (today.ToDateTime(TimeOnly.MinValue) - booking.EndDate.ToDateTime(TimeOnly.MinValue)).Days;
 
+                // Đảm bảo Customer được load
+                if (booking.Customer == null && booking.CustomerId > 0)
+                {
+                    booking.Customer = await _context.Users.FindAsync(booking.CustomerId);
+                }
+
                 processedItems.Add(new HostPayoutItemDTO
                 {
                     BookingId = booking.BookingId,
                     CondotelId = booking.CondotelId,
-                    CondotelName = booking.Condotel.Name,
-                    HostId = booking.Condotel.HostId,
-                    HostName = booking.Condotel.Host?.CompanyName ?? "N/A",
+                    CondotelName = booking.Condotel?.Name ?? "N/A",
+                    HostId = booking.Condotel?.HostId ?? 0,
+                    HostName = booking.Condotel?.Host?.CompanyName ?? "N/A",
                     Amount = booking.TotalPrice ?? 0m,
                     EndDate = booking.EndDate,
                     PaidAt = booking.PaidToHostAt,
                     IsPaid = true,
-                    DaysSinceCompleted = daysSinceCompleted
+                    DaysSinceCompleted = daysSinceCompleted,
+                    // Thông tin khách hàng
+                    CustomerId = booking.CustomerId,
+                    CustomerName = !string.IsNullOrWhiteSpace(booking.Customer?.FullName) 
+                        ? booking.Customer.FullName 
+                        : "Khách hàng",
+                    CustomerEmail = booking.Customer?.Email,
+                    // Thông tin tài khoản ngân hàng của host (để thực hiện thanh toán)
+                    BankName = hostWallet?.BankName,
+                    AccountNumber = hostWallet?.AccountNumber,
+                    AccountHolderName = hostWallet?.AccountHolderName
                 });
 
                 totalAmount += booking.TotalPrice ?? 0m;
+
+                // Gửi email thông báo cho host
+                try
+                {
+                    var hostEmail = booking.Condotel.Host?.User?.Email;
+                    if (!string.IsNullOrEmpty(hostEmail))
+                    {
+                        await _emailService.SendPayoutConfirmationEmailAsync(
+                            toEmail: hostEmail,
+                            hostName: booking.Condotel.Host?.CompanyName ?? "Host",
+                            bookingId: booking.BookingId,
+                            condotelName: booking.Condotel.Name,
+                            amount: booking.TotalPrice ?? 0m,
+                            paidAt: booking.PaidToHostAt.Value,
+                            bankName: hostWallet?.BankName,
+                            accountNumber: hostWallet?.AccountNumber,
+                            accountHolderName: hostWallet?.AccountHolderName
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log lỗi nhưng không dừng quá trình xử lý
+                    Console.WriteLine($"[PayoutService] Error sending email to host: {ex.Message}");
+                }
             }
 
             if (processedItems.Any())
@@ -92,6 +158,8 @@ namespace CondotelManagement.Services.Implementations.Host
             var booking = await _context.Bookings
                 .Include(b => b.Condotel)
                     .ThenInclude(c => c.Host)
+                        .ThenInclude(h => h.User)
+                .Include(b => b.Customer)
                 .FirstOrDefaultAsync(b => b.BookingId == bookingId);
 
             if (booking == null)
@@ -103,7 +171,7 @@ namespace CondotelManagement.Services.Implementations.Host
                 };
             }
 
-            if (booking.Status != "Completed")
+            if (!IsCompletedStatus(booking.Status))
             {
                 return new HostPayoutResponseDTO
                 {
@@ -112,7 +180,7 @@ namespace CondotelManagement.Services.Implementations.Host
                 };
             }
 
-            if (booking.IsPaidToHost)
+            if (booking.IsPaidToHost == true)
             {
                 return new HostPayoutResponseDTO
                 {
@@ -147,13 +215,51 @@ namespace CondotelManagement.Services.Implementations.Host
                 };
             }
 
+            // Lấy thông tin tài khoản ngân hàng của host từ Wallet
+            // Ưu tiên wallet default hoặc active để thực hiện thanh toán
+            var hostWallet = await _context.Wallets
+                .Where(w => w.HostId == booking.Condotel.HostId && w.Status == "Active")
+                .OrderByDescending(w => w.IsDefault)
+                .FirstOrDefaultAsync();
+
             // Đánh dấu đã trả tiền
             booking.IsPaidToHost = true;
             booking.PaidToHostAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
+            // Đảm bảo Customer được load
+            if (booking.Customer == null && booking.CustomerId > 0)
+            {
+                booking.Customer = await _context.Users.FindAsync(booking.CustomerId);
+            }
+
             var daysSinceCompleted = (today.ToDateTime(TimeOnly.MinValue) - booking.EndDate.ToDateTime(TimeOnly.MinValue)).Days;
+
+            // Gửi email thông báo cho host
+            try
+            {
+                var hostEmail = booking.Condotel.Host?.User?.Email;
+                if (!string.IsNullOrEmpty(hostEmail))
+                {
+                    await _emailService.SendPayoutConfirmationEmailAsync(
+                        toEmail: hostEmail,
+                        hostName: booking.Condotel.Host?.CompanyName ?? "Host",
+                        bookingId: booking.BookingId,
+                        condotelName: booking.Condotel.Name,
+                        amount: booking.TotalPrice ?? 0m,
+                        paidAt: booking.PaidToHostAt.Value,
+                        bankName: hostWallet?.BankName,
+                        accountNumber: hostWallet?.AccountNumber,
+                        accountHolderName: hostWallet?.AccountHolderName
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log lỗi nhưng không dừng quá trình xử lý
+                Console.WriteLine($"[PayoutService] Error sending email to host: {ex.Message}");
+            }
 
             return new HostPayoutResponseDTO
             {
@@ -167,14 +273,24 @@ namespace CondotelManagement.Services.Implementations.Host
                     {
                         BookingId = booking.BookingId,
                         CondotelId = booking.CondotelId,
-                        CondotelName = booking.Condotel.Name,
-                        HostId = booking.Condotel.HostId,
-                        HostName = booking.Condotel.Host?.CompanyName ?? "N/A",
+                        CondotelName = booking.Condotel?.Name ?? "N/A",
+                        HostId = booking.Condotel?.HostId ?? 0,
+                        HostName = booking.Condotel?.Host?.CompanyName ?? "N/A",
                         Amount = booking.TotalPrice ?? 0m,
                         EndDate = booking.EndDate,
                         PaidAt = booking.PaidToHostAt,
                         IsPaid = true,
-                        DaysSinceCompleted = daysSinceCompleted
+                        DaysSinceCompleted = daysSinceCompleted,
+                        // Thông tin khách hàng
+                        CustomerId = booking.CustomerId,
+                        CustomerName = !string.IsNullOrWhiteSpace(booking.Customer?.FullName) 
+                            ? booking.Customer.FullName 
+                            : "Khách hàng",
+                        CustomerEmail = booking.Customer?.Email,
+                        // Thông tin tài khoản ngân hàng của host (để thực hiện thanh toán)
+                        BankName = hostWallet?.BankName,
+                        AccountNumber = hostWallet?.AccountNumber,
+                        AccountHolderName = hostWallet?.AccountHolderName
                     }
                 }
             };
@@ -188,9 +304,9 @@ namespace CondotelManagement.Services.Implementations.Host
             var query = _context.Bookings
                 .Include(b => b.Condotel)
                     .ThenInclude(c => c.Host)
-                .Where(b => b.Status == "Completed"
-                    && b.EndDate <= cutoffDate
-                    && !b.IsPaidToHost
+                .Include(b => b.Customer)
+                .Where(b => b.EndDate <= cutoffDate
+                    && (b.IsPaidToHost == null || b.IsPaidToHost == false)
                     && b.TotalPrice.HasValue
                     && b.TotalPrice.Value > 0);
 
@@ -200,6 +316,9 @@ namespace CondotelManagement.Services.Implementations.Host
             }
 
             var bookings = await query.ToListAsync();
+            
+            // Filter completed status (hỗ trợ cả tiếng Anh và tiếng Việt)
+            bookings = bookings.Where(b => IsCompletedStatus(b.Status)).ToList();
 
             // Lấy danh sách booking có refund request
             var bookingIds = bookings.Select(b => b.BookingId).ToList();
@@ -214,21 +333,124 @@ namespace CondotelManagement.Services.Implementations.Host
                 .Where(b => !refundRequests.Contains(b.BookingId))
                 .ToList();
 
+            // Lấy tất cả hostIds để query wallet một lần
+            var hostIds = eligibleBookings.Select(b => b.Condotel.HostId).Distinct().ToList();
+            var hostWallets = await _context.Wallets
+                .Where(w => hostIds.Contains(w.HostId ?? 0) && w.Status == "Active")
+                .ToListAsync();
+
             return eligibleBookings.Select(b =>
             {
                 var daysSinceCompleted = (today.ToDateTime(TimeOnly.MinValue) - b.EndDate.ToDateTime(TimeOnly.MinValue)).Days;
+                
+                // Tìm thông tin tài khoản ngân hàng của host từ Wallet (ưu tiên default)
+                // Đây là thông tin để thực hiện thanh toán cho host
+                var hostWallet = hostWallets
+                    .Where(w => w.HostId == b.Condotel.HostId)
+                    .OrderByDescending(w => w.IsDefault)
+                    .FirstOrDefault();
+
                 return new HostPayoutItemDTO
                 {
                     BookingId = b.BookingId,
                     CondotelId = b.CondotelId,
-                    CondotelName = b.Condotel.Name,
-                    HostId = b.Condotel.HostId,
-                    HostName = b.Condotel.Host?.CompanyName ?? "N/A",
+                    CondotelName = b.Condotel?.Name ?? "N/A",
+                    HostId = b.Condotel?.HostId ?? 0,
+                    HostName = b.Condotel?.Host?.CompanyName ?? "N/A",
                     Amount = b.TotalPrice ?? 0m,
                     EndDate = b.EndDate,
                     PaidAt = null,
                     IsPaid = false,
-                    DaysSinceCompleted = daysSinceCompleted
+                    DaysSinceCompleted = daysSinceCompleted,
+                    // Thông tin khách hàng
+                    CustomerId = b.CustomerId,
+                    CustomerName = !string.IsNullOrWhiteSpace(b.Customer?.FullName) 
+                        ? b.Customer.FullName 
+                        : "Khách hàng",
+                    CustomerEmail = b.Customer?.Email,
+                    // Thông tin tài khoản ngân hàng của host (để thực hiện thanh toán)
+                    BankName = hostWallet?.BankName,
+                    AccountNumber = hostWallet?.AccountNumber,
+                    AccountHolderName = hostWallet?.AccountHolderName
+                };
+            }).ToList();
+        }
+
+        public async Task<List<HostPayoutItemDTO>> GetPaidPayoutsAsync(int? hostId = null, DateTime? fromDate = null, DateTime? toDate = null)
+        {
+            var query = _context.Bookings
+                .Include(b => b.Condotel)
+                    .ThenInclude(c => c.Host)
+                .Include(b => b.Customer)
+                .Where(b => b.IsPaidToHost == true
+                    && b.TotalPrice.HasValue
+                    && b.TotalPrice.Value > 0);
+
+            // Filter theo hostId nếu có
+            if (hostId.HasValue)
+            {
+                query = query.Where(b => b.Condotel.HostId == hostId.Value);
+            }
+
+            // Filter theo ngày thanh toán nếu có
+            if (fromDate.HasValue)
+            {
+                query = query.Where(b => b.PaidToHostAt >= fromDate.Value);
+            }
+
+            if (toDate.HasValue)
+            {
+                query = query.Where(b => b.PaidToHostAt <= toDate.Value);
+            }
+
+            var bookings = await query
+                .OrderByDescending(b => b.PaidToHostAt)
+                .ToListAsync();
+
+            // Filter completed status (hỗ trợ cả tiếng Anh và tiếng Việt)
+            bookings = bookings.Where(b => IsCompletedStatus(b.Status)).ToList();
+
+            // Lấy tất cả hostIds để query wallet một lần
+            var hostIds = bookings.Select(b => b.Condotel.HostId).Distinct().ToList();
+            var hostWallets = await _context.Wallets
+                .Where(w => hostIds.Contains(w.HostId ?? 0) && w.Status == "Active")
+                .ToListAsync();
+
+            return bookings.Select(b =>
+            {
+                var daysSinceCompleted = b.PaidToHostAt.HasValue && b.EndDate != null
+                    ? (b.PaidToHostAt.Value.Date - b.EndDate.ToDateTime(TimeOnly.MinValue).Date).Days
+                    : 0;
+
+                // Tìm thông tin tài khoản ngân hàng của host từ Wallet (ưu tiên default)
+                // Đây là thông tin đã được sử dụng để thực hiện thanh toán cho host
+                var hostWallet = hostWallets
+                    .Where(w => w.HostId == b.Condotel.HostId)
+                    .OrderByDescending(w => w.IsDefault)
+                    .FirstOrDefault();
+
+                return new HostPayoutItemDTO
+                {
+                    BookingId = b.BookingId,
+                    CondotelId = b.CondotelId,
+                    CondotelName = b.Condotel?.Name ?? "N/A",
+                    HostId = b.Condotel?.HostId ?? 0,
+                    HostName = b.Condotel?.Host?.CompanyName ?? "N/A",
+                    Amount = b.TotalPrice ?? 0m,
+                    EndDate = b.EndDate,
+                    PaidAt = b.PaidToHostAt,
+                    IsPaid = true,
+                    DaysSinceCompleted = daysSinceCompleted,
+                    // Thông tin khách hàng
+                    CustomerId = b.CustomerId,
+                    CustomerName = !string.IsNullOrWhiteSpace(b.Customer?.FullName) 
+                        ? b.Customer.FullName 
+                        : "Khách hàng",
+                    CustomerEmail = b.Customer?.Email,
+                    // Thông tin tài khoản ngân hàng của host (đã được sử dụng để thực hiện thanh toán)
+                    BankName = hostWallet?.BankName,
+                    AccountNumber = hostWallet?.AccountNumber,
+                    AccountHolderName = hostWallet?.AccountHolderName
                 };
             }).ToList();
         }

@@ -16,5 +16,9 @@ namespace CondotelManagement.Services.Interfaces
         Task<HostProfileDTO?> GetHostProfileAsync(int userId);
 
         Task<bool> UpdateHostProfileAsync(int userId, UpdateHostProfileDTO dto);
+
+        Task<HostVerificationResponseDTO> VerifyHostWithIdCardAsync(int userId, IFormFile idCardFront, IFormFile idCardBack);
+
+        Task<ValidateIdCardResponseDTO> ValidateIdCardInfoAsync(int userId);
     }
 }

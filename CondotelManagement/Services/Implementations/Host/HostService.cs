@@ -1,12 +1,19 @@
 ﻿using CondotelManagement.Data;
 using CondotelManagement.DTOs;
 using CondotelManagement.DTOs.Host;
+using CondotelManagement.DTOs.Payment;
 using CondotelManagement.Models;
 using CondotelManagement.Repositories;
 using CondotelManagement.Services.Interfaces;
+using CondotelManagement.Services.Interfaces.Cloudinary;
+using CondotelManagement.Services.Interfaces.OCR;
+using CondotelManagement.Services.Interfaces.Payment;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using HostModel = CondotelManagement.Models.Host;
 
@@ -18,12 +25,18 @@ namespace CondotelManagement.Services
     {
         private readonly IHostRepository _hostRepo;
         private readonly CondotelDbVer1Context _context;
+        private readonly ICloudinaryService _cloudinaryService;
+        private readonly IDeepSeekOCRService _ocrService;
+        private readonly IVietQRService _vietQRService;
 
         // SỬA LỖI: Chỉ giữ lại CondotelDbVer1Context vì các repo đã bị xóa
-        public HostService(CondotelDbVer1Context context, IHostRepository hostRepo)
+        public HostService(CondotelDbVer1Context context, IHostRepository hostRepo, ICloudinaryService cloudinaryService, IDeepSeekOCRService ocrService, IVietQRService vietQRService)
         {
             _context = context;
             _hostRepo = hostRepo;
+            _cloudinaryService = cloudinaryService;
+            _ocrService = ocrService;
+            _vietQRService = vietQRService;
         }
 
         public async Task<HostRegistrationResponseDto> RegisterHostAsync(int userId, HostRegisterRequestDto dto)
@@ -221,6 +234,277 @@ namespace CondotelManagement.Services
 
             await _hostRepo.UpdateHostAsync(host);
             return true;
+        }
+
+        public async Task<HostVerificationResponseDTO> VerifyHostWithIdCardAsync(int userId, IFormFile idCardFront, IFormFile idCardBack)
+        {
+            var response = new HostVerificationResponseDTO { Success = false };
+
+            try
+            {
+                // 1. Tìm host
+                var host = await _context.Hosts.FirstOrDefaultAsync(h => h.UserId == userId);
+                if (host == null)
+                {
+                    response.Message = "Không tìm thấy thông tin host.";
+                    return response;
+                }
+
+                // 2. Upload ảnh lên Cloudinary
+                var frontImageUrl = await _cloudinaryService.UploadImageAsync(idCardFront);
+                var backImageUrl = await _cloudinaryService.UploadImageAsync(idCardBack);
+
+                // 3. Lưu URL vào database
+                host.IdCardFrontUrl = frontImageUrl;
+                host.IdCardBackUrl = backImageUrl;
+                host.VerificationStatus = "Pending";
+                host.VerifiedAt = null;
+                host.VerificationNote = null;
+
+                // 4. Gọi OCR để đọc thông tin
+                var frontOCRResult = await _ocrService.ExtractIdCardInfoAsync(frontImageUrl, isFront: true);
+                var backOCRResult = await _ocrService.ExtractIdCardInfoAsync(backImageUrl, isFront: false);
+
+                // 5. Map OCR results
+                var frontInfo = new IdCardInfoDTO
+                {
+                    FullName = frontOCRResult.FullName,
+                    IdNumber = frontOCRResult.IdNumber,
+                    DateOfBirth = frontOCRResult.DateOfBirth,
+                    Gender = frontOCRResult.Gender,
+                    Nationality = frontOCRResult.Nationality,
+                    Address = frontOCRResult.Address
+                };
+
+                var backInfo = new IdCardInfoDTO
+                {
+                    IssueDate = backOCRResult.IssueDate,
+                    IssuePlace = backOCRResult.IssuePlace,
+                    ExpiryDate = backOCRResult.ExpiryDate
+                };
+
+                // 6. Kiểm tra thông tin có hợp lệ không (có thể thêm validation logic ở đây)
+                bool isValid = frontOCRResult.Success && backOCRResult.Success;
+                
+                if (isValid)
+                {
+                    // So sánh thông tin với thông tin user/host hiện tại (optional)
+                    var user = await _context.Users.FindAsync(userId);
+                    if (user != null)
+                    {
+                        // Có thể thêm logic so sánh tên, ngày sinh, etc.
+                        // Nếu khớp thì set status = "Approved", không thì "Pending" để admin review
+                        host.VerificationStatus = "Pending"; // Để admin review
+                        host.VerificationNote = "Đang chờ admin xác minh";
+                    }
+                }
+                else
+                {
+                    host.VerificationStatus = "Pending";
+                    host.VerificationNote = "Không thể đọc thông tin từ ảnh. Vui lòng thử lại với ảnh rõ hơn.";
+                }
+
+                // 7. Lưu vào database
+                await _context.SaveChangesAsync();
+
+                // 8. Trả về response
+                response.Success = true;
+                response.Message = isValid 
+                    ? "Upload ảnh CCCD thành công. Thông tin đã được đọc và đang chờ admin xác minh." 
+                    : "Upload ảnh thành công nhưng không thể đọc thông tin. Vui lòng kiểm tra lại chất lượng ảnh.";
+                response.VerificationStatus = host.VerificationStatus;
+                response.FrontInfo = frontInfo;
+                response.BackInfo = backInfo;
+            }
+            catch (Exception ex)
+            {
+                response.Message = $"Lỗi khi xác minh: {ex.Message}";
+            }
+
+            return response;
+        }
+
+        public async Task<ValidateIdCardResponseDTO> ValidateIdCardInfoAsync(int userId)
+        {
+            var response = new ValidateIdCardResponseDTO { IsValid = false };
+
+            try
+            {
+                // 1. Tìm host và user
+                var host = await _context.Hosts
+                    .Include(h => h.User)
+                    .FirstOrDefaultAsync(h => h.UserId == userId);
+
+                if (host == null)
+                {
+                    response.Message = "Không tìm thấy thông tin host.";
+                    return response;
+                }
+
+                // 2. Kiểm tra xem đã có ảnh CCCD chưa
+                if (string.IsNullOrEmpty(host.IdCardFrontUrl))
+                {
+                    response.Message = "Chưa có ảnh CCCD. Vui lòng upload ảnh CCCD trước.";
+                    return response;
+                }
+
+                // 3. Đọc lại thông tin từ ảnh CCCD bằng OCR
+                var frontOCRResult = await _ocrService.ExtractIdCardInfoAsync(host.IdCardFrontUrl, isFront: true);
+
+                if (!frontOCRResult.Success || string.IsNullOrEmpty(frontOCRResult.FullName) || string.IsNullOrEmpty(frontOCRResult.IdNumber))
+                {
+                    response.Message = "Không thể đọc thông tin từ ảnh CCCD. Vui lòng upload lại ảnh rõ hơn.";
+                    return response;
+                }
+
+                // 4. So sánh thông tin với user
+                var user = host.User;
+                var details = new ValidationDetailsDTO
+                {
+                    UserFullName = user.FullName,
+                    IdCardFullName = frontOCRResult.FullName,
+                    IdCardNumber = frontOCRResult.IdNumber,
+                    UserDateOfBirth = user.DateOfBirth?.ToString("dd/MM/yyyy"),
+                    IdCardDateOfBirth = frontOCRResult.DateOfBirth
+                };
+
+                // 5. So sánh tên (loại bỏ dấu và chuyển về chữ hoa để so sánh)
+                var normalizedUserName = NormalizeVietnameseName(user.FullName);
+                var normalizedIdCardName = NormalizeVietnameseName(frontOCRResult.FullName);
+                details.NameMatch = normalizedUserName.Equals(normalizedIdCardName, StringComparison.OrdinalIgnoreCase);
+
+                // 6. So sánh số CCCD (nếu có lưu trong database)
+                // Tạm thời chỉ kiểm tra xem có số CCCD hay không
+                details.IdNumberMatch = !string.IsNullOrEmpty(frontOCRResult.IdNumber);
+
+                // 7. So sánh ngày sinh (nếu có)
+                if (user.DateOfBirth.HasValue && !string.IsNullOrEmpty(frontOCRResult.DateOfBirth))
+                {
+                    // Parse ngày sinh từ CCCD (format có thể là dd/MM/yyyy hoặc dd-MM-yyyy)
+                    if (TryParseDate(frontOCRResult.DateOfBirth, out var idCardDate))
+                    {
+                        details.DateOfBirthMatch = user.DateOfBirth.Value == DateOnly.FromDateTime(idCardDate);
+                    }
+                }
+
+                // 8. Gọi VietQR API để xác thực với hệ thống quốc gia
+                bool vietQRVerified = false;
+                string vietQRMessage = string.Empty;
+                try
+                {
+                    // Chuẩn hóa tên để gửi lên VietQR (chuyển về chữ hoa, loại bỏ dấu)
+                    var normalizedNameForVietQR = NormalizeVietnameseName(frontOCRResult.FullName).ToUpper();
+                    var vietQRResult = await _vietQRService.VerifyCitizenAsync(frontOCRResult.IdNumber, normalizedNameForVietQR);
+                    
+                    // Code "00" nghĩa là thành công - số CCCD và tên khớp với hệ thống quốc gia
+                    vietQRVerified = vietQRResult.Code == "00";
+                    vietQRMessage = vietQRResult.Desc;
+                    details.VietQRVerified = vietQRVerified;
+                    details.VietQRMessage = vietQRMessage;
+                }
+                catch (Exception ex)
+                {
+                    // Nếu VietQR API lỗi, vẫn tiếp tục với validation nội bộ
+                    vietQRMessage = $"Không thể xác thực qua VietQR: {ex.Message}";
+                    details.VietQRVerified = false;
+                    details.VietQRMessage = vietQRMessage;
+                }
+
+                // 9. Kết luận - Kết hợp validation nội bộ và VietQR
+                // Nếu VietQR verify thành công, coi như valid
+                // Nếu không, vẫn kiểm tra validation nội bộ
+                bool internalValidation = details.NameMatch && details.IdNumberMatch;
+                response.IsValid = vietQRVerified || internalValidation;
+                response.Details = details;
+
+                if (response.IsValid)
+                {
+                    if (vietQRVerified)
+                    {
+                        response.Message = "Thông tin CCCD đã được xác thực thành công qua hệ thống quốc gia.";
+                    }
+                    else
+                    {
+                        response.Message = "Thông tin CCCD khớp với thông tin tài khoản.";
+                    }
+                    
+                    // Cập nhật status nếu chưa được approve
+                    if (host.VerificationStatus != "Approved")
+                    {
+                        host.VerificationStatus = "Approved";
+                        host.VerifiedAt = DateTime.UtcNow;
+                        host.VerificationNote = vietQRVerified 
+                            ? "Thông tin CCCD đã được xác thực qua VietQR API" 
+                            : "Thông tin CCCD đã được xác thực tự động";
+                        await _context.SaveChangesAsync();
+                    }
+                }
+                else
+                {
+                    var mismatches = new List<string>();
+                    if (!details.NameMatch) mismatches.Add("Tên không khớp");
+                    if (!details.IdNumberMatch) mismatches.Add("Số CCCD không hợp lệ");
+                    if (!details.DateOfBirthMatch && user.DateOfBirth.HasValue) mismatches.Add("Ngày sinh không khớp");
+                    
+                    if (!string.IsNullOrEmpty(vietQRMessage) && !vietQRVerified)
+                    {
+                        mismatches.Add($"VietQR: {vietQRMessage}");
+                    }
+
+                    response.Message = $"Thông tin CCCD không khớp: {string.Join(", ", mismatches)}. Vui lòng kiểm tra lại.";
+                }
+            }
+            catch (Exception ex)
+            {
+                response.Message = $"Lỗi khi xác thực: {ex.Message}";
+            }
+
+            return response;
+        }
+
+        // Helper method để chuẩn hóa tên tiếng Việt (loại bỏ dấu)
+        private string NormalizeVietnameseName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return string.Empty;
+
+            // Loại bỏ khoảng trắng thừa và chuyển về chữ hoa
+            name = name.Trim().ToUpper();
+            name = System.Text.RegularExpressions.Regex.Replace(name, @"\s+", " ");
+
+            // Loại bỏ dấu tiếng Việt
+            var normalizedString = name.Normalize(System.Text.NormalizationForm.FormD);
+            var stringBuilder = new System.Text.StringBuilder();
+
+            foreach (var c in normalizedString)
+            {
+                var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+                if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
+                {
+                    stringBuilder.Append(c);
+                }
+            }
+
+            return stringBuilder.ToString().Normalize(System.Text.NormalizationForm.FormC);
+        }
+
+        // Helper method để parse ngày từ string
+        private bool TryParseDate(string dateString, out DateTime date)
+        {
+            date = DateTime.MinValue;
+            if (string.IsNullOrEmpty(dateString)) return false;
+
+            // Thử các format phổ biến
+            var formats = new[] { "dd/MM/yyyy", "dd-MM-yyyy", "dd.MM.yyyy", "yyyy-MM-dd" };
+            foreach (var format in formats)
+            {
+                if (DateTime.TryParseExact(dateString, format, null, System.Globalization.DateTimeStyles.None, out date))
+                {
+                    return true;
+                }
+            }
+
+            // Thử parse tự động
+            return DateTime.TryParse(dateString, out date);
         }
     }
 }

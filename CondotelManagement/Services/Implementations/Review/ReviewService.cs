@@ -22,9 +22,10 @@ namespace CondotelManagement.Services
 				CondotelName = r.Condotel.Name,
 				UserId = r.UserId,
 				UserName = r.User.FullName,
+				UserImageUrl = r.User.ImageUrl, // Avatar của user
 				Rating = r.Rating,
 				Comment = r.Comment,
-				Reply = r.Reply,
+				Reply = r.Reply, // Reply của host
 				Status = r.Status,
 				CreatedAt = r.CreatedAt
 			});
@@ -38,7 +39,9 @@ namespace CondotelManagement.Services
 				ReviewId = r.ReviewId,
 				CondotelName = r.Condotel.Name,
 				UserName = r.User.FullName,
+				UserImageUrl = r.User.ImageUrl, // Avatar của user
 				Comment = r.Comment,
+				Reply = r.Reply, // Reply của host (nếu có)
 				Status = r.Status
 			});
 		}

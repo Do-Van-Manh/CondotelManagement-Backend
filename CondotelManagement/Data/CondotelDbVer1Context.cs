@@ -58,8 +58,6 @@ public partial class CondotelDbVer1Context : DbContext
 
     public virtual DbSet<RefundRequest> RefundRequests { get; set; }
 
-    public virtual DbSet<RewardPoint> RewardPoints { get; set; }
-
     public virtual DbSet<Role> Roles { get; set; }
 
     public virtual DbSet<ServicePackage> ServicePackages { get; set; }
@@ -622,22 +620,6 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasConstraintName("FK_RefundRequests_Users_Admin");
         });
 
-        modelBuilder.Entity<RewardPoint>(entity =>
-        {
-            entity.HasKey(e => e.PointId);
-
-            entity.Property(e => e.PointId).HasColumnName("PointID");
-            entity.Property(e => e.CustomerId).HasColumnName("CustomerID");
-            entity.Property(e => e.LastUpdated)
-                .HasPrecision(0)
-                .HasDefaultValueSql("(sysdatetime())");
-
-            entity.HasOne(d => d.Customer).WithMany(p => p.RewardPoints)
-                .HasForeignKey(d => d.CustomerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_RewardPoints_User");
-        });
-
         modelBuilder.Entity<Role>(entity =>
         {
             entity.ToTable("Role");
@@ -779,6 +761,11 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.BankName).HasMaxLength(100);
             entity.Property(e => e.HostId).HasColumnName("HostID");
             entity.Property(e => e.UserId).HasColumnName("UserID");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .HasDefaultValue("Active");
+            entity.Property(e => e.IsDefault)
+                .HasDefaultValue(true);
 
             entity.HasOne(d => d.User).WithMany(p => p.Wallets)
                 .HasForeignKey(d => d.UserId)

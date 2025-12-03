@@ -2,6 +2,7 @@ using CondotelManagement.DTOs.Host;
 using CondotelManagement.Services.Interfaces.Host;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Linq;
 
 namespace CondotelManagement.Controllers.Admin
 {
@@ -78,6 +79,43 @@ namespace CondotelManagement.Controllers.Admin
                 return StatusCode(500, new { message = "Error confirming payout", error = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Lấy danh sách booking đã thanh toán cho host (đã hoàn thành và đã trả tiền)
+        /// GET /api/admin/payouts/paid?hostId=1&fromDate=2025-01-01&toDate=2025-12-31
+        /// </summary>
+        [HttpGet("paid")]
+        public async Task<IActionResult> GetPaidPayouts(
+            [FromQuery] int? hostId = null,
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null)
+        {
+            try
+            {
+                var paidPayouts = await _payoutService.GetPaidPayoutsAsync(hostId, fromDate, toDate);
+                
+                var totalAmount = paidPayouts.Sum(p => p.Amount);
+                
+                return Ok(new
+                {
+                    success = true,
+                    data = paidPayouts,
+                    total = paidPayouts.Count,
+                    totalAmount = totalAmount,
+                    summary = new
+                    {
+                        totalBookings = paidPayouts.Count,
+                        totalRevenue = totalAmount,
+                        averageAmount = paidPayouts.Count > 0 ? totalAmount / paidPayouts.Count : 0
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error getting paid payouts", error = ex.Message });
+            }
+        }
     }
 }
+
 

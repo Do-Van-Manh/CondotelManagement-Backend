@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using System;
+using System.IO;
 
 namespace CondotelManagement.Controllers.Host
 {
@@ -47,6 +48,90 @@ namespace CondotelManagement.Controllers.Host
             {
                 // Lỗi thực tế (bao gồm lỗi SQL UNIQUE KEY cũ nếu chưa xóa) sẽ được trả về
                 return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("verify-with-id-card")]
+        [Authorize(Roles = "Host")]
+        public async Task<IActionResult> VerifyHostWithIdCard([FromForm] HostVerificationRequestDTO request)
+        {
+            try
+            {
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userIdString))
+                {
+                    return Unauthorized(new { message = "Token không hợp lệ." });
+                }
+
+                var userId = int.Parse(userIdString);
+
+                if (request.IdCardFront == null || request.IdCardBack == null)
+                {
+                    return BadRequest(new { message = "Vui lòng upload đầy đủ ảnh mặt trước và mặt sau CCCD." });
+                }
+
+                // Validate file types
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
+                var frontExtension = Path.GetExtension(request.IdCardFront.FileName).ToLowerInvariant();
+                var backExtension = Path.GetExtension(request.IdCardBack.FileName).ToLowerInvariant();
+
+                if (!allowedExtensions.Contains(frontExtension) || !allowedExtensions.Contains(backExtension))
+                {
+                    return BadRequest(new { message = "Chỉ chấp nhận file ảnh định dạng JPG, JPEG hoặc PNG." });
+                }
+
+                // Validate file size (max 5MB)
+                const long maxFileSize = 5 * 1024 * 1024; // 5MB
+                if (request.IdCardFront.Length > maxFileSize || request.IdCardBack.Length > maxFileSize)
+                {
+                    return BadRequest(new { message = "Kích thước file không được vượt quá 5MB." });
+                }
+
+                var result = await _hostService.VerifyHostWithIdCardAsync(userId, request.IdCardFront, request.IdCardBack);
+
+                if (result.Success)
+                {
+                    return Ok(result);
+                }
+                else
+                {
+                    return BadRequest(result);
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = $"Lỗi khi xác minh: {ex.Message}" });
+            }
+        }
+
+        [HttpGet("validate-id-card")]
+        [Authorize(Roles = "Host")]
+        public async Task<IActionResult> ValidateIdCard()
+        {
+            try
+            {
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userIdString))
+                {
+                    return Unauthorized(new { message = "Token không hợp lệ." });
+                }
+
+                var userId = int.Parse(userIdString);
+
+                var result = await _hostService.ValidateIdCardInfoAsync(userId);
+
+                if (result.IsValid)
+                {
+                    return Ok(result);
+                }
+                else
+                {
+                    return BadRequest(result);
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = $"Lỗi khi xác thực: {ex.Message}" });
             }
         }
     }

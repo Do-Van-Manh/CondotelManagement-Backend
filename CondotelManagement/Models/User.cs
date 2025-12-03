@@ -43,8 +43,6 @@ public partial class User
 
     public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
 
-    public virtual ICollection<RewardPoint> RewardPoints { get; set; } = new List<RewardPoint>();
-
     public virtual Role Role { get; set; } = null!;
 
     public virtual ICollection<Wallet> Wallets { get; set; } = new List<Wallet>();

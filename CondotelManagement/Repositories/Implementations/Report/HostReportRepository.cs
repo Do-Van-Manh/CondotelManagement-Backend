@@ -13,6 +13,24 @@ namespace CondotelManagement.Repositories
         {
             _db = db;
         }
+
+        // Helper method để check status "Completed" (hỗ trợ cả tiếng Anh và tiếng Việt)
+        private bool IsCompletedStatus(string? status)
+        {
+            if (string.IsNullOrWhiteSpace(status)) return false;
+            var trimmedStatus = status.Trim();
+            return trimmedStatus.Equals("Completed", StringComparison.OrdinalIgnoreCase) ||
+                   trimmedStatus.Equals("Hoàn thành", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Helper method để check status "Cancelled" (hỗ trợ cả tiếng Anh và tiếng Việt)
+        private bool IsCancelledStatus(string? status)
+        {
+            if (string.IsNullOrWhiteSpace(status)) return false;
+            var trimmedStatus = status.Trim();
+            return trimmedStatus.Equals("Cancelled", StringComparison.OrdinalIgnoreCase) ||
+                   trimmedStatus.Equals("Đã hủy", StringComparison.OrdinalIgnoreCase);
+        }
         public async Task<HostReportDTO> GetHostReportAsync(int hostId, DateOnly? from, DateOnly? to)
         {
             var condotelIds = await _db.Condotels
@@ -171,9 +189,10 @@ namespace CondotelManagement.Repositories
 			var completedBookingsRaw = await completedBookingsQuery.ToListAsync();
 			
 			// Filter Completed trong memory (case-insensitive)
+			// Hỗ trợ cả "Completed" (tiếng Anh) và "Hoàn thành" (tiếng Việt)
 			// Year/month filter đã được apply trong query rồi
 			var completedBookings = completedBookingsRaw
-				.Where(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+				.Where(b => IsCompletedStatus(b.Status))
 				.ToList();
 
 			// Debug: Log số lượng booking
@@ -225,8 +244,8 @@ namespace CondotelManagement.Repositories
 			// Tính số booking Completed
 			var completedBookingsCount = completedBookings.Count;
 
-			// Tính số booking Cancelled
-			var cancelledBookings = allBookings.Count(b => b.Status == "Cancelled");
+			// Tính số booking Cancelled (hỗ trợ cả tiếng Anh và tiếng Việt)
+			var cancelledBookings = allBookings.Count(b => IsCancelledStatus(b.Status));
 
 			// Nhóm theo tháng/năm (dùng allBookings để có tổng số booking, nhưng chỉ tính revenue từ completed)
 			var monthlyData = allBookings
@@ -236,12 +255,12 @@ namespace CondotelManagement.Repositories
 					Year = g.Key.Year,
 					Month = g.Key.Month,
 					MonthName = $"Tháng {g.Key.Month}",
-					// CHỈ TÍNH REVENUE TỪ BOOKING COMPLETED (case-insensitive, nếu TotalPrice null thì = 0)
-					Revenue = g.Where(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+					// CHỈ TÍNH REVENUE TỪ BOOKING COMPLETED (case-insensitive, hỗ trợ cả tiếng Anh và tiếng Việt)
+					Revenue = g.Where(b => IsCompletedStatus(b.Status))
 						.Sum(b => b.TotalPrice ?? 0m),
 					TotalBookings = g.Count(),
-					CompletedBookings = g.Count(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)),
-					CancelledBookings = g.Count(b => b.Status != null && b.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase))
+					CompletedBookings = g.Count(b => IsCompletedStatus(b.Status)),
+					CancelledBookings = g.Count(b => IsCancelledStatus(b.Status))
 				})
 				.OrderBy(m => m.Year)
 				.ThenBy(m => m.Month)
@@ -253,12 +272,12 @@ namespace CondotelManagement.Repositories
 				.Select(g => new YearlyRevenueDTO
 				{
 					Year = g.Key,
-					// CHỈ TÍNH REVENUE TỪ BOOKING COMPLETED (case-insensitive, nếu TotalPrice null thì = 0)
-					TotalRevenue = g.Where(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+					// CHỈ TÍNH REVENUE TỪ BOOKING COMPLETED (case-insensitive, hỗ trợ cả tiếng Anh và tiếng Việt)
+					TotalRevenue = g.Where(b => IsCompletedStatus(b.Status))
 						.Sum(b => b.TotalPrice ?? 0m),
 					TotalBookings = g.Count(),
-					CompletedBookings = g.Count(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)),
-					CancelledBookings = g.Count(b => b.Status != null && b.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase)),
+					CompletedBookings = g.Count(b => IsCompletedStatus(b.Status)),
+					CancelledBookings = g.Count(b => IsCancelledStatus(b.Status)),
 					MonthlyData = g
 						.GroupBy(b => b.EndDate.Month)
 						.Select(mg => new MonthlyRevenueDTO
@@ -266,12 +285,12 @@ namespace CondotelManagement.Repositories
 							Year = g.Key,
 							Month = mg.Key,
 							MonthName = $"Tháng {mg.Key}",
-							// CHỈ TÍNH REVENUE TỪ BOOKING COMPLETED (case-insensitive, nếu TotalPrice null thì = 0)
-							Revenue = mg.Where(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+							// CHỈ TÍNH REVENUE TỪ BOOKING COMPLETED (case-insensitive, hỗ trợ cả tiếng Anh và tiếng Việt)
+							Revenue = mg.Where(b => IsCompletedStatus(b.Status))
 								.Sum(b => b.TotalPrice ?? 0m),
 							TotalBookings = mg.Count(),
-							CompletedBookings = mg.Count(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)),
-							CancelledBookings = mg.Count(b => b.Status != null && b.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase))
+							CompletedBookings = mg.Count(b => IsCompletedStatus(b.Status)),
+							CancelledBookings = mg.Count(b => IsCancelledStatus(b.Status))
 						})
 						.OrderBy(m => m.Month)
 						.ToList()
