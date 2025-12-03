@@ -48,4 +48,6 @@ public partial class User
     public virtual Role Role { get; set; } = null!;
 
     public virtual ICollection<Wallet> Wallets { get; set; } = new List<Wallet>();
+
+	public ICollection<Voucher> Vouchers { get; set; } = new List<Voucher>();
 }

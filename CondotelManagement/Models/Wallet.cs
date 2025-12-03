@@ -20,4 +20,6 @@ public partial class Wallet
     public virtual Host? Host { get; set; }
 
     public virtual User? User { get; set; }
+    public string Status { get; set; } = "Active";
+    public bool IsDefault { get; set; } = true;
 }

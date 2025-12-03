@@ -42,13 +42,14 @@ namespace CondotelManagement.Services.Implementations.Amenity
             };
         }
 
-        public async Task<AmenityResponseDTO> CreateAsync(AmenityRequestDTO dto)
+        public async Task<AmenityResponseDTO> CreateAsync(int hostId, AmenityRequestDTO dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Name))
                 throw new ArgumentException("Amenity name is required", nameof(dto.Name));
 
             var amenity = new AmenityModel
             {
+                HostID = hostId,
                 Name = dto.Name.Trim(),
                 Description = dto.Description?.Trim(),
                 Category = dto.Category?.Trim()
@@ -88,7 +89,19 @@ namespace CondotelManagement.Services.Implementations.Amenity
 
             return await _repository.DeleteAsync(id);
         }
-    }
+
+		public async Task<IEnumerable<AmenityResponseDTO>> GetAllAsync(int hostId)
+		{
+			var amenities = await _repository.GetAllAsync(hostId);
+			return amenities.Select(a => new AmenityResponseDTO
+			{
+				AmenityId = a.AmenityId,
+				Name = a.Name,
+				Description = a.Description,
+				Category = a.Category
+			});
+		}
+	}
 }
 
 

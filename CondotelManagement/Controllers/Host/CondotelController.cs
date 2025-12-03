@@ -1,10 +1,12 @@
-﻿using CondotelManagement.DTOs;
+﻿using CondotelManagement.Data;
+using CondotelManagement.DTOs;
 using CondotelManagement.Helpers;
 using CondotelManagement.Services;
+using CondotelManagement.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
-using CondotelManagement.Services.Interfaces;
 
 namespace CondotelManagement.Controllers.Host
 {
@@ -15,11 +17,15 @@ namespace CondotelManagement.Controllers.Host
     {
         private readonly ICondotelService _condotelService;
         private readonly IHostService _hostService;
+        private readonly IPackageFeatureService _featureService; // THÊM DÒNG NÀY
+        private readonly CondotelDbVer1Context _context;
 
-        public CondotelController(ICondotelService condotelService, IHostService hostService)
+        public CondotelController(ICondotelService condotelService, IHostService hostService, IPackageFeatureService featureService,CondotelDbVer1Context context)
         {
             _condotelService = condotelService;
             _hostService = hostService;
+            _featureService = featureService;
+            _context = context;
         }
 
         //GET /api/condotel
@@ -51,40 +57,54 @@ namespace CondotelManagement.Controllers.Host
         [HttpPost]
         public ActionResult Create([FromBody] CondotelCreateDTO condotelDto)
         {
-            if (condotelDto == null) 
+            if (condotelDto == null)
                 return BadRequest(new { message = "Invalid condotel data" });
 
             try
             {
-                // Get current host from authenticated user
                 var host = _hostService.GetByUserId(User.GetUserId());
                 if (host == null)
                     return Unauthorized(new { message = "Host not found. Please register as a host first." });
 
-                condotelDto.HostId = host.HostId;
+                // LẤY GÓI HIỆN TẠI CỦA HOST
+                var activePackage = _context.HostPackages
+                    .Include(hp => hp.Package)
+                    .Where(hp => hp.HostId == host.HostId && hp.Status == "Active")
+                    .OrderByDescending(hp => hp.EndDate)
+                    .FirstOrDefault();
 
-                // Validate ownership - ensure host is creating for themselves
+                int maxListings = 0;
+                if (activePackage != null)
+                {
+                    maxListings = _featureService.GetMaxListingCount(activePackage.PackageId);
+                }
+
+                // ĐẾM SỐ CONDOTEL HIỆN TẠI CỦA HOST
+                var currentCount = _context.Condotels
+                    .Count(c => c.HostId == host.HostId && c.Status != "Deleted");
+
+                // KIỂM TRA GIỚI HẠN
+                if (currentCount >= maxListings)
+                {
+                    return StatusCode(403, new
+                    {
+                        message = $"Bạn đã đạt giới hạn đăng tin. Gói hiện tại chỉ cho phép tối đa {maxListings} condotel.",
+                        currentCount,
+                        maxListings,
+                        upgradeRequired = maxListings == 0 || maxListings < 10 // gợi ý nâng cấp
+                    });
+                }
+
+                condotelDto.HostId = host.HostId;
                 var created = _condotelService.CreateCondotel(condotelDto);
 
                 return CreatedAtAction(nameof(GetById),
                     new { id = created.CondotelId },
                     new { message = "Condotel created successfully", data = created });
             }
-            catch (ArgumentNullException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while creating condotel", error = ex.Message });
+                return StatusCode(500, new { message = "Lỗi hệ thống", error = ex.Message });
             }
         }
 

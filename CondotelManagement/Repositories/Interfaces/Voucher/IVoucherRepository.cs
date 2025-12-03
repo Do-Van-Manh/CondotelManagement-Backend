@@ -10,5 +10,8 @@ namespace CondotelManagement.Repositories
 		Task<Voucher> AddAsync(Voucher voucher);
 		Task<Voucher?> UpdateAsync(Voucher voucher);
 		Task<bool> DeleteAsync(int id);
+		Task<string> GenerateUniqueVoucherCodeAsync(int userId, int maxRetries = 5);
+		Task<HostVoucherSetting?> GetByHostIdAsync(int hostId);
+		Task<HostVoucherSetting> AddOrUpdateAsync(HostVoucherSetting setting);
 	}
 }

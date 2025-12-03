@@ -76,7 +76,15 @@ namespace CondotelManagement.Repositories.Implementations.Amenity
         {
             return await _context.Amenities.AnyAsync(a => a.AmenityId == id);
         }
-    }
+
+		public async Task<IEnumerable<AmenityModel>> GetAllAsync(int hostId)
+		{
+			return await _context.Amenities
+                .Where(a => a.HostID == hostId)
+				.OrderBy(a => a.Name)
+				.ToListAsync();
+		}
+	}
 }
 
 

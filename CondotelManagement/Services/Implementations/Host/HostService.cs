@@ -73,7 +73,7 @@ namespace CondotelManagement.Services
                 isNewWallet = true;
 
                 // 5. Nâng cấp quyền    
-                user.RoleId = 4;
+                user.RoleId = 3;
             }
             // --- LOGIC: USER ĐÃ LÀ HOST (existingHost != null) ---
             else
@@ -130,10 +130,20 @@ namespace CondotelManagement.Services
             // Nhưng hiện tại giữ nguyên 1 lần commit là hiệu quả nhất.
             await _context.SaveChangesAsync();
 
-            // 8. TRẢ VỀ DTO
+            if (isNewHost && isNewWallet && walletToProcess != null)
+            {
+                walletToProcess.HostId = hostToProcess.HostId;  // ← Cứu cả thế giới
+                _context.Wallets.Add(walletToProcess);
+            }
+
+            // 8. LƯU LẦN CUỐI
+            await _context.SaveChangesAsync();
+
+            // 9. TRẢ VỀ
             return new HostRegistrationResponseDto
             {
-                HostId = hostToProcess.HostId
+                HostId = hostToProcess.HostId,
+                Message = isNewHost ? "Đăng ký làm Host thành công!" : "Cập nhật thông tin thành công!"
             };
         }
 
