@@ -15,5 +15,8 @@
         //tên resort hoặc host
         public string? ResortName { get; set; }
         public string? HostName { get; set; }
+
+        // Promotion đang active (nếu có)
+        public PromotionDTO? ActivePromotion { get; set; }
     }
 }

@@ -13,7 +13,8 @@ namespace CondotelManagement.Services
         IEnumerable<CondotelDTO> GetCondtelsByHost(int hostId);
         IEnumerable<CondotelDTO> GetCondotelsByFilters(
             string? name, 
-            string? location, 
+            string? location,
+            int? locationId,
             DateOnly? fromDate, 
             DateOnly? toDate, 
             decimal? minPrice,

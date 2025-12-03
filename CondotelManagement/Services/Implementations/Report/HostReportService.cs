@@ -15,5 +15,10 @@ namespace CondotelManagement.Services
         {
             return await _repo.GetHostReportAsync(hostId, from, to);
         }
+
+        public async Task<RevenueReportResponseDTO> GetRevenueReportByMonthYear(int hostId, int? year, int? month)
+        {
+            return await _repo.GetRevenueReportByMonthYearAsync(hostId, year, month);
+        }
     }
 }

@@ -101,5 +101,213 @@ namespace CondotelManagement.Repositories
 				CompletedBookings = completedBookings
 			};
         }
+
+		public async Task<RevenueReportResponseDTO> GetRevenueReportByMonthYearAsync(int hostId, int? year, int? month)
+		{
+			// Lấy danh sách CondotelId của host
+			var condotelIds = await _db.Condotels
+				.Where(c => c.HostId == hostId)
+				.Select(c => c.CondotelId)
+				.ToListAsync();
+
+			// Debug: Log condotelIds
+			Console.WriteLine($"[RevenueReport] ========== START ==========");
+			Console.WriteLine($"[RevenueReport] HostId: {hostId}, CondotelIds: [{string.Join(", ", condotelIds)}]");
+
+			// Kiểm tra nếu host không có condotel nào
+			if (!condotelIds.Any())
+			{
+				Console.WriteLine($"[RevenueReport] Host {hostId} không có condotel nào");
+				return new RevenueReportResponseDTO
+				{
+					TotalRevenue = 0,
+					TotalBookings = 0,
+					CompletedBookings = 0,
+					CancelledBookings = 0,
+					MonthlyRevenues = new List<MonthlyRevenueDTO>(),
+					YearlyRevenues = new List<YearlyRevenueDTO>()
+				};
+			}
+
+			// Lấy TẤT CẢ bookings của host (KHÔNG FILTER STATUS) để debug
+			var allBookingsRaw = await _db.Bookings
+				.Where(b => condotelIds.Contains(b.CondotelId))
+				.ToListAsync();
+
+			Console.WriteLine($"[RevenueReport] TẤT CẢ bookings của host (không filter): {allBookingsRaw.Count}");
+			foreach (var b in allBookingsRaw)
+			{
+				Console.WriteLine($"  - BookingId: {b.BookingId}, CondotelId: {b.CondotelId}, Status: '{b.Status}', TotalPrice: {b.TotalPrice}, EndDate: {b.EndDate}");
+			}
+
+			// Lấy tất cả bookings của host (bao gồm tất cả status để tính tổng số booking)
+			var allBookingsQuery = _db.Bookings
+				.Where(b => condotelIds.Contains(b.CondotelId))
+				.AsQueryable();
+
+			// Lấy chỉ bookings Completed để tính doanh thu (CHỈ TÍNH DOANH THU TỪ COMPLETED)
+			// Lấy tất cả booking trước, sau đó filter trong memory để tránh vấn đề case-sensitive
+			var completedBookingsQuery = _db.Bookings
+				.Where(b => condotelIds.Contains(b.CondotelId))
+				.AsQueryable();
+
+			// Filter theo năm nếu có (filter theo năm của EndDate)
+			if (year.HasValue)
+			{
+				allBookingsQuery = allBookingsQuery.Where(b => b.EndDate.Year == year.Value);
+				completedBookingsQuery = completedBookingsQuery.Where(b => b.EndDate.Year == year.Value);
+				Console.WriteLine($"[RevenueReport] Filter theo năm: {year.Value}");
+			}
+
+			// Filter theo tháng nếu có (chỉ filter khi đã có year)
+			if (month.HasValue)
+			{
+				allBookingsQuery = allBookingsQuery.Where(b => b.EndDate.Month == month.Value);
+				completedBookingsQuery = completedBookingsQuery.Where(b => b.EndDate.Month == month.Value);
+				Console.WriteLine($"[RevenueReport] Filter theo tháng: {month.Value}");
+			}
+
+			var allBookings = await allBookingsQuery.ToListAsync();
+			var completedBookingsRaw = await completedBookingsQuery.ToListAsync();
+			
+			// Filter Completed trong memory (case-insensitive)
+			// Year/month filter đã được apply trong query rồi
+			var completedBookings = completedBookingsRaw
+				.Where(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+				.ToList();
+
+			// Debug: Log số lượng booking
+			Console.WriteLine($"[RevenueReport] AllBookings (sau filter): {allBookings.Count}, CompletedBookings: {completedBookings.Count}");
+			
+			// Log tất cả status để debug
+			var statusGroups = allBookingsRaw.GroupBy(b => b.Status).ToList();
+			Console.WriteLine($"[RevenueReport] Phân bố Status:");
+			foreach (var g in statusGroups)
+			{
+				Console.WriteLine($"  - Status '{g.Key}': {g.Count()} bookings");
+			}
+
+			if (completedBookings.Any())
+			{
+				Console.WriteLine($"[RevenueReport] Completed bookings details (sau filter):");
+				foreach (var b in completedBookings)
+				{
+					Console.WriteLine($"  - BookingId: {b.BookingId}, TotalPrice: {b.TotalPrice}, Status: '{b.Status}', EndDate: {b.EndDate}");
+				}
+			}
+			else
+			{
+				Console.WriteLine($"[RevenueReport] ⚠️ KHÔNG TÌM THẤY BOOKING COMPLETED!");
+				// Kiểm tra xem có booking nào với status khác "Completed" không
+				var otherStatusBookings = allBookingsRaw.Where(b => b.Status.ToLower().Contains("complete")).ToList();
+				if (otherStatusBookings.Any())
+				{
+					Console.WriteLine($"[RevenueReport] Tìm thấy {otherStatusBookings.Count} booking có chứa 'complete' trong status:");
+					foreach (var b in otherStatusBookings)
+					{
+						Console.WriteLine($"  - BookingId: {b.BookingId}, Status: '{b.Status}' (exact: '{b.Status}')");
+					}
+				}
+			}
+
+			// Tính tổng doanh thu (CHỈ TỪ BOOKING COMPLETED)
+			// Tính tất cả booking Completed, nếu TotalPrice null thì coi như 0
+			var totalRevenue = completedBookings
+				.Sum(b => b.TotalPrice ?? 0m);
+			
+			// Debug: Log doanh thu
+			Console.WriteLine($"[RevenueReport] TotalRevenue calculated: {totalRevenue}");
+			Console.WriteLine($"[RevenueReport] ========== END ==========");
+
+			// Tính tổng số booking (tất cả status)
+			var totalBookings = allBookings.Count;
+
+			// Tính số booking Completed
+			var completedBookingsCount = completedBookings.Count;
+
+			// Tính số booking Cancelled
+			var cancelledBookings = allBookings.Count(b => b.Status == "Cancelled");
+
+			// Nhóm theo tháng/năm (dùng allBookings để có tổng số booking, nhưng chỉ tính revenue từ completed)
+			var monthlyData = allBookings
+				.GroupBy(b => new { b.EndDate.Year, b.EndDate.Month })
+				.Select(g => new MonthlyRevenueDTO
+				{
+					Year = g.Key.Year,
+					Month = g.Key.Month,
+					MonthName = $"Tháng {g.Key.Month}",
+					// CHỈ TÍNH REVENUE TỪ BOOKING COMPLETED (case-insensitive, nếu TotalPrice null thì = 0)
+					Revenue = g.Where(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+						.Sum(b => b.TotalPrice ?? 0m),
+					TotalBookings = g.Count(),
+					CompletedBookings = g.Count(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)),
+					CancelledBookings = g.Count(b => b.Status != null && b.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase))
+				})
+				.OrderBy(m => m.Year)
+				.ThenBy(m => m.Month)
+				.ToList();
+
+			// Nhóm theo năm
+			var yearlyData = allBookings
+				.GroupBy(b => b.EndDate.Year)
+				.Select(g => new YearlyRevenueDTO
+				{
+					Year = g.Key,
+					// CHỈ TÍNH REVENUE TỪ BOOKING COMPLETED (case-insensitive, nếu TotalPrice null thì = 0)
+					TotalRevenue = g.Where(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+						.Sum(b => b.TotalPrice ?? 0m),
+					TotalBookings = g.Count(),
+					CompletedBookings = g.Count(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)),
+					CancelledBookings = g.Count(b => b.Status != null && b.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase)),
+					MonthlyData = g
+						.GroupBy(b => b.EndDate.Month)
+						.Select(mg => new MonthlyRevenueDTO
+						{
+							Year = g.Key,
+							Month = mg.Key,
+							MonthName = $"Tháng {mg.Key}",
+							// CHỈ TÍNH REVENUE TỪ BOOKING COMPLETED (case-insensitive, nếu TotalPrice null thì = 0)
+							Revenue = mg.Where(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+								.Sum(b => b.TotalPrice ?? 0m),
+							TotalBookings = mg.Count(),
+							CompletedBookings = mg.Count(b => b.Status != null && b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)),
+							CancelledBookings = mg.Count(b => b.Status != null && b.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase))
+						})
+						.OrderBy(m => m.Month)
+						.ToList()
+				})
+				.OrderBy(y => y.Year)
+				.ToList();
+
+			// Debug: Log monthlyData và yearlyData trước khi return
+			Console.WriteLine($"[RevenueReport] MonthlyData count: {monthlyData.Count}");
+			foreach (var m in monthlyData)
+			{
+				Console.WriteLine($"  - Month: {m.Month}/{m.Year}, Revenue: {m.Revenue}, TotalBookings: {m.TotalBookings}, CompletedBookings: {m.CompletedBookings}");
+			}
+			
+			Console.WriteLine($"[RevenueReport] YearlyData count: {yearlyData.Count}");
+			foreach (var y in yearlyData)
+			{
+				Console.WriteLine($"  - Year: {y.Year}, TotalRevenue: {y.TotalRevenue}, TotalBookings: {y.TotalBookings}, CompletedBookings: {y.CompletedBookings}, MonthlyData count: {y.MonthlyData.Count}");
+			}
+
+			var response = new RevenueReportResponseDTO
+			{
+				TotalRevenue = Math.Round(totalRevenue, 2),
+				TotalBookings = totalBookings,
+				CompletedBookings = completedBookingsCount,
+				CancelledBookings = cancelledBookings,
+				MonthlyRevenues = monthlyData,
+				YearlyRevenues = yearlyData
+			};
+
+			// Debug: Log response structure
+			Console.WriteLine($"[RevenueReport] Response - TotalRevenue: {response.TotalRevenue}, TotalBookings: {response.TotalBookings}");
+			Console.WriteLine($"[RevenueReport] Response - MonthlyRevenues.Count: {response.MonthlyRevenues?.Count ?? 0}");
+			Console.WriteLine($"[RevenueReport] Response - YearlyRevenues.Count: {response.YearlyRevenues?.Count ?? 0}");
+
+			return response;
+		}
     }
 }

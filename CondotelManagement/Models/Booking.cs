@@ -27,6 +27,10 @@ public partial class Booking
 
     public int? VoucherId { get; set; }
 
+    public bool IsPaidToHost { get; set; }
+
+    public DateTime? PaidToHostAt { get; set; }
+
     public virtual ICollection<BookingDetail> BookingDetails { get; set; } = new List<BookingDetail>();
 
     public virtual Condotel Condotel { get; set; } = null!;

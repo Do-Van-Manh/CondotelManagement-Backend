@@ -177,6 +177,9 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasDefaultValue("Pending");
             entity.Property(e => e.TotalPrice).HasColumnType("decimal(12, 2)");
             entity.Property(e => e.VoucherId).HasColumnName("VoucherID");
+            entity.Property(e => e.IsPaidToHost)
+                .HasDefaultValue(false);
+            entity.Property(e => e.PaidToHostAt).HasColumnType("datetime");
 
             entity.HasOne(d => d.Condotel).WithMany(p => p.Bookings)
                 .HasForeignKey(d => d.CondotelId)

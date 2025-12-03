@@ -36,15 +36,15 @@ namespace CondotelManagement.Services.Implementations.Tenant
                 throw new InvalidOperationException("You can only review completed bookings");
             }
 
-            // 3. Kiểm tra EndDate đã qua chưa
-            if (booking.EndDate > DateOnly.FromDateTime(DateTime.Now))
-            {
-                throw new InvalidOperationException("You can only review after the stay is completed");
-            }
+            // 3. Nếu status đã là "Completed" thì cho phép review luôn
+            // Không cần kiểm tra EndDate vì status "Completed" đã đảm bảo booking đã hoàn thành
 
-            // 4. Kiểm tra đã review chưa
+            // 4. Lấy CondotelId từ booking (đảm bảo chính xác)
+            var condotelId = booking.CondotelId;
+
+            // 5. Kiểm tra đã review chưa (dùng CondotelId từ booking)
             var existingReview = await _context.Reviews
-                .FirstOrDefaultAsync(r => r.UserId == userId && r.CondotelId == dto.CondotelId
+                .FirstOrDefaultAsync(r => r.UserId == userId && r.CondotelId == condotelId
                     && r.BookingId == dto.BookingId);
 
             if (existingReview != null)
@@ -52,16 +52,10 @@ namespace CondotelManagement.Services.Implementations.Tenant
                 throw new InvalidOperationException("You have already reviewed this booking");
             }
 
-            // 5. Validate CondotelId khớp với booking
-            if (booking.CondotelId != dto.CondotelId)
-            {
-                throw new InvalidOperationException("CondotelID does not match the booking");
-            }
-
-            // 6. Tạo review mới
+            // 6. Tạo review mới (dùng CondotelId từ booking)
             var review = new Review
             {
-                CondotelId = dto.CondotelId,
+                CondotelId = condotelId,
                 UserId = userId,
                 BookingId = dto.BookingId,
                 Rating = dto.Rating,
@@ -72,7 +66,7 @@ namespace CondotelManagement.Services.Implementations.Tenant
             _context.Reviews.Add(review);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation($"User {userId} created review {review.ReviewId} for Condotel {dto.CondotelId}");
+            _logger.LogInformation($"User {userId} created review {review.ReviewId} for Condotel {condotelId} (Booking {dto.BookingId})");
 
             return MapToResponseDTO(review, booking.Condotel.Name, true, true);
         }

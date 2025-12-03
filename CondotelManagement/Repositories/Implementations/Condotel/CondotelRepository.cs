@@ -59,6 +59,7 @@ namespace CondotelManagement.Repositories
                 .Include(c => c.Resort)
                 .Include(c => c.Host)
                 .Include(c => c.CondotelImages)
+                .Include(c => c.Promotions)
                 .ToList();
         }
 
@@ -162,12 +163,14 @@ namespace CondotelManagement.Repositories
                     .Include(c => c.Resort)
                     .Include(c => c.Host)
                     .Include(c => c.CondotelImages)
+                    .Include(c => c.Promotions)
                     .ToList();
         }
 
 	public IEnumerable<Condotel> GetCondotelsByFilters(
 			string? name,
 			string? location,
+			int? locationId,
 			DateOnly? fromDate,
 			DateOnly? toDate,
 			decimal? minPrice,
@@ -190,8 +193,17 @@ namespace CondotelManagement.Repositories
 			query = query.Where(c => c.Name.Contains(name));
 		}
 
-		// Lọc theo location - sử dụng join trực tiếp
-		if (!string.IsNullOrWhiteSpace(location))
+		// Lọc theo locationId (ưu tiên hơn location string)
+		if (locationId.HasValue)
+		{
+			query = query.Where(c => 
+				c.ResortId != null &&
+				_context.Resorts.Any(r => 
+					r.ResortId == c.ResortId && 
+					r.LocationId == locationId.Value));
+		}
+		// Lọc theo location string (nếu không có locationId)
+		else if (!string.IsNullOrWhiteSpace(location))
 		{
 			query = query.Where(c => 
 				c.ResortId != null &&
@@ -234,26 +246,16 @@ namespace CondotelManagement.Repositories
 				query = query.Where(c => c.PricePerNight <= maxPrice.Value);
 
 			// ------------------------------------
-			// 4. Lọc theo Beds & Bathrooms (join CondotelDetails)
+			// 4. Lọc theo Beds & Bathrooms (filter trực tiếp từ Condotel)
 			// ------------------------------------
 			if (beds.HasValue)
 			{
-				query = query.Where(c =>
-					_context.CondotelDetails.Any(d =>
-						d.CondotelId == c.CondotelId &&
-						d.Beds >= beds.Value
-					)
-				);
+				query = query.Where(c => c.Beds >= beds.Value);
 			}
 
 			if (bathrooms.HasValue)
 			{
-				query = query.Where(c =>
-					_context.CondotelDetails.Any(d =>
-						d.CondotelId == c.CondotelId &&
-						d.Bathrooms >= bathrooms.Value
-					)
-				);
+				query = query.Where(c => c.Bathrooms >= bathrooms.Value);
 			}
 
 			// Include các navigation properties sau khi đã filter
@@ -261,7 +263,8 @@ namespace CondotelManagement.Repositories
 			.Include(c => c.Resort)
 				.ThenInclude(r => r.Location)
 			.Include(c => c.Host)
-			.Include(c => c.CondotelImages);
+			.Include(c => c.CondotelImages)
+			.Include(c => c.Promotions);
 
 		return query.ToList();
 	}

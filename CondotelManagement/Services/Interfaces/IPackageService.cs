@@ -13,5 +13,8 @@ namespace CondotelManagement.Services.Interfaces
 
         // (Host) Mua hoặc nâng cấp gói mới
         Task<HostPackageDetailsDto> PurchaseOrUpgradePackageAsync(int hostId, int packageId);
+
+        // (Host) Hủy package và hoàn tiền
+        Task<CancelPackageResponseDTO> CancelPackageAsync(int hostId, CancelPackageRequestDTO request);
     }
 }
