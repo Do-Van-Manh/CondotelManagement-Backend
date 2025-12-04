@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddSignalR();
 
 // ====================== DB ======================
 builder.Services.AddDbContext<CondotelDbVer1Context>(options =>
@@ -104,9 +105,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins("http://localhost:3000")  // CHÍNH XÁC origin của React
+              .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowCredentials();                  // QUAN TRỌNG: cho phép gửi token
     });
 });
 
@@ -125,10 +127,11 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseCors("AllowFrontend");
-app.MapHub<ChatHub>("/hubs/chat", options =>
-{
-    options.Transports = HttpTransportType.WebSockets;
-});
+//app.MapHub<ChatHub>("/chatHub", options =>
+//{
+//    options.Transports = HttpTransportType.WebSockets;
+//});
+app.MapHub<ChatHub>("/hubs/chat");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

@@ -1,50 +1,86 @@
-﻿
-namespace CondotelManagement.Hub
+﻿namespace CondotelManagement.Hub
 {
-
+    using CondotelManagement.Models;
     using CondotelManagement.Services.Interfaces.Chat;
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.SignalR;
+    using System.Security.Claims;
+
+    [Authorize]
     public class ChatHub : Hub
     {
         private readonly IChatService _chatService;
-        public ChatHub(IChatService chatService) { _chatService = chatService; }
+        public ChatHub(IChatService chatService)
+        {
+            _chatService = chatService;
+        }
 
-        
+        // HÀM CHUNG – LẤY USER ID AN TOÀN
+        private int GetCurrentUserId()
+        {
+            var claim = Context.User?.FindFirst("nameid")
+                     ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)
+                     ?? Context.User?.FindFirst("sub");
+
+            if (claim == null || !int.TryParse(claim.Value, out int userId))
+                throw new HubException("Unauthorized - Không tìm thấy user ID");
+
+            return userId;
+        }
+
         public async Task JoinConversation(int conversationId)
         {
-            await Groups.AddToGroupAsync(Context.ConnectionId, $"conv-{conversationId}");
+            await Groups.AddToGroupAsync(Context.ConnectionId, conversationId.ToString());
         }
 
         public async Task LeaveConversation(int conversationId)
         {
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"conv-{conversationId}");
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, conversationId.ToString());
         }
 
-   
-        public async Task SendMessage(int conversationId, int senderId, string content)
+        public async Task SendMessage(int conversationId, string content)
         {
-           
-            await _chatService.SendMessageAsync(conversationId, senderId, content);
+            if (string.IsNullOrWhiteSpace(content)) return;
+            var senderId = GetCurrentUserId();
 
-            
-            var dto = new
+            // 1. Tạo và Lưu (Dùng UtcNow là ĐÚNG)
+            var message = new ChatMessage
             {
-                conversationId,
-                senderId,
-                content,
-                sentAt = DateTime.Now
+                ConversationId = conversationId,
+                SenderId = senderId,
+                Content = content.Trim(),
+                SentAt = DateTime.UtcNow // Lưu giờ gốc vào DB
+            };
+            await _chatService.AddMessageAsync(message);
+
+            // 2. Gửi Realtime
+            var messageDto = new
+            {
+                messageId = message.MessageId,
+                conversationId = message.ConversationId,
+                senderId = message.SenderId,
+                content = message.Content,
+                // ✅ QUAN TRỌNG: Thêm 'Z' vào cuối chuỗi định dạng
+                // "O" ra dạng: 2023-10-05T14:30:00.0000000 -> Thiếu Z nếu Kind là Unspecified
+                // Ta ép kiểu thủ công cho chắc chắn:
+                sentAt = message.SentAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
             };
 
-            await Clients.Group($"conv-{conversationId}").SendAsync("ReceiveMessage", dto);
+            await Clients.Group(conversationId.ToString()).SendAsync("ReceiveMessage", messageDto);
         }
 
-   
-        public async Task<int> GetOrCreateDirectConversation(int meUserId, int otherUserId)
+        public async Task<int> GetOrCreateDirectConversation(int otherUserId)
         {
-            var conv = await _chatService.GetOrCreateDirectConversationAsync(meUserId, otherUserId);
-            await Groups.AddToGroupAsync(Context.ConnectionId, $"conv-{conv.ConversationId}");
+            var meId = GetCurrentUserId(); // Dùng hàm này → không còn Unauthorized
+
+            var conv = await _chatService.GetOrCreateDirectConversationAsync(meId, otherUserId);
+            //await Groups.AddToGroupAsync(Context.ConnectionId, conv.ConversationId.ToString());
             return conv.ConversationId;
         }
-    }
 
+        public override async Task OnDisconnectedAsync(Exception? exception)
+        {
+            await base.OnDisconnectedAsync(exception);
+        }
+    }
 }
