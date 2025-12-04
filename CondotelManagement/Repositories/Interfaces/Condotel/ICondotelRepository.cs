@@ -16,6 +16,7 @@ namespace CondotelManagement.Repositories
 		IEnumerable<Condotel> GetCondotelsByFilters(
 			string? name,
 			string? location,
+			int? locationId,
 			DateOnly? fromDate,
 			DateOnly? toDate,
 			decimal? minPrice,

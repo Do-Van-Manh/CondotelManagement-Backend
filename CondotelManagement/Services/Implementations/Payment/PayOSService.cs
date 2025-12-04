@@ -614,5 +614,103 @@ namespace CondotelManagement.Services.Implementations.Payment
                 throw new InvalidOperationException($"Error creating PayOS refund payment link: {ex.Message}", ex);
             }
         }
+
+        public async Task<PayOSCreatePaymentResponse> CreatePackageRefundPaymentLinkAsync(int hostId, long originalOrderCode, decimal refundAmount, string hostName, string? hostEmail = null, string? hostPhone = null)
+        {
+            try
+            {
+                // Validate amount
+                var amount = (int)refundAmount;
+                if (amount <= 0)
+                {
+                    throw new InvalidOperationException("Refund amount must be greater than 0");
+                }
+
+                if (amount < 10000) // PayOS minimum is 10,000 VND
+                {
+                    throw new InvalidOperationException("Refund amount must be at least 10,000 VND");
+                }
+
+                // Tạo OrderCode cho refund package: HostId * 1000000000 + PackageId * 1000000 + 888888 (để phân biệt)
+                var refundOrderCode = (long)hostId * 1000000000L + 888888L;
+
+                // Tạo description
+                var description = $"Hoan tien package Host #{hostId}";
+                if (description.Length > PayOsDescriptionLimit)
+                {
+                    description = description.Substring(0, PayOsDescriptionLimit);
+                }
+
+                // Frontend URL để host nhận tiền
+                var frontendUrl = _configuration["AppSettings:FrontendUrl"] ?? "http://localhost:3000";
+                var returnUrl = $"{frontendUrl}/package-refund-success?hostId={hostId}";
+                var cancelUrl = $"{frontendUrl}/package-refund-cancel?hostId={hostId}";
+
+                // Tạo payment link request (host sẽ nhận tiền qua link này)
+                var request = new PayOSCreatePaymentRequest
+                {
+                    OrderCode = refundOrderCode,
+                    Amount = amount,
+                    Description = description,
+                    BuyerName = hostName,
+                    BuyerEmail = hostEmail ?? "",
+                    BuyerPhone = hostPhone ?? "",
+                    Items = new List<PayOSItem>
+                    {
+                        new PayOSItem
+                        {
+                            Name = "Hoàn tiền package",
+                            Quantity = 1,
+                            Price = amount
+                        }
+                    },
+                    ReturnUrl = returnUrl,
+                    CancelUrl = cancelUrl
+                };
+
+                var json = JsonSerializer.Serialize(request, new JsonSerializerOptions
+                {
+                    WriteIndented = false
+                });
+
+                Console.WriteLine($"=== PayOS Package Refund Payment Link Request ===");
+                Console.WriteLine($"HostId: {hostId}, OriginalOrderCode: {originalOrderCode}, RefundOrderCode: {refundOrderCode}, Amount: {amount}");
+                Console.WriteLine($"Request JSON: {json}");
+                Console.WriteLine($"=====================");
+
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync("/v2/payment-requests", content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                Console.WriteLine($"PayOS Package Refund Response Status: {response.StatusCode}");
+                Console.WriteLine($"PayOS Package Refund Response: {responseContent}");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new HttpRequestException($"PayOS API error: {response.StatusCode} - {responseContent}");
+                }
+
+                var result = JsonSerializer.Deserialize<PayOSCreatePaymentResponse>(responseContent, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (result == null)
+                    throw new InvalidOperationException("Failed to parse PayOS response");
+
+                if (result.Code != "00")
+                {
+                    var errorMessage = result.Desc ?? "Unknown error";
+                    var errorCode = result.Code ?? "Unknown";
+                    throw new InvalidOperationException($"PayOS error: {errorMessage} (Code: {errorCode})");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Error creating PayOS package refund payment link: {ex.Message}", ex);
+            }
+        }
     }
 }

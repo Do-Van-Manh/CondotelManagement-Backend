@@ -1,9 +1,16 @@
-﻿using CondotelManagement.Data;
+using CondotelManagement.Data;
 using CondotelManagement.DTOs.Package;
 using CondotelManagement.Models;
+using CondotelManagement.Repositories.Interfaces.Admin;
 using CondotelManagement.Services.Interfaces;
+using CondotelManagement.Services.Interfaces.Auth;
+using CondotelManagement.Services.Interfaces.Payment;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace CondotelManagement.Services.Implementations
 {
@@ -11,11 +18,15 @@ namespace CondotelManagement.Services.Implementations
     {
         private readonly CondotelDbVer1Context _context;
         private readonly IPackageFeatureService _featureService;
+        private readonly IUserRepository _userRepo;
+        private readonly IPayOSService _payOSService;
 
-        public PackageService(CondotelDbVer1Context context, IPackageFeatureService featureService)
+        public PackageService(CondotelDbVer1Context context, IPackageFeatureService featureService, IUserRepository userRepo, IPayOSService payOSService)
         {
             _context = context;
             _featureService = featureService;
+            _userRepo = userRepo;
+            _payOSService = payOSService;
         }
 
         public async Task<IEnumerable<PackageDto>> GetAvailablePackagesAsync()
@@ -30,7 +41,7 @@ namespace CondotelManagement.Services.Implementations
                 Name = p.Name,
                 Price = p.Price.GetValueOrDefault(0),
                 Duration = p.Duration ?? "30 days",
-                Description = p.Description ?? "",
+                Description = p.Description ?? string.Empty,
                 MaxListings = _featureService.GetMaxListingCount(p.PackageId),
                 CanUseFeaturedListing = _featureService.CanUseFeaturedListing(p.PackageId),
                 MaxBlogRequestsPerMonth = _featureService.GetMaxBlogRequestsPerMonth(p.PackageId),
@@ -44,27 +55,32 @@ namespace CondotelManagement.Services.Implementations
         {
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-            // SỬA: Tìm HostPackage active, không cần composite key
-            var activePackage = await _context.HostPackages
+            // Get the newest package for the host (prioritize Active, then PendingPayment)
+            // Do not filter EndDate so pending packages are included
+            var hostPackage = await _context.HostPackages
                 .Include(hp => hp.Package)
-                .Where(hp => hp.HostId == hostId &&
-                             hp.Status == "Active" &&
-                             hp.EndDate.HasValue &&
-                             hp.EndDate.Value >= today)
-                .OrderByDescending(hp => hp.EndDate) // Lấy gói mới nhất
+                .Where(hp => hp.HostId == hostId)
+                .OrderByDescending(hp => hp.Status == "Active" ? 1 : 0)
+                .ThenByDescending(hp => hp.StartDate ?? DateOnly.MinValue)
                 .FirstOrDefaultAsync();
 
-            if (activePackage == null) return null;
+            if (hostPackage == null) return null;
+
+            // If the package is Active but expired, still return it for display
+            if (hostPackage.Status == "Active" && hostPackage.EndDate.HasValue && hostPackage.EndDate < today)
+            {
+                // Package đã hết hạn nhưng vẫn trả về để hiển thị
+            }
 
             var currentListings = await _context.Condotels
                 .CountAsync(c => c.HostId == hostId && c.Status != "Deleted");
 
-            // Đếm số blog request trong tháng
+            // Count blog requests in the current month
             var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
             var usedBlogRequests = await _context.BlogRequests
                 .CountAsync(br => br.HostId == hostId && br.RequestDate >= startOfMonth);
 
-            return MapToDetailsDto(activePackage, currentListings, usedBlogRequests);
+            return MapToDetailsDto(hostPackage, currentListings, usedBlogRequests);
         }
 
         public async Task<HostPackageDetailsDto> PurchaseOrUpgradePackageAsync(int hostId, int packageId)
@@ -77,7 +93,7 @@ namespace CondotelManagement.Services.Implementations
 
             var durationDays = ParseDuration(packageToBuy.Duration ?? "30 days");
 
-            // SỬA: Đánh dấu tất cả gói cũ là Inactive thay vì xóa
+            // Mark all old active packages as Inactive instead of deleting
             var oldPackages = await _context.HostPackages
                 .Where(hp => hp.HostId == hostId && hp.Status == "Active")
                 .ToListAsync();
@@ -87,7 +103,7 @@ namespace CondotelManagement.Services.Implementations
                 old.Status = "Inactive";
             }
 
-            // TẠO ORDERCODE
+            // Create OrderCode
             var randomPart = new Random().Next(100000, 999999);
             var orderCode = (long)hostId * 1_000_000_000L + (long)packageId * 1_000_000L + randomPart;
 
@@ -97,7 +113,7 @@ namespace CondotelManagement.Services.Implementations
                 orderCode = (long)hostId * 1_000_000_000L + (long)packageId * 1_000_000L + randomPart;
             }
 
-            // TẠO BẢN GHI MỚI với HostPackageId tự động tăng
+            // Create new record with auto-increment HostPackageId
             var newHostPackage = new HostPackage
             {
                 HostId = hostId,
@@ -105,7 +121,7 @@ namespace CondotelManagement.Services.Implementations
                 Status = "PendingPayment",
                 DurationDays = durationDays,
                 OrderCode = orderCode.ToString(),
-                StartDate = null,  // Sẽ được cập nhật sau khi thanh toán thành công
+                StartDate = null,  // Will be set after successful payment
                 EndDate = null
             };
 
@@ -129,7 +145,7 @@ namespace CondotelManagement.Services.Implementations
                 IsVerifiedBadgeEnabled = _featureService.IsVerifiedBadgeEnabled(packageId),
                 DisplayColorTheme = _featureService.GetDisplayColorTheme(packageId),
                 PriorityLevel = _featureService.GetPriorityLevel(packageId),
-                Message = "Đã tạo đơn hàng thành công! Đang chuyển đến cổng thanh toán PayOS...",
+                Message = "Order created successfully! Redirecting to PayOS...",
                 PaymentUrl = null,
                 OrderCode = orderCode,
                 Amount = packageToBuy.Price.GetValueOrDefault(0)
@@ -149,12 +165,21 @@ namespace CondotelManagement.Services.Implementations
 
         private HostPackageDetailsDto MapToDetailsDto(HostPackage hostPackage, int currentListings, int usedBlogRequests)
         {
+            // Extract OrderCode and Amount from package
+            long orderCode = 0;
+            if (!string.IsNullOrEmpty(hostPackage.OrderCode) && long.TryParse(hostPackage.OrderCode, out long parsedOrderCode))
+            {
+                orderCode = parsedOrderCode;
+            }
+
+            decimal amount = hostPackage.Package?.Price ?? 0;
+
             return new HostPackageDetailsDto
             {
-                PackageName = hostPackage.Package?.Name ?? "Không xác định",
+                PackageName = hostPackage.Package?.Name ?? "Unknown",
                 Status = hostPackage.Status,
-                StartDate = hostPackage.StartDate?.ToString("yyyy-MM-dd"),
-                EndDate = hostPackage.EndDate?.ToString("yyyy-MM-dd"),
+                StartDate = hostPackage.StartDate?.ToString("yyyy-MM-dd") ?? string.Empty,
+                EndDate = hostPackage.EndDate?.ToString("yyyy-MM-dd") ?? string.Empty,
                 CurrentListings = currentListings,
                 MaxListings = _featureService.GetMaxListingCount(hostPackage.PackageId),
                 CanUseFeaturedListing = _featureService.CanUseFeaturedListing(hostPackage.PackageId),
@@ -163,10 +188,128 @@ namespace CondotelManagement.Services.Implementations
                 IsVerifiedBadgeEnabled = _featureService.IsVerifiedBadgeEnabled(hostPackage.PackageId),
                 DisplayColorTheme = _featureService.GetDisplayColorTheme(hostPackage.PackageId),
                 PriorityLevel = _featureService.GetPriorityLevel(hostPackage.PackageId),
-                Message = null,
+                Message = hostPackage.Status == "PendingPayment" ? "Pending payment" : null,
                 PaymentUrl = null,
-                OrderCode = 0,
-                Amount = 0
+                OrderCode = orderCode,
+                Amount = amount
+            };
+        }
+
+        public async Task<CancelPackageResponseDTO> CancelPackageAsync(int hostId, CancelPackageRequestDTO request)
+        {
+            // Get the active package for the host
+            var hostPackage = await _context.HostPackages
+                .Include(hp => hp.Package)
+                .Include(hp => hp.Host)
+                    .ThenInclude(h => h.User)
+                .FirstOrDefaultAsync(hp => hp.HostId == hostId && hp.Status == "Active");
+
+            if (hostPackage == null)
+            {
+                return new CancelPackageResponseDTO
+                {
+                    Success = false,
+                    Message = "Không tìm thấy package đang active để hủy."
+                };
+            }
+
+            // Check if the package has been paid (StartDate and EndDate set)
+            if (!hostPackage.StartDate.HasValue || !hostPackage.EndDate.HasValue)
+            {
+                // Package not activated (not paid) - just cancel
+                hostPackage.Status = "Cancelled";
+                await _context.SaveChangesAsync();
+
+                return new CancelPackageResponseDTO
+                {
+                    Success = true,
+                    Message = "Package cancelled successfully (not paid)."
+                };
+            }
+
+            // Package was paid - calculate refund
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var startDate = hostPackage.StartDate.Value;
+            var endDate = hostPackage.EndDate.Value;
+            var totalDays = (endDate.ToDateTime(TimeOnly.MinValue) - startDate.ToDateTime(TimeOnly.MinValue)).Days;
+            var daysUsed = (today.ToDateTime(TimeOnly.MinValue) - startDate.ToDateTime(TimeOnly.MinValue)).Days;
+            var daysRemaining = totalDays - daysUsed;
+
+            // Calculate refund amount based on remaining days
+            var packagePrice = hostPackage.Package?.Price ?? 0;
+            decimal refundAmount = 0;
+
+            if (daysRemaining > 0 && totalDays > 0)
+            {
+                // Pro-rate refund by remaining days
+                refundAmount = (packagePrice * daysRemaining) / totalDays;
+                refundAmount = Math.Round(refundAmount, 2);
+            }
+
+            // If refund >= 10,000 VND then create refund payment link
+            string? refundPaymentLink = null;
+            if (refundAmount >= 10000)
+            {
+                try
+                {
+                    // Get host info
+                    var host = hostPackage.Host;
+                    var user = host?.User;
+
+                    // Create refund payment link via PayOS using package OrderCode
+                    if (!string.IsNullOrEmpty(hostPackage.OrderCode) && long.TryParse(hostPackage.OrderCode, out long orderCode))
+                    {
+                        // Create payment link for host to receive refund
+                        var refundResponse = await _payOSService.CreatePackageRefundPaymentLinkAsync(
+                            hostId,
+                            orderCode,
+                            refundAmount,
+                            user?.FullName ?? "Host",
+                            user?.Email,
+                            user?.Phone
+                        );
+
+                        if (refundResponse?.Data != null)
+                        {
+                            refundPaymentLink = refundResponse.Data.CheckoutUrl;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error but continue cancelling
+                    Console.WriteLine($"[CancelPackage] Error creating refund link: {ex.Message}");
+                }
+            }
+
+            // Update status to Cancelled
+            hostPackage.Status = "Cancelled";
+            await _context.SaveChangesAsync();
+
+            // Downgrade user role to Tenant if no other active packages
+            var hasOtherActivePackage = await _context.HostPackages
+                .AnyAsync(hp => hp.HostId == hostId && hp.Status == "Active" && hp.EndDate >= today);
+
+            if (!hasOtherActivePackage && hostPackage.Host?.UserId != null)
+            {
+                var user = await _context.Users.FindAsync(hostPackage.Host.UserId);
+                if (user != null && user.RoleId == 4) // RoleId 4 = Host
+                {
+                    user.RoleId = 3; // RoleId 3 = Tenant
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            return new CancelPackageResponseDTO
+            {
+                Success = true,
+                Message = refundAmount >= 10000
+                    ? "Package cancelled successfully. Refund link created."
+                    : "Package cancelled successfully. Refund amount below minimum (10,000 VND).",
+                RefundAmount = refundAmount >= 10000 ? refundAmount : null,
+                RefundPaymentLink = refundPaymentLink,
+                DaysUsed = daysUsed,
+                DaysRemaining = daysRemaining > 0 ? daysRemaining : 0
             };
         }
     }

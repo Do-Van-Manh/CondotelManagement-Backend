@@ -41,10 +41,11 @@ namespace CondotelManagement.Services
             };
         }
 
-        public async Task<ServicePackageDTO> CreateAsync(CreateServicePackageDTO dto)
+        public async Task<ServicePackageDTO> CreateAsync(int hostId, CreateServicePackageDTO dto)
         {
             var entity = new ServicePackage
             {
+                HostID = hostId,
                 Name = dto.Name,
                 Description = dto.Description,
                 Price = dto.Price,

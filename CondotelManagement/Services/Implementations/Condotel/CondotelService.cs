@@ -304,41 +304,82 @@ public class CondotelService : ICondotelService
 
     public IEnumerable<CondotelDTO> GetCondotels()
     {
-        return _condotelRepo.GetCondtels()
-                .Select(c => new CondotelDTO
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var condotels = _condotelRepo.GetCondtels().ToList();
+        
+        return condotels.Select(c => new CondotelDTO
+        {
+            CondotelId = c.CondotelId,
+            Name = c.Name,
+            PricePerNight = c.PricePerNight,
+            Beds = c.Beds,
+            Bathrooms = c.Bathrooms,
+            Status = c.Status,
+            ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
+            ResortName = c.Resort?.Name,
+            HostName = c.Host?.CompanyName,
+            // Lấy promotion đang active (Status = "Active" và trong khoảng thời gian hiện tại)
+            ActivePromotion = c.Promotions
+                .Where(p => p.Status == "Active" 
+                    && p.StartDate <= today 
+                    && p.EndDate >= today)
+                .OrderByDescending(p => p.DiscountPercentage) // Ưu tiên promotion có discount cao nhất
+                .Select(p => new PromotionDTO
                 {
-                    CondotelId = c.CondotelId,
-                    Name = c.Name,
-                    PricePerNight = c.PricePerNight,
-                    Beds = c.Beds,
-                    Bathrooms = c.Bathrooms,
-                    Status = c.Status,
-                    ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
-                    ResortName = c.Resort?.Name,
-                    HostName = c.Host?.CompanyName
-                });
+                    PromotionId = p.PromotionId,
+                    Name = p.Name,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate,
+                    DiscountPercentage = p.DiscountPercentage,
+                    TargetAudience = p.TargetAudience,
+                    Status = p.Status,
+                    CondotelId = p.CondotelId
+                })
+                .FirstOrDefault()
+        });
     }
 
     public IEnumerable<CondotelDTO> GetCondtelsByHost(int hostId)
     {
-        return _condotelRepo.GetCondtelsByHost(hostId)
-                .Select(c => new CondotelDTO
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var condotels = _condotelRepo.GetCondtelsByHost(hostId).ToList();
+        
+        return condotels.Select(c => new CondotelDTO
+        {
+            CondotelId = c.CondotelId,
+            Name = c.Name,
+            PricePerNight = c.PricePerNight,
+            Beds = c.Beds,
+            Bathrooms = c.Bathrooms,
+            Status = c.Status,
+            ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
+            ResortName = c.Resort?.Name,
+            HostName = c.Host?.CompanyName,
+            // Lấy promotion đang active (Status = "Active" và trong khoảng thời gian hiện tại)
+            ActivePromotion = c.Promotions
+                .Where(p => p.Status == "Active" 
+                    && p.StartDate <= today 
+                    && p.EndDate >= today)
+                .OrderByDescending(p => p.DiscountPercentage) // Ưu tiên promotion có discount cao nhất
+                .Select(p => new PromotionDTO
                 {
-                    CondotelId = c.CondotelId,
-                    Name = c.Name,
-                    PricePerNight = c.PricePerNight,
-                    Beds = c.Beds,
-                    Bathrooms = c.Bathrooms,
-                    Status = c.Status,
-                    ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
-                    ResortName = c.Resort?.Name,
-                    HostName = c.Host?.CompanyName
-                });
+                    PromotionId = p.PromotionId,
+                    Name = p.Name,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate,
+                    DiscountPercentage = p.DiscountPercentage,
+                    TargetAudience = p.TargetAudience,
+                    Status = p.Status,
+                    CondotelId = p.CondotelId
+                })
+                .FirstOrDefault()
+        });
     }
 
 	public IEnumerable<CondotelDTO> GetCondotelsByFilters(
 			string? name,
 			string? location,
+			int? locationId,
 			DateOnly? fromDate,
 			DateOnly? toDate,
 			decimal? minPrice,
@@ -346,19 +387,39 @@ public class CondotelService : ICondotelService
 			int? beds,
 			int? bathrooms)
 	{
-		return _condotelRepo.GetCondotelsByFilters(name, location, fromDate, toDate, minPrice, maxPrice, beds, bathrooms)
-				.Select(c => new CondotelDTO
+		var today = DateOnly.FromDateTime(DateTime.UtcNow);
+		var condotels = _condotelRepo.GetCondotelsByFilters(name, location, locationId, fromDate, toDate, minPrice, maxPrice, beds, bathrooms).ToList();
+		
+		return condotels.Select(c => new CondotelDTO
+		{
+			CondotelId = c.CondotelId,
+			Name = c.Name,
+			PricePerNight = c.PricePerNight,
+			Beds = c.Beds,
+			Bathrooms = c.Bathrooms,
+			Status = c.Status,
+			ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
+			ResortName = c.Resort?.Name,
+			HostName = c.Host?.CompanyName,
+			// Lấy promotion đang active (Status = "Active" và trong khoảng thời gian hiện tại)
+			ActivePromotion = c.Promotions
+				.Where(p => p.Status == "Active" 
+					&& p.StartDate <= today 
+					&& p.EndDate >= today)
+				.OrderByDescending(p => p.DiscountPercentage) // Ưu tiên promotion có discount cao nhất
+				.Select(p => new PromotionDTO
 				{
-					CondotelId = c.CondotelId,
-					Name = c.Name,
-					PricePerNight = c.PricePerNight,
-					Beds = c.Beds,
-					Bathrooms = c.Bathrooms,
-					Status = c.Status,
-					ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
-					ResortName = c.Resort?.Name,
-					HostName = c.Host?.CompanyName
-				});
+					PromotionId = p.PromotionId,
+					Name = p.Name,
+					StartDate = p.StartDate,
+					EndDate = p.EndDate,
+					DiscountPercentage = p.DiscountPercentage,
+					TargetAudience = p.TargetAudience,
+					Status = p.Status,
+					CondotelId = p.CondotelId
+				})
+				.FirstOrDefault()
+		});
 	}
 
     public CondotelUpdateDTO UpdateCondotel(CondotelUpdateDTO dto)

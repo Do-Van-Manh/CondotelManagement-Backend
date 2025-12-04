@@ -58,8 +58,6 @@ public partial class CondotelDbVer1Context : DbContext
 
     public virtual DbSet<RefundRequest> RefundRequests { get; set; }
 
-    public virtual DbSet<RewardPoint> RewardPoints { get; set; }
-
     public virtual DbSet<Role> Roles { get; set; }
 
     public virtual DbSet<ServicePackage> ServicePackages { get; set; }
@@ -73,8 +71,9 @@ public partial class CondotelDbVer1Context : DbContext
     public virtual DbSet<Wallet> Wallets { get; set; }
     public DbSet<ChatConversation> ChatConversations { get; set; } = null!;
     public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
+	public virtual DbSet<HostVoucherSetting> HostVoucherSettings { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+	protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
     }
 
@@ -110,7 +109,14 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.Category).HasMaxLength(50);
             entity.Property(e => e.Description).HasMaxLength(255);
             entity.Property(e => e.Name).HasMaxLength(100);
-        });
+			entity.Property(e => e.HostID)
+	            .HasColumnName("HostID")
+	            .IsRequired();
+			entity.HasOne(e => e.Host)
+				.WithMany(h => h.Amenities)
+				.HasForeignKey(e => e.HostID)
+				.OnDelete(DeleteBehavior.Restrict);
+		});
 
         modelBuilder.Entity<BlogCategory>(entity =>
         {
@@ -177,6 +183,9 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasDefaultValue("Pending");
             entity.Property(e => e.TotalPrice).HasColumnType("decimal(12, 2)");
             entity.Property(e => e.VoucherId).HasColumnName("VoucherID");
+            entity.Property(e => e.IsPaidToHost)
+                .HasDefaultValue(false);
+            entity.Property(e => e.PaidToHostAt).HasColumnType("datetime");
 
             entity.HasOne(d => d.Condotel).WithMany(p => p.Bookings)
                 .HasForeignKey(d => d.CondotelId)
@@ -611,22 +620,6 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasConstraintName("FK_RefundRequests_Users_Admin");
         });
 
-        modelBuilder.Entity<RewardPoint>(entity =>
-        {
-            entity.HasKey(e => e.PointId);
-
-            entity.Property(e => e.PointId).HasColumnName("PointID");
-            entity.Property(e => e.CustomerId).HasColumnName("CustomerID");
-            entity.Property(e => e.LastUpdated)
-                .HasPrecision(0)
-                .HasDefaultValueSql("(sysdatetime())");
-
-            entity.HasOne(d => d.Customer).WithMany(p => p.RewardPoints)
-                .HasForeignKey(d => d.CustomerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_RewardPoints_User");
-        });
-
         modelBuilder.Entity<Role>(entity =>
         {
             entity.ToTable("Role");
@@ -749,7 +742,14 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasForeignKey(d => d.CondotelId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_Voucher_Condotel");
-        });
+
+			entity.Property(e => e.UserId).HasColumnName("UserID");
+			entity.HasOne(d => d.User)
+				.WithMany(p => p.Vouchers)
+				.HasForeignKey(d => d.UserId)
+				.OnDelete(DeleteBehavior.SetNull)
+				.HasConstraintName("FK_Voucher_User");
+		});
 
         modelBuilder.Entity<Wallet>(entity =>
         {
@@ -761,6 +761,11 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.BankName).HasMaxLength(100);
             entity.Property(e => e.HostId).HasColumnName("HostID");
             entity.Property(e => e.UserId).HasColumnName("UserID");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .HasDefaultValue("Active");
+            entity.Property(e => e.IsDefault)
+                .HasDefaultValue(true);
 
             entity.HasOne(d => d.User).WithMany(p => p.Wallets)
                 .HasForeignKey(d => d.UserId)
@@ -776,7 +781,23 @@ public partial class CondotelDbVer1Context : DbContext
 				.IsUnique();
 		});
 
-        OnModelCreatingPartial(modelBuilder);
+		modelBuilder.Entity<HostVoucherSetting>(entity =>
+		{
+			entity.ToTable("HostVoucherSetting");
+
+			entity.HasKey(e => e.SettingID);
+
+			entity.Property(e => e.DiscountPercentage).HasColumnType("decimal(5, 2)");
+			entity.Property(e => e.DiscountAmount).HasColumnType("decimal(10, 2)");
+
+			entity.HasOne(e => e.Host)
+				.WithOne(h => h.VoucherSetting)
+				.HasForeignKey<HostVoucherSetting>(e => e.HostID)
+				.OnDelete(DeleteBehavior.Cascade)
+				.HasConstraintName("FK_HostVoucherSetting_Host");
+		});
+
+		OnModelCreatingPartial(modelBuilder);
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);

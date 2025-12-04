@@ -67,8 +67,8 @@ namespace CondotelManagement.Services
                 CreatedAt = b.CreatedAt,
 
                 // Logic hiển thị nút review
+                // Nếu status là "Completed" thì cho phép review (không cần kiểm tra EndDate)
                 CanReview = b.Status == "Completed"
-                         && b.EndDate < DateOnly.FromDateTime(DateTime.Now)
                          && !_context.Reviews.Any(r => r.BookingId == b.BookingId),
 
                 HasReviewed = _context.Reviews.Any(r => r.BookingId == b.BookingId)
@@ -126,18 +126,57 @@ namespace CondotelManagement.Services
             if (condotel == null)
                 return ServiceResultDTO.Fail("Condotel not found.");
 
-            decimal price = condotel.PricePerNight * days;
-
-            // Promotion
-            if (dto.PromotionId.HasValue)
+            // Kiểm tra host không được đặt căn hộ của chính mình
+            var host = _context.Hosts
+                .Include(h => h.User)
+                .FirstOrDefault(h => h.HostId == condotel.HostId);
+            
+            if (host != null && host.UserId == dto.CustomerId)
             {
-                var promo = _condotelRepo.GetPromotionById(dto.PromotionId.Value);
-                if (promo != null)
-                    price -= price * (promo.DiscountPercentage / 100m);
+                return ServiceResultDTO.Fail("Host cannot book their own condotel.");
             }
 
-            if (dto.PromotionId == 0)
-                dto.PromotionId = null;
+            decimal price = condotel.PricePerNight * days;
+            int? appliedPromotionId = null;
+
+            // Áp dụng Promotion nếu có
+            if (dto.PromotionId.HasValue && dto.PromotionId.Value > 0)
+            {
+                var promo = _condotelRepo.GetPromotionById(dto.PromotionId.Value);
+                
+                if (promo != null)
+                {
+                    // Validate promotion thuộc về condotel này
+                    if (promo.CondotelId != dto.CondotelId)
+                    {
+                        return ServiceResultDTO.Fail("Promotion does not belong to this condotel.");
+                    }
+
+                    // Validate promotion đang active
+                    if (promo.Status != "Active")
+                    {
+                        return ServiceResultDTO.Fail("Promotion is not active.");
+                    }
+
+                    // Validate booking dates nằm trong khoảng promotion
+                    if (dto.StartDate < promo.StartDate || dto.EndDate > promo.EndDate)
+                    {
+                        return ServiceResultDTO.Fail($"Booking dates must be within promotion period ({promo.StartDate:yyyy-MM-dd} to {promo.EndDate:yyyy-MM-dd}).");
+                    }
+
+                    // Áp dụng discount
+                    decimal discountAmount = price * (promo.DiscountPercentage / 100m);
+                    price -= discountAmount;
+                    appliedPromotionId = promo.PromotionId;
+                }
+                else
+                {
+                    return ServiceResultDTO.Fail("Promotion not found.");
+                }
+            }
+
+            // Nếu PromotionId = 0 hoặc null, không áp dụng promotion
+            dto.PromotionId = appliedPromotionId;
 
             // Set fields
             dto.TotalPrice = price;
@@ -296,9 +335,9 @@ namespace CondotelManagement.Services
             {
                 Console.WriteLine("[ProcessRefund] Bank info từ request body không đầy đủ, lấy từ Wallet");
                 
-                // Lấy wallet mặc định của customer
+                // Lấy wallet đầu tiên của customer (Wallet model không có IsDefault và Status)
                 var customerWallet = customer.Wallets
-                    .FirstOrDefault(w => w.IsDefault && w.Status == "Active");
+                    .FirstOrDefault();
 
                 if (string.IsNullOrEmpty(accountNumber))
                     accountNumber = customerWallet?.AccountNumber;

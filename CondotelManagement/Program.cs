@@ -100,6 +100,16 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
+// DeepSeek OCR
+builder.Services.Configure<DeepSeekOCRSettings>(builder.Configuration.GetSection("DeepSeekOCR"));
+builder.Services.AddHttpClient<CondotelManagement.Services.Interfaces.OCR.IDeepSeekOCRService, CondotelManagement.Services.Implementations.OCR.DeepSeekOCRService>((serviceProvider, client) =>
+{
+    var config = serviceProvider.GetRequiredService<IConfiguration>();
+    var apiUrl = config["DeepSeekOCR:ApiUrl"] ?? "https://api.deepseek.com/v1/chat/completions";
+    client.BaseAddress = new Uri(apiUrl);
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+
 // CORS cho React
 builder.Services.AddCors(options =>
 {

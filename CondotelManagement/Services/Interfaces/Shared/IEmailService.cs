@@ -6,5 +6,6 @@
         Task SendPasswordResetOtpAsync(string toEmail, string otp);
         Task SendVerificationOtpAsync(string toEmail, string otp);
         Task SendRefundConfirmationEmailAsync(string toEmail, string customerName, int bookingId, decimal refundAmount, string? bankCode = null, string? accountNumber = null);
+        Task SendPayoutConfirmationEmailAsync(string toEmail, string hostName, int bookingId, string condotelName, decimal amount, DateTime paidAt, string? bankName = null, string? accountNumber = null, string? accountHolderName = null);
     }
 }

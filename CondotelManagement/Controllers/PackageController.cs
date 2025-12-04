@@ -36,7 +36,7 @@
                     // Chỉ Select những trường cần dùng để tối ưu
                     var packageOrder = await _context.HostPackages
                         .Include(hp => hp.Package)
-                       .Where(hp => hp.OrderCode.ToString() == orderCode)
+                       .Where(hp => hp.OrderCode != null && hp.OrderCode == orderCode)
                         .Select(hp => new
                         {
                             hp.HostId,
@@ -67,7 +67,7 @@
                     // ---------------------------------------------------------
                     // Thay vì gán property và SaveChanges, ta bắn lệnh Update trực tiếp
                     var rowsPackage = await _context.HostPackages
-                        .Where(hp => hp.OrderCode.ToString() == orderCode)
+                        .Where(hp => hp.OrderCode != null && hp.OrderCode == orderCode)
                         .ExecuteUpdateAsync(s => s
                             .SetProperty(hp => hp.Status, "Active")
                             .SetProperty(hp => hp.StartDate, today)

@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CondotelManagement.Models;
+
 [Table("HostPackage")]
 public partial class HostPackage
 {

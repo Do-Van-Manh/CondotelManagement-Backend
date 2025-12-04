@@ -83,6 +83,17 @@ namespace CondotelManagement.Controllers.Host
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        // POST api/host/packages/cancel - ĐÃ VÔ HIỆU HÓA
+        // Host không thể hủy package, chỉ có thể nâng cấp gói
+        [HttpPost("cancel")]
+        public async Task<IActionResult> CancelPackage([FromBody] CancelPackageRequestDTO? request)
+        {
+            return BadRequest(new { 
+                message = "Host không thể hủy package. Bạn chỉ có thể nâng cấp lên gói cao hơn bằng cách mua gói mới.",
+                canUpgrade = true 
+            });
+        }
     }
 
     public class PurchasePackageRequestDto

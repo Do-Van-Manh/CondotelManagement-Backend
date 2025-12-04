@@ -13,5 +13,9 @@ public partial class Amenity
 
     public string? Category { get; set; }
 
-    public virtual ICollection<CondotelAmenity> CondotelAmenities { get; set; } = new List<CondotelAmenity>();
+	public int HostID { get; set; }
+
+	public Host Host { get; set; }
+
+	public virtual ICollection<CondotelAmenity> CondotelAmenities { get; set; } = new List<CondotelAmenity>();
 }

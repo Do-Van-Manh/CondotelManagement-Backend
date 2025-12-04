@@ -36,32 +36,27 @@ namespace CondotelManagement.Services.Implementations.Tenant
                 throw new InvalidOperationException("You can only review completed bookings");
             }
 
-            // 3. Kiểm tra EndDate đã qua chưa
-            if (booking.EndDate > DateOnly.FromDateTime(DateTime.Now))
-            {
-                throw new InvalidOperationException("You can only review after the stay is completed");
-            }
+            // 3. Nếu status đã là "Completed" thì cho phép review luôn
+            // Không cần kiểm tra EndDate vì status "Completed" đã đảm bảo booking đã hoàn thành
 
-            // 4. Kiểm tra đã review chưa
+            // 4. Lấy CondotelId từ booking (đảm bảo chính xác)
+            var condotelId = booking.CondotelId;
+
+            // 5. Kiểm tra đã review chưa (dùng CondotelId từ booking)
+            // Chỉ kiểm tra review chưa bị xóa (Status != "Deleted")
             var existingReview = await _context.Reviews
-                .FirstOrDefaultAsync(r => r.UserId == userId && r.CondotelId == dto.CondotelId
-                    && r.BookingId == dto.BookingId);
+                .FirstOrDefaultAsync(r => r.UserId == userId && r.CondotelId == condotelId
+                    && r.BookingId == dto.BookingId && r.Status != "Deleted");
 
             if (existingReview != null)
             {
                 throw new InvalidOperationException("You have already reviewed this booking");
             }
 
-            // 5. Validate CondotelId khớp với booking
-            if (booking.CondotelId != dto.CondotelId)
-            {
-                throw new InvalidOperationException("CondotelID does not match the booking");
-            }
-
-            // 6. Tạo review mới
+            // 6. Tạo review mới (dùng CondotelId từ booking)
             var review = new Review
             {
-                CondotelId = dto.CondotelId,
+                CondotelId = condotelId,
                 UserId = userId,
                 BookingId = dto.BookingId,
                 Rating = dto.Rating,
@@ -72,7 +67,7 @@ namespace CondotelManagement.Services.Implementations.Tenant
             _context.Reviews.Add(review);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation($"User {userId} created review {review.ReviewId} for Condotel {dto.CondotelId}");
+            _logger.LogInformation($"User {userId} created review {review.ReviewId} for Condotel {condotelId} (Booking {dto.BookingId})");
 
             return MapToResponseDTO(review, booking.Condotel.Name, true, true);
         }
@@ -81,7 +76,8 @@ namespace CondotelManagement.Services.Implementations.Tenant
         {
             var reviews = await _context.Reviews
                 .Include(r => r.Condotel)
-                .Where(r => r.UserId == userId)
+                .Include(r => r.User) // Include User để lấy ImageUrl
+                .Where(r => r.UserId == userId && r.Status != "Deleted") // Không hiển thị review đã bị xóa
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync(); 
 
@@ -89,9 +85,14 @@ namespace CondotelManagement.Services.Implementations.Tenant
             return reviews.Select(r => new ReviewResponseDTO
             {
                 ReviewId = r.ReviewId,
+                CondotelId = r.CondotelId,
+                CondotelName = r.Condotel.Name,
+                UserId = r.UserId,
+                UserFullName = r.User?.FullName ?? "Unknown",
+                UserImageUrl = r.User?.ImageUrl, // Avatar của user
                 Rating = r.Rating,
                 Comment = r.Comment,
-                CondotelName = r.Condotel.Name,
+                Reply = r.Reply, // Reply của host
                 CreatedAt = r.CreatedAt,
                 CanEdit = CanEditReview(r.CreatedAt),
                 CanDelete = CanEditReview(r.CreatedAt)
@@ -104,7 +105,7 @@ namespace CondotelManagement.Services.Implementations.Tenant
             var review = await _context.Reviews
                 .Include(r => r.Condotel)
                 .Include(r => r.User)
-                .FirstOrDefaultAsync(r => r.ReviewId == reviewId && r.UserId == userId);
+                .FirstOrDefaultAsync(r => r.ReviewId == reviewId && r.UserId == userId && r.Status != "Deleted");
 
             if (review == null) return null;
 
@@ -152,10 +153,11 @@ namespace CondotelManagement.Services.Implementations.Tenant
                 throw new InvalidOperationException($"You can only delete reviews within {EDIT_WINDOW_DAYS} days of creation");
             }
 
-            _context.Reviews.Remove(review);
+            // Không xóa thật, chỉ chuyển status sang "Deleted" để ẩn review
+            review.Status = "Deleted";
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation($"User {userId} deleted review {reviewId}");
+            _logger.LogInformation($"User {userId} deleted review {reviewId} (status changed to Deleted)");
 
             return true;
         }
@@ -169,11 +171,11 @@ namespace CondotelManagement.Services.Implementations.Tenant
                 throw new InvalidOperationException("Condotel not found");
             }
 
-            // Base query
+            // Base query - chỉ lấy review có status != "Deleted"
             var reviewsQuery = _context.Reviews
                 .Include(r => r.User)
                 .Include(r => r.Condotel)
-                .Where(r => r.CondotelId == condotelId);
+                .Where(r => r.CondotelId == condotelId && r.Status != "Deleted");
 
             // Apply filtering by rating if provided
             if (query.MinRating.HasValue && query.MinRating > 0)
@@ -214,8 +216,10 @@ namespace CondotelManagement.Services.Implementations.Tenant
                 CondotelName = r.Condotel?.Name ?? "Unknown",
                 UserId = r.UserId,
                 UserFullName = r.User?.FullName ?? "Anonymous",
+                UserImageUrl = r.User?.ImageUrl, // Avatar của user
                 Rating = r.Rating,
                 Comment = r.Comment,
+                Reply = r.Reply, // Reply của host
                 CreatedAt = r.CreatedAt,
                 CanEdit = false,
                 CanDelete = false
@@ -238,8 +242,10 @@ namespace CondotelManagement.Services.Implementations.Tenant
                 CondotelName = condotelName,
                 UserId = review.UserId,
                 UserFullName = review.User?.FullName ?? "Unknown",
+                UserImageUrl = review.User?.ImageUrl, // Avatar của user
                 Rating = review.Rating,
                 Comment = review.Comment,
+                Reply = review.Reply, // Reply của host
                 CreatedAt = review.CreatedAt,
                 CanEdit = canEdit,
                 CanDelete = canDelete

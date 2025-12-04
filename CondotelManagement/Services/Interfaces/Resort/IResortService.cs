@@ -7,8 +7,12 @@ namespace CondotelManagement.Services
         Task<IEnumerable<ResortDTO>> GetAllAsync();
         Task<ResortDTO?> GetByIdAsync(int id);
         Task<IEnumerable<ResortDTO>> GetByLocationIdAsync(int locationId);
+        Task<ResortDTO> CreateAsync(ResortCreateUpdateDTO dto);
+        Task<bool> UpdateAsync(int id, ResortCreateUpdateDTO dto);
+        Task<bool> DeleteAsync(int id);
     }
 }
+
 
 
 

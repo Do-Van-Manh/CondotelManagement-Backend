@@ -7,7 +7,7 @@ namespace CondotelManagement.Controllers.Admin
 {
     [ApiController]
     [Authorize(Roles = "Admin")]
-    [Route("api/admin/refunds")]
+    [Route("api/admin/refund-requests")]
     public class AdminRefundController : ControllerBase
     {
         private readonly IBookingService _bookingService;
@@ -51,6 +51,7 @@ namespace CondotelManagement.Controllers.Admin
         }
     }
 }
+
 
 
 

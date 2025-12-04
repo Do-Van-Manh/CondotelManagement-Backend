@@ -19,6 +19,16 @@ public partial class Host
 
     public string Status { get; set; } = null!;
 
+    public string? IdCardFrontUrl { get; set; }
+
+    public string? IdCardBackUrl { get; set; }
+
+    public string? VerificationStatus { get; set; } // Pending, Approved, Rejected
+
+    public DateTime? VerifiedAt { get; set; }
+
+    public string? VerificationNote { get; set; }
+
     public virtual ICollection<Condotel> Condotels { get; set; } = new List<Condotel>();
 
     public virtual ICollection<HostPackage> HostPackages { get; set; } = new List<HostPackage>();
@@ -33,4 +43,9 @@ public partial class Host
     
 
     public virtual ICollection<BlogRequest> BlogRequests { get; set; } = new List<BlogRequest>();
+
+	public virtual ICollection<Amenity> Amenities { get; set; }
+
+	public HostVoucherSetting VoucherSetting { get; set; }
+
 }

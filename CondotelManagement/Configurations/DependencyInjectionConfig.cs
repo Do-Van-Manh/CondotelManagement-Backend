@@ -33,6 +33,10 @@ using CondotelManagement.Repositories.Implementations.Chat;
 using CondotelManagement.Repositories.Interfaces.Chat;
 using CondotelManagement.Services.Implementations.Chat;
 using CondotelManagement.Services.Interfaces.Chat;
+using CondotelManagement.Services.Interfaces.Host;
+using CondotelManagement.Services.Implementations.Host;
+using CondotelManagement.Services.Interfaces.Wallet;
+using CondotelManagement.Services.Implementations.Wallet;
 
 namespace CondotelManagement.Configurations
 {
@@ -81,14 +85,17 @@ namespace CondotelManagement.Configurations
             // --- Host ---
             services.AddScoped<IHostRepository, HostRepository>();
             services.AddScoped<IHostService, HostService>();
+            services.AddScoped<IHostPayoutService, HostPayoutService>();
+
+            // --- Wallet ---
+            services.AddScoped<IWalletService, WalletService>();
 
             // --- Booking ---
             services.AddScoped<IBookingRepository, BookingRepository>();
             services.AddScoped<IBookingService, BookingService>();
 
-            // --- Tenant Review & Reward ---
+            // --- Tenant Review ---
             services.AddScoped<ITenantReviewService, TenantReviewService>();
-            services.AddScoped<ITenantRewardService, TenantRewardService>();
 
             // --- Customer ---
             services.AddScoped<ICustomerRepository, CustomerRepository>();

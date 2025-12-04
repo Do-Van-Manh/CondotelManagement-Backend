@@ -33,7 +33,11 @@ namespace CondotelManagement.Controllers.Host
         public ActionResult<IEnumerable<CondotelDTO>> GetAllCondotelByHost()
         {
             //current host login
-            var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
+            var host = _hostService.GetByUserId(User.GetUserId());
+            if (host == null)
+                return Unauthorized(new { message = "Host not found. Please register as a host first." });
+            
+            var hostId = host.HostId;
             var condotels = _condotelService.GetCondtelsByHost(hostId);
             return Ok(condotels);
         }
@@ -60,7 +64,7 @@ namespace CondotelManagement.Controllers.Host
             {
                 var host = _hostService.GetByUserId(User.GetUserId());
                 if (host == null)
-                    return Unauthorized(new { message = "Host not found or unauthorized" });
+                    return Unauthorized(new { message = "Host not found. Please register as a host first." });
 
                 // LẤY GÓI HIỆN TẠI CỦA HOST
                 var activePackage = _context.HostPackages
@@ -119,7 +123,7 @@ namespace CondotelManagement.Controllers.Host
                 // Get current host from authenticated user
                 var host = _hostService.GetByUserId(User.GetUserId());
                 if (host == null)
-                    return Unauthorized(new { message = "Host not found or unauthorized" });
+                    return Unauthorized(new { message = "Host not found. Please register as a host first." });
 
                 // Kiểm tra ownership - đảm bảo condotel thuộc về host này
                 var existingCondotel = _condotelService.GetCondotelById(id);
@@ -169,7 +173,7 @@ namespace CondotelManagement.Controllers.Host
                 // Get current host from authenticated user
                 var host = _hostService.GetByUserId(User.GetUserId());
                 if (host == null)
-                    return Unauthorized(new { message = "Host not found or unauthorized" });
+                    return Unauthorized(new { message = "Host not found. Please register as a host first." });
 
                 // Kiểm tra ownership - đảm bảo condotel thuộc về host này
                 var existingCondotel = _condotelService.GetCondotelById(id);
