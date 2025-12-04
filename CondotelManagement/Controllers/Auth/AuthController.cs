@@ -11,108 +11,133 @@ namespace CondotelManagement.Controllers.Auth
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
-
         public AuthController(IAuthService authService)
         {
             _authService = authService;
+        }
+
+        // Helper method để tránh lặp code
+        private IActionResult ValidateAndReturn()
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .ToDictionary(
+                        x => x.Key,
+                        x => x.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                    );
+                return BadRequest(new { message = "Dữ liệu không hợp lệ", errors });
+            }
+            return null!; // không dùng
         }
 
         [HttpPost("login")]
         [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
+            var validationResult = ValidateAndReturn();
+            if (validationResult != null) return validationResult;
+
             var result = await _authService.LoginAsync(request);
             if (result == null)
-                return Unauthorized(new { message = "Invalid email or password, or account not activated." }); // Sửa thông báo
+                return Unauthorized(new { message = "Email hoặc mật khẩu không đúng, hoặc tài khoản chưa được kích hoạt." });
 
             return Ok(result);
         }
 
-        // THÊM MỚI: Endpoint Google Login
         [HttpPost("google-login")]
         [AllowAnonymous]
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
         {
+            var validationResult = ValidateAndReturn();
+            if (validationResult != null) return validationResult;
+
             var result = await _authService.GoogleLoginAsync(request);
             if (result == null)
-                return Unauthorized(new { message = "Google authentication failed." });
+                return Unauthorized(new { message = "Đăng nhập Google thất bại." });
 
             return Ok(result);
         }
 
-        // SỬA ĐỔI: Endpoint Register
         [HttpPost("register")]
         [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
+            var validationResult = ValidateAndReturn();
+            if (validationResult != null) return validationResult; // Đây là dòng QUAN TRỌNG NHẤT
+
             var success = await _authService.RegisterAsync(request);
             if (!success)
-                return BadRequest(new { message = "Email already exists and is activated." });
+                return BadRequest(new { message = "Email đã tồn tại và được kích hoạt." });
 
-            // SỬA THÔNG BÁO: Yêu cầu xác thực OTP
-            return StatusCode(201, new { message = "User registration initiated. Please check your email for an OTP to verify your account." });
+            return StatusCode(201, new
+            {
+                message = "Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP xác thực tài khoản."
+            });
         }
 
-        // THÊM MỚI: Endpoint Xác thực Email
         [HttpPost("verify-email")]
         [AllowAnonymous]
         public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
         {
+            var validationResult = ValidateAndReturn();
+            if (validationResult != null) return validationResult;
+
             var success = await _authService.VerifyEmailAsync(request);
             if (!success)
-                return BadRequest(new { message = "Invalid email, incorrect OTP, or OTP has expired." });
+                return BadRequest(new { message = "Email không hợp lệ, OTP sai hoặc đã hết hạn." });
 
-            return Ok(new { message = "Email verified successfully. You can now log in." });
+            return Ok(new { message = "Xác thực email thành công. Bạn có thể đăng nhập ngay." });
         }
 
-        // THÊM MỚI: Endpoint Verify OTP (ví dụ cho quên mật khẩu)
         [HttpPost("verify-otp")]
         [AllowAnonymous]
         public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
         {
+            var validationResult = ValidateAndReturn();
+            if (validationResult != null) return validationResult;
+
             var success = await _authService.VerifyOtpAsync(request);
             if (!success)
-                return BadRequest(new { message = "Invalid email, incorrect OTP, or OTP has expired." });
+                return BadRequest(new { message = "OTP không đúng hoặc đã hết hạn." });
 
-            return Ok(new { message = "OTP verified successfully." });
+            return Ok(new { message = "Xác thực OTP thành công." });
         }
-
-
-        [HttpPost("logout")]
-        [Authorize]
-        public IActionResult Logout()
-        {
-            return Ok(new { message = "Logout successful" });
-        }
-
-        // ... (Các endpoint forgot-password, send-otp, reset-password-with-otp, GetMe, admin-check giữ nguyên) ...
 
         [HttpPost("forgot-password")]
         [AllowAnonymous]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
         {
+            var validationResult = ValidateAndReturn();
+            if (validationResult != null) return validationResult;
+
             await _authService.ForgotPasswordAsync(request);
-            return Ok(new { message = "If your email is registered, you will receive a password reset link." });
+            return Ok(new { message = "Nếu email đã đăng ký, bạn sẽ nhận được liên kết đặt lại mật khẩu." });
         }
 
         [HttpPost("send-otp")]
         [AllowAnonymous]
         public async Task<IActionResult> SendPasswordResetOtp([FromBody] ForgotPasswordRequest request)
         {
-            var success = await _authService.SendPasswordResetOtpAsync(request);
-            // (Giữ logic cũ)
-            return Ok(new { message = "If your email is registered, you will receive an OTP code." });
+            var validationResult = ValidateAndReturn();
+            if (validationResult != null) return validationResult;
+
+            await _authService.SendPasswordResetOtpAsync(request);
+            return Ok(new { message = "Nếu email đã đăng ký, mã OTP sẽ được gửi đến email của bạn." });
         }
 
         [HttpPost("reset-password-with-otp")]
         [AllowAnonymous]
         public async Task<IActionResult> ResetPasswordWithOtp([FromBody] ResetPasswordWithOtpRequest request)
         {
+            var validationResult = ValidateAndReturn();
+            if (validationResult != null) return validationResult;
+
             var success = await _authService.ResetPasswordWithOtpAsync(request);
             if (!success)
-                return BadRequest(new { message = "Failed to reset password. Invalid email, expired or incorrect OTP." });
+                return BadRequest(new { message = "Đặt lại mật khẩu thất bại. Email không tồn tại, OTP sai hoặc đã hết hạn." });
 
-            return Ok(new { message = "Password updated successfully" });
+            return Ok(new { message = "Đặt lại mật khẩu thành công!" });
         }
 
         [HttpGet("me")]
@@ -120,10 +145,7 @@ namespace CondotelManagement.Controllers.Auth
         public async Task<IActionResult> GetMe()
         {
             var user = await _authService.GetCurrentUserAsync();
-            if (user == null)
-            {
-                return Unauthorized();
-            }
+            if (user == null) return Unauthorized();
 
             var userProfile = new UserProfileDto
             {
@@ -139,7 +161,6 @@ namespace CondotelManagement.Controllers.Auth
                 ImageUrl = user.ImageUrl,
                 CreatedAt = user.CreatedAt
             };
-
             return Ok(userProfile);
         }
 
@@ -147,7 +168,14 @@ namespace CondotelManagement.Controllers.Auth
         [Authorize(Roles = "Admin")]
         public IActionResult AdminCheck()
         {
-            return Ok(new { message = "Welcome, Admin!" });
+            return Ok(new { message = "Chào mừng Admin!" });
+        }
+
+        [HttpPost("logout")]
+        [Authorize]
+        public IActionResult Logout()
+        {
+            return Ok(new { message = "Đăng xuất thành công" });
         }
     }
 }

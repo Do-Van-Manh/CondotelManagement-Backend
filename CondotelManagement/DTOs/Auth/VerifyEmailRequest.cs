@@ -4,12 +4,12 @@ namespace CondotelManagement.DTOs.Auth
 {
     public class VerifyEmailRequest
     {
-        [Required]
-        [EmailAddress]
+        [Required(ErrorMessage = "Email không được để trống")]
+        [EmailAddress(ErrorMessage = "Email không đúng định dạng")]
         public string Email { get; set; } = null!;
 
-        [Required]
-        [Length(6, 6)]
+        [Required(ErrorMessage = "Mã OTP không được để trống")]
+        [Length(6, 6, ErrorMessage = "Mã OTP phải đúng 6 chữ số")]
         public string Otp { get; set; } = null!;
     }
 }
