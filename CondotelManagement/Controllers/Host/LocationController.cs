@@ -1,4 +1,5 @@
 ﻿using CondotelManagement.DTOs;
+using CondotelManagement.Helpers;
 using CondotelManagement.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -35,16 +36,26 @@ namespace CondotelManagement.Controllers.Host
         [HttpPost]
         public async Task<ActionResult<LocationDTO>> Create(LocationCreateUpdateDTO dto)
         {
-            var created = await _locationService.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetById), new { id = created.LocationId }, created);
+			// Validate DataAnnotation
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
+			var created = await _locationService.CreateAsync(dto);
+            return Ok(ApiResponse<object>.SuccessResponse(created, "Tạo địa điểm thành công"));
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, LocationCreateUpdateDTO dto)
         {
-            var updated = await _locationService.UpdateAsync(id, dto);
+			// Validate DataAnnotation
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
+			var updated = await _locationService.UpdateAsync(id, dto);
             if (!updated) return NotFound();
-            return Ok(new { message = "Location updated successfully" });
+            return Ok(ApiResponse<object>.SuccessResponse(updated, "Sửa địa điểm thành công"));
         }
 
         [HttpDelete("{id}")]
@@ -52,7 +63,7 @@ namespace CondotelManagement.Controllers.Host
         {
             var deleted = await _locationService.DeleteAsync(id);
             if (!deleted) return NotFound();
-            return Ok(new { message = "Location deleted successfully" });
+            return Ok(new { message = "Xóa địa điểm thành công" });
         }
     }
 }

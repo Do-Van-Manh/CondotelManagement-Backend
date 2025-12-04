@@ -45,7 +45,7 @@ namespace CondotelManagement.Controllers.Host
 			var result = await _service.GetByIdAsync(utilityId, hostId);
 
 			if (result == null)
-				return NotFound(new { message = "Utility does not exist or does not belong to this host" });
+				return NotFound(new { message = "Tiện ích không tồn tại hoặc không thuộc về host này" });
 
 			return Ok(result);
 		}
@@ -57,12 +57,15 @@ namespace CondotelManagement.Controllers.Host
 		[HttpPost]
 		public async Task<IActionResult> Create([FromBody] UtilityRequestDTO dto)
 		{
+			// Validate DataAnnotation
 			if (!ModelState.IsValid)
-				return BadRequest(ModelState);
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
 
 			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
 			var created = await _service.CreateAsync(hostId, dto);
-			return Ok(created);
+			return Ok(ApiResponse<object>.SuccessResponse(created, "Đã tạo thành công"));
 		}
 
 		// ===========================
@@ -72,16 +75,19 @@ namespace CondotelManagement.Controllers.Host
 		[HttpPut("{utilityId}")]
 		public async Task<IActionResult> Update(int utilityId, [FromBody] UtilityRequestDTO dto)
 		{
+			// Validate DataAnnotation
 			if (!ModelState.IsValid)
-				return BadRequest(ModelState);
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
 
 			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
 			var success = await _service.UpdateAsync(utilityId, hostId, dto);
 
 			if (!success)
-				return NotFound(new { message = "Utility not found or not on this host." });
+				return NotFound(new { message = "Tiện ích không tồn tại hoặc không thuộc về host này" });
 
-			return Ok(new { message = "Update successful" });
+			return Ok(ApiResponse<object>.SuccessResponse(success, "Đã sửa thành công"));
 		}
 
 		// ===========================

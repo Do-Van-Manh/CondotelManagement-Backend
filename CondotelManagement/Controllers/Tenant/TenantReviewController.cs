@@ -217,7 +217,7 @@ namespace CondotelManagement.Controllers.Tenant
                     }
                 });
             }
-            catch (InvalidOperationException ex) when (ex.Message == "Condotel not found")
+            catch (InvalidOperationException ex) when (ex.Message == "Không tìm thấy condotel")
             {
                 return NotFound(new { message = ex.Message });
             }

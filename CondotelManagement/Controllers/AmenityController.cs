@@ -31,7 +31,7 @@ namespace CondotelManagement.Controllers
         {
             var amenity = await _amenityService.GetByIdAsync(id);
             if (amenity == null)
-                return NotFound(new { message = "Amenity not found" });
+                return NotFound(new { message = "Không tìm thấy tiện nghi" });
 
             return Ok(amenity);
         }

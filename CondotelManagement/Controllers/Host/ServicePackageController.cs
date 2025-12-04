@@ -3,6 +3,7 @@ using CondotelManagement.Helpers;
 using CondotelManagement.Services;
 using CondotelManagement.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CondotelManagement.Controllers.Host
@@ -40,24 +41,35 @@ namespace CondotelManagement.Controllers.Host
         [HttpPost]
         public async Task<IActionResult> Create(CreateServicePackageDTO dto)
         {
+			// Validate DataAnnotation
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
 			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
-			return Ok(await _service.CreateAsync(hostId,dto));
+            var created = await _service.CreateAsync(hostId, dto);
+			return Ok(ApiResponse<object>.SuccessResponse(created, "Đã tạo thành công"));
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, UpdateServicePackageDTO dto)
         {
-            var result = await _service.UpdateAsync(id, dto);
+			// Validate DataAnnotation
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
+			var result = await _service.UpdateAsync(id, dto);
             if (result == null) return NotFound();
-            return Ok(result);
-        }
+			return Ok(ApiResponse<object>.SuccessResponse(result, "Đã sửa thành công"));
+		}
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
             var success = await _service.DeleteAsync(id);
             if (!success) return NotFound();
-            return Ok(new { message = "Deleted successfully" });
+            return Ok(ApiResponse<object>.SuccessResponse("Xóa thành công"));
         }
     }
 }

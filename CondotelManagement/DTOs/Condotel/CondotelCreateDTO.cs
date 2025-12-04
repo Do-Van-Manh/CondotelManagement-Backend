@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace CondotelManagement.DTOs
 {
@@ -7,15 +8,30 @@ namespace CondotelManagement.DTOs
         [JsonIgnore] // Không cho client set
         public int HostId { get; set; }
         public int? ResortId { get; set; }
-        public string Name { get; set; }
-        public string? Description { get; set; }
-        public decimal PricePerNight { get; set; }
-        public int Beds { get; set; }
-        public int Bathrooms { get; set; }
-        public string Status { get; set; }
+		[Required(ErrorMessage = "Tên condotel không được để trống.")]
+		[MaxLength(150, ErrorMessage = "Tên condotel không được vượt quá 150 ký tự.")]
+		public string Name { get; set; }
 
-        // Liên kết 1-n
-        public List<ImageDTO>? Images { get; set; }
+		[MaxLength(500, ErrorMessage = "Mô tả không được vượt quá 500 ký tự.")]
+		public string? Description { get; set; }
+
+		[Range(typeof(decimal), "0.01", "9999999999.99",
+			ErrorMessage = "Giá theo đêm phải từ 0.01 đến 9,999,999,999.99.")]
+		public decimal PricePerNight { get; set; }
+
+		[Range(1, 20, ErrorMessage = "Số giường phải từ 1 đến 20.")]
+		public int Beds { get; set; }
+
+		[Range(1, 20, ErrorMessage = "Số phòng tắm phải từ 1 đến 20.")]
+		public int Bathrooms { get; set; }
+
+		[Required(ErrorMessage = "Trạng thái không được để trống.")]
+		[RegularExpression("Active|Inactive",
+			ErrorMessage = "Trạng thái chỉ chấp nhận: Active, Inactive.")]
+		public string Status { get; set; }
+
+		// Liên kết 1-n
+		public List<ImageDTO>? Images { get; set; }
         public List<PriceDTO>? Prices { get; set; }
         public List<DetailDTO>? Details { get; set; }
 
@@ -27,28 +43,56 @@ namespace CondotelManagement.DTOs
     public class ImageDTO
     {
         public int ImageId { get; set; }
-        public string ImageUrl { get; set; }
-        public string? Caption { get; set; }
-    }
+		[Required(ErrorMessage = "ImageUrl không được để trống.")]
+		[Url(ErrorMessage = "ImageUrl không hợp lệ.")]
+		[MaxLength(255, ErrorMessage = "ImageUrl không được vượt quá 255 ký tự.")]
+		public string ImageUrl { get; set; }
+
+		[MaxLength(255, ErrorMessage = "Caption không được vượt quá 255 ký tự.")]
+		public string? Caption { get; set; }
+	}
 
     public class PriceDTO
     {
         public int PriceId { get; set; }
-        public DateOnly StartDate { get; set; }
-        public DateOnly EndDate { get; set; }
-        public decimal BasePrice { get; set; }
-        public string PriceType { get; set; }
+		[Required(ErrorMessage = "StartDate không được để trống.")]
+		public DateOnly StartDate { get; set; }
 
-        public string Description { get; set; }
-    }
+		[Required(ErrorMessage = "EndDate không được để trống.")]
+		public DateOnly EndDate { get; set; }
+
+		[Required(ErrorMessage = "BasePrice không được để trống.")]
+		[Range(typeof(decimal), "0.01", "9999999999.99",
+			ErrorMessage = "BasePrice phải từ 0.01 đến 9,999,999,999.99.")]
+		public decimal BasePrice { get; set; }
+
+		[Required(ErrorMessage = "PriceType không được để trống.")]
+		[RegularExpression("Seasonal|Holiday|Weekend|Default",
+			ErrorMessage = "PriceType phải là Seasonal, Holiday, Weekend hoặc Default.")]
+		public string PriceType { get; set; }
+
+		[MaxLength(255, ErrorMessage = "Description không được vượt quá 255 ký tự.")]
+		public string Description { get; set; }
+	}
 
     public class DetailDTO
     {
-        public string? BuildingName { get; set; }
-        public string? RoomNumber { get; set; }
-        public byte Beds { get; set; }
-        public byte Bathrooms { get; set; }
-        public string? SafetyFeatures { get; set; }
-        public string? HygieneStandards { get; set; }
-    }
+		[MaxLength(150, ErrorMessage = "BuildingName không được vượt quá 150 ký tự.")]
+		public string? BuildingName { get; set; }
+
+		[MaxLength(50, ErrorMessage = "RoomNumber không được vượt quá 50 ký tự.")]
+		public string? RoomNumber { get; set; }
+
+		[Range(0, 20, ErrorMessage = "Beds phải từ 0 đến 20.")]
+		public byte Beds { get; set; }
+
+		[Range(0, 20, ErrorMessage = "Bathrooms phải từ 0 đến 20.")]
+		public byte Bathrooms { get; set; }
+
+		[MaxLength(500, ErrorMessage = "SafetyFeatures không được vượt quá 500 ký tự.")]
+		public string? SafetyFeatures { get; set; }
+
+		[MaxLength(500, ErrorMessage = "HygieneStandards không được vượt quá 500 ký tự.")]
+		public string? HygieneStandards { get; set; }
+	}
 }

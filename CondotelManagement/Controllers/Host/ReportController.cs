@@ -25,12 +25,12 @@ namespace CondotelManagement.Controllers.Host
             [FromQuery] DateOnly? to)
         {
             if (to < from)
-                return BadRequest("Invalid date range: 'to' must be >= 'from'.");
+                return BadRequest("Phạm vi ngày không hợp lệ");
 
             //current host login
             var host = _hostService.GetByUserId(User.GetUserId());
             if (host == null)
-                return Unauthorized(new { message = "Host not found. Please register as a host first." });
+                return Unauthorized(new { message = "Không tìm thấy host. Vui lòng đăng ký làm host trước." });
             
             var hostId = host.HostId;
             var result = await _service.GetReport(hostId, from, to);
@@ -47,25 +47,25 @@ namespace CondotelManagement.Controllers.Host
             // Validate month nếu có
             if (month.HasValue && (month < 1 || month > 12))
             {
-                return BadRequest(new { message = "Month must be between 1 and 12" });
+                return BadRequest(new { message = "Tháng phải nằm trong khoảng từ 1 đến 12" });
             }
 
             // Validate year nếu có
             if (year.HasValue && (year < 2000 || year > 2100))
             {
-                return BadRequest(new { message = "Year must be between 2000 and 2100" });
+                return BadRequest(new { message = "Năm phải nằm trong khoảng từ 2000 đến 2100" });
             }
 
             // Validate: nếu có month thì phải có year
             if (month.HasValue && !year.HasValue)
             {
-                return BadRequest(new { message = "Year is required when month is specified" });
+                return BadRequest(new { message = "Năm là bắt buộc khi tháng được chỉ định" });
             }
 
             // Lấy hostId từ user đang đăng nhập
             var host = _hostService.GetByUserId(User.GetUserId());
             if (host == null)
-                return Unauthorized(new { message = "Host not found. Please register as a host first." });
+                return Unauthorized(new { message = "Không tìm thấy host. Vui lòng đăng ký làm host trước." });
             
             var hostId = host.HostId;
             var result = await _service.GetRevenueReportByMonthYear(hostId, year, month);

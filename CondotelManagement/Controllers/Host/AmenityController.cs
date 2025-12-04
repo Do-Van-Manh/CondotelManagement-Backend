@@ -3,6 +3,7 @@ using CondotelManagement.Helpers;
 using CondotelManagement.Services.Interfaces;
 using CondotelManagement.Services.Interfaces.Amenity;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CondotelManagement.Controllers.Host
@@ -35,7 +36,7 @@ namespace CondotelManagement.Controllers.Host
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while fetching amenities", error = ex.Message });
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tải tiện nghi", error = ex.Message });
             }
         }
 
@@ -48,13 +49,13 @@ namespace CondotelManagement.Controllers.Host
             {
                 var amenity = await _amenityService.GetByIdAsync(id);
                 if (amenity == null)
-                    return NotFound(new { message = "Amenity not found" });
+                    return NotFound(new { message = "Không tìm thấy tiện nghi" });
 
                 return Ok(amenity);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while fetching amenity", error = ex.Message });
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tải tiện nghi", error = ex.Message });
             }
         }
 
@@ -76,7 +77,7 @@ namespace CondotelManagement.Controllers.Host
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while fetching amenities by category", error = ex.Message });
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tải tiện nghi", error = ex.Message });
             }
         }
 
@@ -85,15 +86,18 @@ namespace CondotelManagement.Controllers.Host
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] AmenityRequestDTO dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+			// Validate DataAnnotation
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
 
-            try
+			try
             {
 				//current host login
 				var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
 				var created = await _amenityService.CreateAsync(hostId,dto);
-                return CreatedAtAction(nameof(GetById), new { id = created.AmenityId }, created);
+                return Ok(ApiResponse<object>.SuccessResponse(created, "Tạo tiện ích thành công"));
             }
             catch (ArgumentException ex)
             {
@@ -101,7 +105,7 @@ namespace CondotelManagement.Controllers.Host
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while creating amenity", error = ex.Message });
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tải tiện nghi", error = ex.Message });
             }
         }
 
@@ -110,16 +114,19 @@ namespace CondotelManagement.Controllers.Host
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] AmenityRequestDTO dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+			// Validate DataAnnotation
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
 
-            try
+			try
             {
                 var success = await _amenityService.UpdateAsync(id, dto);
                 if (!success)
-                    return NotFound(new { message = "Amenity not found" });
+                    return NotFound(new { message = "Không tìm thấy tiện nghi" });
 
-                return Ok(new { message = "Amenity updated successfully" });
+                return Ok(ApiResponse<object>.SuccessResponse(success, "Tiện ích đã được cập nhật thành công"));
             }
             catch (ArgumentException ex)
             {
@@ -127,7 +134,7 @@ namespace CondotelManagement.Controllers.Host
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while updating amenity", error = ex.Message });
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật tiện ích", error = ex.Message });
             }
         }
 
@@ -140,9 +147,9 @@ namespace CondotelManagement.Controllers.Host
             {
                 var success = await _amenityService.DeleteAsync(id);
                 if (!success)
-                    return NotFound(new { message = "Amenity not found or cannot be deleted" });
+                    return NotFound(new { message = "Không thể tìm thấy tiện ích hoặc không thể xóa" });
 
-                return Ok(new { message = "Amenity deleted successfully" });
+                return Ok(new { message = "Tiện ích đã được xóa thành công" });
             }
             catch (InvalidOperationException ex)
             {
@@ -150,7 +157,7 @@ namespace CondotelManagement.Controllers.Host
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while deleting amenity", error = ex.Message });
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi xóa tiện ích", error = ex.Message });
             }
         }
     }

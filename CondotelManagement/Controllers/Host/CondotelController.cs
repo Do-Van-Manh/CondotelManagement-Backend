@@ -4,6 +4,7 @@ using CondotelManagement.Helpers;
 using CondotelManagement.Services;
 using CondotelManagement.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
@@ -35,7 +36,7 @@ namespace CondotelManagement.Controllers.Host
             //current host login
             var host = _hostService.GetByUserId(User.GetUserId());
             if (host == null)
-                return Unauthorized(new { message = "Host not found. Please register as a host first." });
+                return Unauthorized(new { message = "Không tìm thấy host. Vui lòng đăng ký làm host trước." });
             
             var hostId = host.HostId;
             var condotels = _condotelService.GetCondtelsByHost(hostId);
@@ -48,7 +49,7 @@ namespace CondotelManagement.Controllers.Host
         {
             var condotel = _condotelService.GetCondotelById(id);
             if (condotel == null)
-                return NotFound(new { message = "Condotel not found" });
+                return NotFound(new { message = "Không tìm thấy căn hộ khách sạn" });
 
             return Ok(condotel);
         }
@@ -58,13 +59,34 @@ namespace CondotelManagement.Controllers.Host
         public ActionResult Create([FromBody] CondotelCreateDTO condotelDto)
         {
             if (condotelDto == null)
-                return BadRequest(new { message = "Invalid condotel data" });
+                return BadRequest(new { message = "Dữ liệu condotel không hợp lệ" });
 
-            try
+			if (condotelDto.Prices != null && condotelDto.Prices.Count > 0)
+			{
+				for (int i = 0; i < condotelDto.Prices.Count; i++)
+				{
+					var price = condotelDto.Prices[i];
+
+					// Check Start < End
+					if (price.StartDate >= price.EndDate)
+					{
+						ModelState.AddModelError($"Prices[{i}].StartDate", "StartDate phải nhỏ hơn EndDate.");
+						ModelState.AddModelError($"Prices[{i}].EndDate", "EndDate phải lớn hơn StartDate.");
+					}
+				}
+			}
+
+			// Validate DataAnnotation
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
+
+			try
             {
                 var host = _hostService.GetByUserId(User.GetUserId());
                 if (host == null)
-                    return Unauthorized(new { message = "Host not found. Please register as a host first." });
+                    return Unauthorized(new { message = "Không tìm thấy host. Vui lòng đăng ký làm host trước." });
 
                 // LẤY GÓI HIỆN TẠI CỦA HOST
                 var activePackage = _context.HostPackages
@@ -98,9 +120,7 @@ namespace CondotelManagement.Controllers.Host
                 condotelDto.HostId = host.HostId;
                 var created = _condotelService.CreateCondotel(condotelDto);
 
-                return CreatedAtAction(nameof(GetById),
-                    new { id = created.CondotelId },
-                    new { message = "Condotel created successfully", data = created });
+				return Ok(ApiResponse<object>.SuccessResponse(created, "Tạo tiện ích thành công"));
             }
             catch (Exception ex)
             {
@@ -113,34 +133,54 @@ namespace CondotelManagement.Controllers.Host
         public ActionResult Update(int id, [FromBody] CondotelUpdateDTO condotelDto)
         {
             if (condotelDto == null)
-                return BadRequest(new { message = "Invalid condotel data" });
+                return BadRequest(new { message = "Dữ liệu condotel không hợp lệ" });
 
             if (condotelDto.CondotelId != id)
-                return BadRequest(new { message = "Condotel ID mismatch" });
+                return BadRequest(new { message = "ID Condotel không khớp" });
 
-            try
+			if (condotelDto.Prices != null && condotelDto.Prices.Count > 0)
+			{
+				for (int i = 0; i < condotelDto.Prices.Count; i++)
+				{
+					var price = condotelDto.Prices[i];
+
+					// Check Start < End
+					if (price.StartDate >= price.EndDate)
+					{
+						ModelState.AddModelError($"Prices[{i}].StartDate", "StartDate phải nhỏ hơn EndDate.");
+						ModelState.AddModelError($"Prices[{i}].EndDate", "EndDate phải lớn hơn StartDate.");
+					}
+				}
+			}
+
+			// Validate DataAnnotation
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
+
+			try
             {
                 // Get current host from authenticated user
                 var host = _hostService.GetByUserId(User.GetUserId());
                 if (host == null)
-                    return Unauthorized(new { message = "Host not found. Please register as a host first." });
+                    return Unauthorized(new { message = "Không tìm thấy host. Vui lòng đăng ký làm host trước." });
 
                 // Kiểm tra ownership - đảm bảo condotel thuộc về host này
                 var existingCondotel = _condotelService.GetCondotelById(id);
                 if (existingCondotel == null)
-                    return NotFound(new { message = "Condotel not found" });
+                    return NotFound(new { message = "Không tìm thấy condotel" });
 
                 if (existingCondotel.HostId != host.HostId)
-                    return StatusCode(403, new { message = "You do not have permission to update this condotel" });
+                    return StatusCode(403, new { message = "Bạn không có quyền cập nhật căn hộ này" });
 
                 // Set HostId từ authenticated user (không cho client set)
                 condotelDto.HostId = host.HostId;
 
                 var updated = _condotelService.UpdateCondotel(condotelDto);
                 if (updated == null)
-                    return NotFound(new { message = "Condotel not found" });
-
-                return Ok(new { message = "Condotel updated successfully", data = updated });
+                    return NotFound(new { message = "Không tìm thấy condotel" });
+				return Ok(ApiResponse<object>.SuccessResponse(updated, "Condotel đã được cập nhật thành công"));
             }
             catch (ArgumentNullException ex)
             {
@@ -160,7 +200,7 @@ namespace CondotelManagement.Controllers.Host
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while updating condotel", error = ex.Message });
+                return StatusCode(500, new { message = "Lỗi hệ thống", error = ex.Message });
             }
         }
 
@@ -173,25 +213,25 @@ namespace CondotelManagement.Controllers.Host
                 // Get current host from authenticated user
                 var host = _hostService.GetByUserId(User.GetUserId());
                 if (host == null)
-                    return Unauthorized(new { message = "Host not found. Please register as a host first." });
+                    return Unauthorized(new { message = "Không tìm thấy host. Vui lòng đăng ký làm host trước." });
 
                 // Kiểm tra ownership - đảm bảo condotel thuộc về host này
                 var existingCondotel = _condotelService.GetCondotelById(id);
                 if (existingCondotel == null)
-                    return NotFound(new { message = "Condotel not found" });
+                    return NotFound(new { message = "Không tìm thấy condotel" });
 
                 if (existingCondotel.HostId != host.HostId)
-                    return StatusCode(403, new { message = "You do not have permission to delete this condotel" });
+                    return StatusCode(403, new { message = "Bạn không có quyền xóa căn hộ này" });
 
                 var success = _condotelService.DeleteCondotel(id);
                 if (!success)
-                    return NotFound(new { message = "Condotel not found or already deleted" });
+                    return NotFound(new { message = "Condotel không tìm thấy hoặc đã bị xóa" });
 
-                return Ok(new { message = "Condotel deleted successfully" });
+                return Ok(new { message = "Condotel đã xóa thành công" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while deleting condotel", error = ex.Message });
+                return StatusCode(500, new { message = "Lỗi hệ thống", error = ex.Message });
             }
         }
     }
