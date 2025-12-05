@@ -47,11 +47,12 @@ namespace CondotelManagement.Services
 
         public async Task<IEnumerable<BookingDTO>> GetBookingsByCustomerAsync(int customerId)
         {
-            var bookings = await _context.Bookings
-                .Include(b => b.Condotel)
-                .Where(b => b.CustomerId == customerId)
-                .OrderByDescending(b => b.EndDate)
-                .ToListAsync();
+            
+              var bookings = await _context.Bookings
+        .Include(b => b.Condotel)
+        .Where(b => b.CustomerId == customerId)
+        .OrderByDescending(b => b.EndDate)
+        .ToListAsync();
 
             var bookingDTOs = bookings.Select(b => new BookingDTO
             {
@@ -62,17 +63,15 @@ namespace CondotelManagement.Services
                 StartDate = b.StartDate,
                 EndDate = b.EndDate,
                 TotalPrice = b.TotalPrice,
-                Status = b.Status,
+                Status = b.Status, // Status đã được update bởi Background Service
                 PromotionId = b.PromotionId,
                 CreatedAt = b.CreatedAt,
 
-                // Logic hiển thị nút review
-                // Nếu status là "Completed" thì cho phép review (không cần kiểm tra EndDate)
                 CanReview = b.Status == "Completed"
                          && !_context.Reviews.Any(r => r.BookingId == b.BookingId),
-
                 HasReviewed = _context.Reviews.Any(r => r.BookingId == b.BookingId)
             }).ToList();
+
 
             return bookingDTOs;
         }

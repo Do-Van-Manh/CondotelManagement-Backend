@@ -37,6 +37,7 @@ using CondotelManagement.Services.Interfaces.Host;
 using CondotelManagement.Services.Implementations.Host;
 using CondotelManagement.Services.Interfaces.Wallet;
 using CondotelManagement.Services.Implementations.Wallet;
+using CondotelManagement.Services.Background;
 
 namespace CondotelManagement.Configurations
 {
@@ -123,6 +124,8 @@ namespace CondotelManagement.Configurations
             services.AddScoped<IChatService, ChatService>();
             services.AddScoped<IChatRepository, ChatRepository>();
             services.AddSignalR();
+            // --- Background Services ---
+            services.AddHostedService<BookingStatusUpdateService>();
 
             // --- Payment (PayOS) ---
             services.AddHttpClient<IPayOSService, PayOSService>((serviceProvider, client) =>
