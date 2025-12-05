@@ -27,7 +27,12 @@ public partial class Package
     [Required]
     [StringLength(20)]
     public string Status { get; set; } = "Active";
-
+    public int? MaxListingCount { get; set; }
+    public bool? CanUseFeaturedListing { get; set; }
+    public int? MaxBlogRequestsPerMonth { get; set; }
+    public bool? IsVerifiedBadgeEnabled { get; set; }
+    public string? DisplayColorTheme { get; set; }
+    public int? PriorityLevel { get; set; }
     // Navigation
     public virtual ICollection<HostPackage> HostPackages { get; set; } = new List<HostPackage>();
 }

@@ -165,11 +165,12 @@ namespace CondotelManagement.Configurations
             // --- 2. THEM CAC DONG MOI O DAY ---
             // Dang ky Service cho Package
             services.AddScoped<IPackageService, PackageService>();
-            // Dang ky Service cho Quyen loi (Singleton vi no la hard-code, khong doi)
-            services.AddSingleton<IPackageFeatureService, PackageFeatureService>();
 
-			// --- Utility ---
-			services.AddScoped<IUtilitiesRepository, UtilitiesRepository>();
+            // SỬA LẠI: Từ Singleton thành Scoped vì PackageFeatureService dùng DbContext
+            services.AddScoped<IPackageFeatureService, PackageFeatureService>();
+
+            // --- Utility ---
+            services.AddScoped<IUtilitiesRepository, UtilitiesRepository>();
 			services.AddScoped<IUtilitiesService, UtilitiesService>();
 
 			// --- Amenity ---
