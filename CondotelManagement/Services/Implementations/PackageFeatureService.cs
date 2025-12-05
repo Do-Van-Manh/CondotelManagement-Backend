@@ -1,59 +1,73 @@
-﻿using CondotelManagement.Services.Interfaces;
+﻿// File: Services/Implementations/PackageFeatureService.cs
+using Microsoft.EntityFrameworkCore;
+using CondotelManagement.Data;
+using CondotelManagement.Services.Interfaces;
 
 namespace CondotelManagement.Services.Implementations
 {
     public class PackageFeatureService : IPackageFeatureService
     {
-        // PackageID 1 = Gói Cơ Bản (Basic)
-        // PackageID 2 = Gói Cao Cấp (Premium)
+        private readonly CondotelDbVer1Context _context;
+
+        public PackageFeatureService(CondotelDbVer1Context context)
+        {
+            _context = context;
+        }
 
         public int GetMaxListingCount(int packageId)
         {
-            switch (packageId)
-            {
-                case 1: return 3;   // Cơ Bản: 3 condotel
-                case 2: return 10;  // Cao Cấp: 10 condotel
-                default: return 0;  // Chưa có gói hoặc hết hạn
-            }
+            var package = _context.Packages
+                .AsNoTracking()
+                .FirstOrDefault(p => p.PackageId == packageId);
+
+            return package?.MaxListingCount ?? 0;
         }
 
         public bool CanUseFeaturedListing(int packageId)
         {
-            // Chỉ gói Cao Cấp (2) mới được đăng tin nổi bật
-            return packageId == 2;
+            var package = _context.Packages
+                .AsNoTracking()
+                .FirstOrDefault(p => p.PackageId == packageId);
+
+            return package?.CanUseFeaturedListing ?? false;
         }
 
         public int GetMaxBlogRequestsPerMonth(int packageId)
         {
-            // Chỉ gói Cao Cấp được yêu cầu đăng blog, tối đa 5 blog/tháng
-            return packageId == 2 ? 5 : 0;
+            var package = _context.Packages
+                .AsNoTracking()
+                .FirstOrDefault(p => p.PackageId == packageId);
+
+            return package?.MaxBlogRequestsPerMonth ?? 0;
         }
 
         public bool IsVerifiedBadgeEnabled(int packageId)
         {
-            // Chỉ gói Cao Cấp có badge "Đã xác minh"
-            return packageId == 2;
+            var package = _context.Packages
+                .AsNoTracking()
+                .FirstOrDefault(p => p.PackageId == packageId);
+
+            return package?.IsVerifiedBadgeEnabled ?? false;
         }
 
         public string GetDisplayColorTheme(int packageId)
         {
-            switch (packageId)
-            {
-                case 1: return "default";     // Màu mặc định cho Cơ Bản
-                case 2: return "premium-gold"; // Màu vàng/gold cho Cao Cấp
-                default: return "default";
-            }
+            var package = _context.Packages
+                .AsNoTracking()
+                .FirstOrDefault(p => p.PackageId == packageId);
+
+            return !string.IsNullOrEmpty(package?.DisplayColorTheme)
+                ? package.DisplayColorTheme
+                : "default";
         }
 
         public int GetPriorityLevel(int packageId)
         {
-            // Mức độ ưu tiên hiển thị (số càng cao càng ưu tiên)
-            switch (packageId)
-            {
-                case 2: return 10; // Cao Cấp: ưu tiên cao nhất
-                case 1: return 5;  // Cơ Bản: ưu tiên thấp
-                default: return 0;
-            }
+            var package = _context.Packages
+                .AsNoTracking()
+                .FirstOrDefault(p => p.PackageId == packageId);
+
+            return package?.PriorityLevel ?? 0;
         }
     }
 }
