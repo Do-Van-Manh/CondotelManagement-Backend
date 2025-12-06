@@ -1,4 +1,5 @@
 using CondotelManagement.DTOs.Amenity;
+using CondotelManagement.Helpers;
 using CondotelManagement.Services.Interfaces.Amenity;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,8 +22,8 @@ namespace CondotelManagement.Controllers
         public async Task<IActionResult> GetAll()
         {
             var amenities = await _amenityService.GetAllAsync();
-            return Ok(amenities);
-        }
+			return Ok(ApiResponse<object>.SuccessResponse(amenities, null));
+		}
 
         // GET: /api/amenities/{id}
         // Lấy amenity theo ID (public endpoint)
@@ -31,10 +32,10 @@ namespace CondotelManagement.Controllers
         {
             var amenity = await _amenityService.GetByIdAsync(id);
             if (amenity == null)
-                return NotFound(new { message = "Amenity not found" });
+				return NotFound(ApiResponse<object>.Fail("Không tìm thấy tiện nghi"));
 
-            return Ok(amenity);
-        }
+			return Ok(ApiResponse<object>.SuccessResponse(amenity, null));
+		}
     }
 }
 

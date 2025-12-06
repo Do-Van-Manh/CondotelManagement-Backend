@@ -1,4 +1,5 @@
-﻿using CondotelManagement.Services;
+﻿using CondotelManagement.Helpers;
+using CondotelManagement.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,14 +19,14 @@ namespace CondotelManagement.Controllers.Admin
 		// Admin xem các review bị report
 		[HttpGet("reported")]
 		public async Task<IActionResult> GetReported()
-			=> Ok(await _reviewService.GetReportedReviewsAsync());
+			=> Ok(ApiResponse<object>.SuccessResponse(await _reviewService.GetReportedReviewsAsync()));
 
 		// Admin xóa review
 		[HttpDelete("{reviewId}")]
 		public async Task<IActionResult> DeleteReview(int reviewId)
 		{
 			await _reviewService.UpdateReviewStatusAsync(reviewId, "Deleted");
-			return Ok(new { message = "Đã xóa review" });
+			return Ok(ApiResponse<object>.Fail("Đã xóa review"));
 		}
 	}
 }

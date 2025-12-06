@@ -123,7 +123,7 @@ namespace CondotelManagement.Services
             // Lấy giá
             var condotel = _condotelRepo.GetCondotelById(dto.CondotelId);
             if (condotel == null)
-                return ServiceResultDTO.Fail("Condotel not found.");
+                return ServiceResultDTO.Fail("Không tìm thấy condotel.");
 
             // Kiểm tra host không được đặt căn hộ của chính mình
             var host = _context.Hosts

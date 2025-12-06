@@ -1,4 +1,6 @@
-﻿namespace CondotelManagement.DTOs
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace CondotelManagement.DTOs
 {
 	public class ReviewDTO
 	{
@@ -18,6 +20,8 @@
 
 	public class ReviewReplyDTO
 	{
+		[Required(ErrorMessage = "Nội dung phản hồi không được để trống.")]
+		[MaxLength(1000, ErrorMessage = "Nội dung phản hồi không được vượt quá 1000 ký tự.")]
 		public string Reply { get; set; } = null!;
 	}
 }

@@ -168,7 +168,7 @@ namespace CondotelManagement.Services.Implementations.Tenant
             var condotelExists = await _context.Condotels.AnyAsync(c => c.CondotelId == condotelId);
             if (!condotelExists)
             {
-                throw new InvalidOperationException("Condotel not found");
+                throw new InvalidOperationException("Không tìm thấy condotel");
             }
 
             // Base query - chỉ lấy review có status != "Deleted"

@@ -36,7 +36,7 @@ namespace CondotelManagement.Controllers
 				[FromQuery] int? bathrooms)
 		{
 			var condotels = _condotelService.GetCondotelsByFilters(name, location, locationId, fromDate, toDate, minPrice, maxPrice, beds, bathrooms);
-			return Ok(condotels);
+			return Ok(ApiResponse<object>.SuccessResponse(condotels));
 		}
 
 		// GET api/tenant/condotels/{id}/amenities-utilities - Lấy cả amenities và utilities (PHẢI ĐẶT TRƯỚC {id})
@@ -47,7 +47,7 @@ namespace CondotelManagement.Controllers
 			// Kiểm tra condotel có tồn tại không
 			var condotelExists = await _context.Condotels.AnyAsync(c => c.CondotelId == id);
 			if (!condotelExists)
-				return NotFound(new { message = "Condotel not found" });
+				return NotFound(new { message = "Không tìm thấy condotel" });
 
 			// Query trực tiếp từ database
 			// Lấy tất cả amenities (bỏ filter Status để debug - có thể Status khác "Active")
@@ -88,7 +88,7 @@ namespace CondotelManagement.Controllers
 			// Kiểm tra condotel có tồn tại không
 			var condotelExists = await _context.Condotels.AnyAsync(c => c.CondotelId == id);
 			if (!condotelExists)
-				return NotFound(new { message = "Condotel not found" });
+				return NotFound(new { message = "Không tìm thấy condotel" });
 
 			// Query trực tiếp từ database
 			// Lấy tất cả amenities (bỏ filter Status để debug)
@@ -113,7 +113,7 @@ namespace CondotelManagement.Controllers
 			// Kiểm tra condotel có tồn tại không
 			var condotelExists = await _context.Condotels.AnyAsync(c => c.CondotelId == id);
 			if (!condotelExists)
-				return NotFound(new { message = "Condotel not found" });
+				return NotFound(new { message = "Không tìm thấy condotel" });
 
 			// Query trực tiếp từ database
 			// Lấy tất cả utilities (bỏ filter Status để debug)
@@ -137,7 +137,7 @@ namespace CondotelManagement.Controllers
 		{
 			var condotel = _condotelService.GetCondotelById(id);
 			if (condotel == null)
-				return NotFound(new { message = "Condotel not found" });
+				return NotFound(new { message = "Không tìm thấy condotel" });
 
 			return Ok(condotel);
 		}

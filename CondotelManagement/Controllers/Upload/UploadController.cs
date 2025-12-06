@@ -85,7 +85,7 @@ namespace CondotelManagement.Controllers.Upload
             if (file == null) return BadRequest(new { message = "No file uploaded" });
 
             var exists = await Task.Run(() => _context.Condotels.Any(c => c.CondotelId == condotelId));
-            if (!exists) return NotFound(new { message = "Condotel not found" });
+            if (!exists) return NotFound(new { message = "Không tìm thấy condotel" });
 
             var imageUrl = await _cloud.UploadImageAsync(file);
 
@@ -114,7 +114,7 @@ namespace CondotelManagement.Controllers.Upload
         public async Task<IActionResult> CreateCondotelDetail([FromRoute] int condotelId, [FromBody] CreateCondotelDetailRequest request)
         {
             var exists = await Task.Run(() => _context.Condotels.Any(c => c.CondotelId == condotelId));
-            if (!exists) return NotFound(new { message = "Condotel not found" });
+            if (!exists) return NotFound(new { message = "Không tìm thấy condotel" });
 
             var detail = new CondotelDetail
             {

@@ -25,15 +25,20 @@ namespace CondotelManagement.Controllers.Host
 		public async Task<IActionResult> GetByHost()
 		{             //current host login
 			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
-			return Ok(await _reviewService.GetReviewsByHostAsync(hostId));
+			return Ok(ApiResponse<object>.SuccessResponse(await _reviewService.GetReviewsByHostAsync(hostId)));
 		}
 
 		// Host trả lời review
 		[HttpPut("{reviewId}/reply")]
 		public async Task<IActionResult> ReplyReview(int reviewId, [FromBody] ReviewReplyDTO dto)
 		{
+			// Validate DataAnnotation
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
 			await _reviewService.ReplyToReviewAsync(reviewId, dto.Reply);
-			return Ok(new { message = "Đã trả lời review" });
+			return Ok(ApiResponse<object>.SuccessResponse("Đã trả lời review"));
 		}
 
 		// Host report review
@@ -41,7 +46,7 @@ namespace CondotelManagement.Controllers.Host
 		public async Task<IActionResult> ReportReview(int reviewId)
 		{
 			await _reviewService.UpdateReviewStatusAsync(reviewId, "Reported");
-			return Ok(new { message = "Đã report review" });
+			return Ok(ApiResponse<object>.SuccessResponse("Đã report review"));
 		}
 	}
 }

@@ -4,6 +4,7 @@ using CondotelManagement.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using CondotelManagement.Services.Interfaces;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace CondotelManagement.Controllers
 {
@@ -27,22 +28,42 @@ namespace CondotelManagement.Controllers
 			//current host login
 			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
 			var vouchers = await _voucherService.GetVouchersByHostAsync(hostId);
-			return Ok(vouchers);
+			return Ok(ApiResponse<object>.SuccessResponse(vouchers));
 		}
 
 		[HttpPost]
 		public async Task<IActionResult> CreateVoucher([FromBody] VoucherCreateDTO dto)
 		{
+			if (dto.StartDate >= dto.EndDate)
+			{
+				ModelState.AddModelError("StartDate", "StartDate phải nhỏ hơn EndDate.");
+				ModelState.AddModelError("EndDate", "EndDate phải lớn hơn StartDate.");
+			}
+			// Validate DataAnnotation
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
 			var created = await _voucherService.CreateVoucherAsync(dto);
-			return CreatedAtAction(nameof(GetVouchersByHost), created);
+			return Ok(ApiResponse<object>.SuccessResponse(created, "Đã tạo thành công"));
 		}
 
 		[HttpPut("{id}")]
 		public async Task<IActionResult> UpdateVoucher(int id, [FromBody] VoucherCreateDTO dto)
 		{
+			if (dto.StartDate >= dto.EndDate)
+			{
+				ModelState.AddModelError("StartDate", "StartDate phải nhỏ hơn EndDate.");
+				ModelState.AddModelError("EndDate", "EndDate phải lớn hơn StartDate.");
+			}
+			// Validate DataAnnotation
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
 			var updated = await _voucherService.UpdateVoucherAsync(id, dto);
 			if (updated == null) return NotFound();
-			return Ok(updated);
+			return Ok(ApiResponse<object>.SuccessResponse("Đã sửa thành công"));
 		}
 
 		[HttpDelete("{id}")]
@@ -50,7 +71,7 @@ namespace CondotelManagement.Controllers
 		{
 			var success = await _voucherService.DeleteVoucherAsync(id);
 			if (!success) return NotFound();
-			return NoContent();
+			return Ok(ApiResponse<object>.SuccessResponse("Đã xóa thành công"));
 		}
 	}
 }
