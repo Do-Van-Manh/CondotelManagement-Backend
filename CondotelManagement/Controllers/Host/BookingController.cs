@@ -6,6 +6,7 @@ using CondotelManagement.Services.Interfaces.BookingService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using CondotelManagement.Services.Interfaces;
+using CondotelManagement.Models;
 
 namespace CondotelManagement.Controllers.Host
 {
@@ -29,7 +30,7 @@ namespace CondotelManagement.Controllers.Host
             //current host login
             var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
             var bookings = _bookingService.GetBookingsByHost(hostId);
-            return Ok(bookings);
+            return Ok(ApiResponse<object>.SuccessResponse(bookings, null));
         }
 
 
@@ -39,7 +40,7 @@ namespace CondotelManagement.Controllers.Host
             //current host login
             var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
             var result = _bookingService.GetBookingsByHostAndCustomer(hostId, customerId);
-            return Ok(result);
+            return Ok(ApiResponse<object>.SuccessResponse(result, null));
         }
     }
 }

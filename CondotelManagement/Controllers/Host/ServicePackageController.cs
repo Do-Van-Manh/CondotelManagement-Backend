@@ -27,7 +27,7 @@ namespace CondotelManagement.Controllers.Host
         {
 			//current host login
 			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
-			return Ok(await _service.GetAllByHostAsync(hostId));
+			return Ok(ApiResponse<object>.SuccessResponse(await _service.GetAllByHostAsync(hostId)));
         }
 
         [HttpGet("{id}")]
@@ -35,7 +35,7 @@ namespace CondotelManagement.Controllers.Host
         {
             var result = await _service.GetByIdAsync(id);
             if (result == null) return NotFound();
-            return Ok(result);
+            return Ok(ApiResponse<object>.SuccessResponse(result));
         }
 
         [HttpPost]

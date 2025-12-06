@@ -1,5 +1,6 @@
 ﻿using CondotelManagement.DTOs;
 using CondotelManagement.Helpers;
+using CondotelManagement.Models;
 using CondotelManagement.Services;
 using CondotelManagement.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -26,9 +27,9 @@ namespace CondotelManagement.Controllers.Host
 			var result = await _HostProfileService.GetHostProfileAsync(User.GetUserId());
 
 			if (result == null)
-				return NotFound(new { message = "Không tìm thấy host" });
+				return NotFound(ApiResponse<object>.Fail("Không tìm thấy host"));
 
-			return Ok(result);
+			return Ok(ApiResponse<object>.SuccessResponse(result));
 		}
 
 		[HttpPut("profile")]
@@ -49,7 +50,7 @@ namespace CondotelManagement.Controllers.Host
 			if (!result)
 				return BadRequest(ApiResponse<object>.Fail("Sửa không thành công"));
 
-			return Ok(ApiResponse<object>.SuccessResponse(result, "Sửa profile thành công"));
+			return Ok(ApiResponse<object>.SuccessResponse("Sửa profile thành công"));
 		}
 	}
 }

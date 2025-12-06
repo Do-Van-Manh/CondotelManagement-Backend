@@ -17,57 +17,25 @@ public class CondotelService : ICondotelService
     }
     public CondotelUpdateDTO CreateCondotel(CondotelCreateDTO dto)
     {
-        // Validation
-        if (dto == null)
-            throw new ArgumentNullException(nameof(dto), "Condotel data cannot be null");
-
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            throw new ArgumentException("Condotel name is required", nameof(dto.Name));
-
-        if (dto.PricePerNight <= 0)
-            throw new ArgumentException("Price per night must be greater than 0", nameof(dto.PricePerNight));
-
-        if (dto.Beds <= 0)
-            throw new ArgumentException("Number of beds must be greater than 0", nameof(dto.Beds));
-
-        if (dto.Bathrooms <= 0)
-            throw new ArgumentException("Number of bathrooms must be greater than 0", nameof(dto.Bathrooms));
-
         // Validate Host exists
         if (!_condotelRepo.HostExists(dto.HostId))
-            throw new InvalidOperationException($"Host with ID {dto.HostId} does not exist");
+            throw new InvalidOperationException($"Host ID {dto.HostId} không tồn tại");
 
         // Validate Resort exists (if provided)
         if (!_condotelRepo.ResortExists(dto.ResortId))
-            throw new InvalidOperationException($"Resort with ID {dto.ResortId} does not exist");
+            throw new InvalidOperationException($"Resort ID {dto.ResortId} không tồn tại");
 
         // Validate Amenities exist
         if (!_condotelRepo.AmenitiesExist(dto.AmenityIds))
-            throw new InvalidOperationException("One or more Amenity IDs are invalid");
+            throw new InvalidOperationException("Amenity IDs không tồn tại");
 
         // Validate Utilities exist
         if (!_condotelRepo.UtilitiesExist(dto.UtilityIds))
-            throw new InvalidOperationException("One or more Utility IDs are invalid");
+            throw new InvalidOperationException("Utility IDs không tồn tại");
 
         // Validate Utilities belong to the host
         if (!_condotelRepo.UtilitiesBelongToHost(dto.UtilityIds, dto.HostId))
-            throw new InvalidOperationException("One or more Utilities do not belong to this host");
-
-        // Validate Price date ranges
-        if (dto.Prices != null && dto.Prices.Any())
-        {
-            foreach (var price in dto.Prices)
-            {
-                if (price.StartDate >= price.EndDate)
-                    throw new ArgumentException($"Price date range is invalid: StartDate must be before EndDate");
-
-                if (price.BasePrice <= 0)
-                    throw new ArgumentException("Base price must be greater than 0");
-            }
-        }
-
-        // Set default Status if not provided
-        var status = string.IsNullOrWhiteSpace(dto.Status) ? "Pending" : dto.Status;
+            throw new InvalidOperationException("Utilities không thuộc host này");
 
         // Tạo Condotel chính trước
         var condotel = new Condotel
@@ -79,7 +47,7 @@ public class CondotelService : ICondotelService
             PricePerNight = dto.PricePerNight,
             Beds = dto.Beds,
             Bathrooms = dto.Bathrooms,
-            Status = status
+            Status = dto.Status
         };
 
         // Add Condotel trước để có thể lấy CondotelId
@@ -87,7 +55,7 @@ public class CondotelService : ICondotelService
         
         // Save condotel để lấy CondotelId (EF Core sẽ tự động generate ID)
         if (!_condotelRepo.SaveChanges())
-            throw new InvalidOperationException("Failed to save condotel to database");
+            throw new InvalidOperationException("Lưu thất bại");
 
         // Sau khi có CondotelId, tạo và gán các child entities
         var condotelId = condotel.CondotelId;
@@ -179,14 +147,14 @@ public class CondotelService : ICondotelService
             {
                 // Nếu save child entities thất bại, condotel đã được tạo nhưng không có child entities
                 // Có thể xóa condotel đã tạo hoặc để admin xử lý
-                throw new InvalidOperationException("Failed to save condotel child entities to database. Condotel may have been partially created.");
+                throw new InvalidOperationException("Không lưu được các thực thể con của condotel vào cơ sở dữ liệu. Condotel có thể đã được tạo một phần.");
             }
         }
 
         // Reload Condotel từ database để lấy đầy đủ thông tin (bao gồm IDs của child entities)
         var savedCondotel = _condotelRepo.GetCondotelById(condotel.CondotelId);
         if (savedCondotel == null)
-            throw new InvalidOperationException("Failed to retrieve saved condotel from database");
+            throw new InvalidOperationException("Không thể truy xuất condotel đã lưu từ cơ sở dữ liệu");
 
         return new CondotelUpdateDTO
         {
@@ -424,63 +392,27 @@ public class CondotelService : ICondotelService
 
     public CondotelUpdateDTO UpdateCondotel(CondotelUpdateDTO dto)
     {
-        // Validation
-        if (dto == null)
-            throw new ArgumentNullException(nameof(dto), "Condotel data cannot be null");
-
-        if (dto.CondotelId <= 0)
-            throw new ArgumentException("Condotel ID is required", nameof(dto.CondotelId));
-
-        if (string.IsNullOrWhiteSpace(dto.Name))
-            throw new ArgumentException("Condotel name is required", nameof(dto.Name));
-
-        if (dto.PricePerNight <= 0)
-            throw new ArgumentException("Price per night must be greater than 0", nameof(dto.PricePerNight));
-
-        if (dto.Beds <= 0)
-            throw new ArgumentException("Number of beds must be greater than 0", nameof(dto.Beds));
-
-        if (dto.Bathrooms <= 0)
-            throw new ArgumentException("Number of bathrooms must be greater than 0", nameof(dto.Bathrooms));
-
         // Kiểm tra condotel có tồn tại không
         var existing = _condotelRepo.GetCondotelById(dto.CondotelId);
         if (existing == null)
-            throw new InvalidOperationException($"Condotel with ID {dto.CondotelId} does not exist");
-
-        // Validate Host ownership - đảm bảo HostId không thay đổi
-        if (existing.HostId != dto.HostId)
-            throw new UnauthorizedAccessException("Cannot change condotel ownership");
+            throw new InvalidOperationException($"Condotel ID {dto.CondotelId} không tồn tại");
 
         // Validate Resort exists (if provided)
         if (!_condotelRepo.ResortExists(dto.ResortId))
-            throw new InvalidOperationException($"Resort with ID {dto.ResortId} does not exist");
+            throw new InvalidOperationException($"Resort ID {dto.ResortId} không tồn tại");
 
         // Validate Amenities exist
         if (dto.AmenityIds != null && dto.AmenityIds.Any())
         {
             if (!_condotelRepo.AmenitiesExist(dto.AmenityIds))
-                throw new InvalidOperationException("One or more Amenity IDs are invalid");
+                throw new InvalidOperationException("Amenity IDs không hợp lệ");
         }
 
         // Validate Utilities exist
         if (dto.UtilityIds != null && dto.UtilityIds.Any())
         {
             if (!_condotelRepo.UtilitiesExist(dto.UtilityIds))
-                throw new InvalidOperationException("One or more Utility IDs are invalid");
-        }
-
-        // Validate Price date ranges
-        if (dto.Prices != null && dto.Prices.Any())
-        {
-            foreach (var price in dto.Prices)
-            {
-                if (price.StartDate >= price.EndDate)
-                    throw new ArgumentException($"Price date range is invalid: StartDate must be before EndDate");
-
-                if (price.BasePrice <= 0)
-                    throw new ArgumentException("Base price must be greater than 0");
-            }
+                throw new InvalidOperationException("Utility IDs không hợp lệ");
         }
 
         // Tạo entity để update
@@ -543,12 +475,12 @@ public class CondotelService : ICondotelService
         _condotelRepo.UpdateCondotel(condotel);
         
         if (!_condotelRepo.SaveChanges())
-            throw new InvalidOperationException("Failed to update condotel in database");
+            throw new InvalidOperationException("Không cập nhật được condotel trong cơ sở dữ liệu");
 
         // Reload từ database để lấy đầy đủ thông tin
         var updatedCondotel = _condotelRepo.GetCondotelById(dto.CondotelId);
         if (updatedCondotel == null)
-            throw new InvalidOperationException("Failed to retrieve updated condotel from database");
+            throw new InvalidOperationException("Không thể truy xuất thông tin condotel đã cập nhật từ cơ sở dữ liệu");
 
         // Map lại sang DTO
         return new CondotelUpdateDTO

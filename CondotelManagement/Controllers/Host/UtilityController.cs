@@ -31,7 +31,7 @@ namespace CondotelManagement.Controllers.Host
 			//current host login
 			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
 			var result = await _service.GetUtilitiesByHostAsync(hostId);
-			return Ok(result);
+			return Ok(ApiResponse<object>.SuccessResponse(result));
 		}
 
 		// ===========================
@@ -45,9 +45,9 @@ namespace CondotelManagement.Controllers.Host
 			var result = await _service.GetByIdAsync(utilityId, hostId);
 
 			if (result == null)
-				return NotFound(new { message = "Tiện ích không tồn tại hoặc không thuộc về host này" });
+				return NotFound(ApiResponse<object>.Fail("Tiện ích không tồn tại hoặc không thuộc về host này"));
 
-			return Ok(result);
+			return Ok(ApiResponse<object>.SuccessResponse(result));
 		}
 
 		// ===========================
@@ -85,9 +85,9 @@ namespace CondotelManagement.Controllers.Host
 			var success = await _service.UpdateAsync(utilityId, hostId, dto);
 
 			if (!success)
-				return NotFound(new { message = "Tiện ích không tồn tại hoặc không thuộc về host này" });
+				return NotFound(ApiResponse<object>.Fail("Tiện ích không tồn tại hoặc không thuộc về host này"));
 
-			return Ok(ApiResponse<object>.SuccessResponse(success, "Đã sửa thành công"));
+			return Ok(ApiResponse<object>.SuccessResponse("Đã sửa thành công"));
 		}
 
 		// ===========================
@@ -101,9 +101,9 @@ namespace CondotelManagement.Controllers.Host
 			var success = await _service.DeleteAsync(utilityId, hostId);
 
 			if (!success)
-				return NotFound(new { message = "Utility cannot be deleted because it is not found or does not belong to the host." });
+				return NotFound(ApiResponse<object>.Fail("Tiện ích không tồn tại hoặc không thuộc về host này"));
 
-			return Ok(new { message = "Delete successful" });
+			return Ok(ApiResponse<object>.SuccessResponse("Đã xóa thành công"));
 		}
 	}
 }

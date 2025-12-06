@@ -36,11 +36,11 @@ namespace CondotelManagement.Controllers.Host
             //current host login
             var host = _hostService.GetByUserId(User.GetUserId());
             if (host == null)
-                return Unauthorized(new { message = "Không tìm thấy host. Vui lòng đăng ký làm host trước." });
+                return Unauthorized(ApiResponse<object>.Fail("Không tìm thấy host. Vui lòng đăng ký làm host trước."));
             
             var hostId = host.HostId;
             var condotels = _condotelService.GetCondtelsByHost(hostId);
-            return Ok(condotels);
+            return Ok(ApiResponse<object>.SuccessResponse(condotels));
         }
 
         //GET /api/condotel/{id}
@@ -49,9 +49,9 @@ namespace CondotelManagement.Controllers.Host
         {
             var condotel = _condotelService.GetCondotelById(id);
             if (condotel == null)
-                return NotFound(new { message = "Không tìm thấy căn hộ khách sạn" });
+                return NotFound(ApiResponse<object>.Fail("Không tìm thấy căn hộ khách sạn"));
 
-            return Ok(condotel);
+            return Ok(ApiResponse<object>.SuccessResponse(condotel));
         }
 
         //POST /api/condotel
@@ -59,7 +59,7 @@ namespace CondotelManagement.Controllers.Host
         public ActionResult Create([FromBody] CondotelCreateDTO condotelDto)
         {
             if (condotelDto == null)
-                return BadRequest(new { message = "Dữ liệu condotel không hợp lệ" });
+                return BadRequest(ApiResponse<object>.Fail("Dữ liệu condotel không hợp lệ"));
 
 			if (condotelDto.Prices != null && condotelDto.Prices.Count > 0)
 			{
@@ -86,7 +86,7 @@ namespace CondotelManagement.Controllers.Host
             {
                 var host = _hostService.GetByUserId(User.GetUserId());
                 if (host == null)
-                    return Unauthorized(new { message = "Không tìm thấy host. Vui lòng đăng ký làm host trước." });
+                    return Unauthorized(ApiResponse<object>.Fail("Không tìm thấy host. Vui lòng đăng ký làm host trước."));
 
                 // LẤY GÓI HIỆN TẠI CỦA HOST
                 var activePackage = _context.HostPackages
@@ -124,7 +124,7 @@ namespace CondotelManagement.Controllers.Host
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Lỗi hệ thống", error = ex.Message });
+                return StatusCode(500, ApiResponse<object>.Fail("Lỗi hệ thống: " + ex.Message));
             }
         }
 
@@ -133,10 +133,10 @@ namespace CondotelManagement.Controllers.Host
         public ActionResult Update(int id, [FromBody] CondotelUpdateDTO condotelDto)
         {
             if (condotelDto == null)
-                return BadRequest(new { message = "Dữ liệu condotel không hợp lệ" });
+				return BadRequest(ApiResponse<object>.Fail("Dữ liệu condotel không hợp lệ"));
 
-            if (condotelDto.CondotelId != id)
-                return BadRequest(new { message = "ID Condotel không khớp" });
+			if (condotelDto.CondotelId != id)
+                return BadRequest(ApiResponse<object>.Fail("ID Condotel không khớp"));
 
 			if (condotelDto.Prices != null && condotelDto.Prices.Count > 0)
 			{
@@ -164,43 +164,43 @@ namespace CondotelManagement.Controllers.Host
                 // Get current host from authenticated user
                 var host = _hostService.GetByUserId(User.GetUserId());
                 if (host == null)
-                    return Unauthorized(new { message = "Không tìm thấy host. Vui lòng đăng ký làm host trước." });
+					return Unauthorized(ApiResponse<object>.Fail("Không tìm thấy host. Vui lòng đăng ký làm host trước."));
 
-                // Kiểm tra ownership - đảm bảo condotel thuộc về host này
-                var existingCondotel = _condotelService.GetCondotelById(id);
+				// Kiểm tra ownership - đảm bảo condotel thuộc về host này
+				var existingCondotel = _condotelService.GetCondotelById(id);
                 if (existingCondotel == null)
-                    return NotFound(new { message = "Không tìm thấy condotel" });
+                    return NotFound(ApiResponse<object>.Fail("Không tìm thấy condotel"));
 
                 if (existingCondotel.HostId != host.HostId)
-                    return StatusCode(403, new { message = "Bạn không có quyền cập nhật căn hộ này" });
+                    return StatusCode(403, ApiResponse<object>.Fail("Bạn không có quyền cập nhật căn hộ này"));
 
                 // Set HostId từ authenticated user (không cho client set)
                 condotelDto.HostId = host.HostId;
 
                 var updated = _condotelService.UpdateCondotel(condotelDto);
                 if (updated == null)
-                    return NotFound(new { message = "Không tìm thấy condotel" });
+                    return NotFound(ApiResponse<object>.Fail("Không tìm thấy condotel"));
 				return Ok(ApiResponse<object>.SuccessResponse(updated, "Condotel đã được cập nhật thành công"));
             }
             catch (ArgumentNullException ex)
             {
-                return BadRequest(new { message = ex.Message });
-            }
+				return BadRequest(ApiResponse<object>.Fail(ex.Message));
+			}
             catch (ArgumentException ex)
             {
-                return BadRequest(new { message = ex.Message });
-            }
+				return BadRequest(ApiResponse<object>.Fail(ex.Message));
+			}
             catch (UnauthorizedAccessException ex)
             {
-                return StatusCode(403, new { message = ex.Message });
+                return StatusCode(403, ApiResponse<object>.Fail(ex.Message));
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(new { message = ex.Message });
-            }
+				return BadRequest(ApiResponse<object>.Fail(ex.Message));
+			}
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Lỗi hệ thống", error = ex.Message });
+                return StatusCode(500, ApiResponse<object>.Fail("Lỗi hệ thống: " + ex.Message));
             }
         }
 
@@ -213,26 +213,26 @@ namespace CondotelManagement.Controllers.Host
                 // Get current host from authenticated user
                 var host = _hostService.GetByUserId(User.GetUserId());
                 if (host == null)
-                    return Unauthorized(new { message = "Không tìm thấy host. Vui lòng đăng ký làm host trước." });
+					return Unauthorized(ApiResponse<object>.Fail("Không tìm thấy host. Vui lòng đăng ký làm host trước."));
 
-                // Kiểm tra ownership - đảm bảo condotel thuộc về host này
-                var existingCondotel = _condotelService.GetCondotelById(id);
+				// Kiểm tra ownership - đảm bảo condotel thuộc về host này
+				var existingCondotel = _condotelService.GetCondotelById(id);
                 if (existingCondotel == null)
-                    return NotFound(new { message = "Không tìm thấy condotel" });
+					return NotFound(ApiResponse<object>.Fail("Không tìm thấy condotel"));
 
-                if (existingCondotel.HostId != host.HostId)
-                    return StatusCode(403, new { message = "Bạn không có quyền xóa căn hộ này" });
+				if (existingCondotel.HostId != host.HostId)
+                    return StatusCode(403, ApiResponse<object>.Fail("Bạn không có quyền xóa căn hộ này"));
 
                 var success = _condotelService.DeleteCondotel(id);
                 if (!success)
-                    return NotFound(new { message = "Condotel không tìm thấy hoặc đã bị xóa" });
+                    return NotFound(ApiResponse<object>.Fail("Condotel không tìm thấy hoặc đã bị xóa"));
 
-                return Ok(new { message = "Condotel đã xóa thành công" });
+                return Ok(ApiResponse<object>.SuccessResponse("Condotel đã xóa thành công"));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Lỗi hệ thống", error = ex.Message });
-            }
+				return StatusCode(500, ApiResponse<object>.Fail("Lỗi hệ thống: " + ex.Message));
+			}
         }
     }
 }

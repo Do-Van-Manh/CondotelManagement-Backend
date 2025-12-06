@@ -36,7 +36,7 @@ namespace CondotelManagement.Controllers
 				[FromQuery] int? bathrooms)
 		{
 			var condotels = _condotelService.GetCondotelsByFilters(name, location, locationId, fromDate, toDate, minPrice, maxPrice, beds, bathrooms);
-			return Ok(condotels);
+			return Ok(ApiResponse<object>.SuccessResponse(condotels));
 		}
 
 		// GET api/tenant/condotels/{id}/amenities-utilities - Lấy cả amenities và utilities (PHẢI ĐẶT TRƯỚC {id})

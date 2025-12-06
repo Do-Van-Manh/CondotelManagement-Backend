@@ -28,7 +28,7 @@ namespace CondotelManagement.Controllers
 			//current host login
 			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
 			var vouchers = await _voucherService.GetVouchersByHostAsync(hostId);
-			return Ok(vouchers);
+			return Ok(ApiResponse<object>.SuccessResponse(vouchers));
 		}
 
 		[HttpPost]
@@ -63,7 +63,7 @@ namespace CondotelManagement.Controllers
 			}
 			var updated = await _voucherService.UpdateVoucherAsync(id, dto);
 			if (updated == null) return NotFound();
-			return Ok(ApiResponse<object>.SuccessResponse(updated, "Đã sửa thành công"));
+			return Ok(ApiResponse<object>.SuccessResponse("Đã sửa thành công"));
 		}
 
 		[HttpDelete("{id}")]
@@ -71,7 +71,7 @@ namespace CondotelManagement.Controllers
 		{
 			var success = await _voucherService.DeleteVoucherAsync(id);
 			if (!success) return NotFound();
-			return NoContent();
+			return Ok(ApiResponse<object>.SuccessResponse("Đã xóa thành công"));
 		}
 	}
 }

@@ -1,5 +1,6 @@
 using CondotelManagement.DTOs.Amenity;
 using CondotelManagement.Helpers;
+using CondotelManagement.Models;
 using CondotelManagement.Services.Interfaces;
 using CondotelManagement.Services.Interfaces.Amenity;
 using Microsoft.AspNetCore.Authorization;
@@ -32,11 +33,11 @@ namespace CondotelManagement.Controllers.Host
 				//current host login
 				var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
 				var amenities = await _amenityService.GetAllAsync(hostId);
-                return Ok(amenities);
+                return Ok(ApiResponse<object>.SuccessResponse(amenities,null));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tải tiện nghi", error = ex.Message });
+                return StatusCode(500, ApiResponse<object>.Fail("Đã xảy ra lỗi khi tải tiện ích: " + ex.Message));
             }
         }
 
@@ -49,14 +50,14 @@ namespace CondotelManagement.Controllers.Host
             {
                 var amenity = await _amenityService.GetByIdAsync(id);
                 if (amenity == null)
-                    return NotFound(new { message = "Không tìm thấy tiện nghi" });
+                    return NotFound(ApiResponse<object>.Fail("Không tìm thấy tiện nghi"));
 
-                return Ok(amenity);
+                return Ok(ApiResponse<object>.SuccessResponse(amenity, null));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tải tiện nghi", error = ex.Message });
-            }
+				return StatusCode(500, ApiResponse<object>.Fail("Đã xảy ra lỗi khi tải tiện ích: " + ex.Message));
+			}
         }
 
         // GET: /api/host/amenities/by-category/{category}
@@ -73,12 +74,12 @@ namespace CondotelManagement.Controllers.Host
                     !string.IsNullOrWhiteSpace(a.Category) && 
                     a.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
                 
-                return Ok(filtered);
+                return Ok(ApiResponse<object>.SuccessResponse(filtered, null));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tải tiện nghi", error = ex.Message });
-            }
+				return StatusCode(500, ApiResponse<object>.Fail("Đã xảy ra lỗi khi tải tiện ích: " + ex.Message));
+			}
         }
 
         // POST: /api/host/amenities
@@ -101,12 +102,12 @@ namespace CondotelManagement.Controllers.Host
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { message = ex.Message });
-            }
+				return BadRequest(ApiResponse<object>.Fail(ex.Message));
+			}
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Đã xảy ra lỗi khi tải tiện nghi", error = ex.Message });
-            }
+				return StatusCode(500, ApiResponse<object>.Fail("Đã xảy ra lỗi khi tải tiện ích: " + ex.Message));
+			}
         }
 
         // PUT: /api/host/amenities/{id}
@@ -126,16 +127,16 @@ namespace CondotelManagement.Controllers.Host
                 if (!success)
                     return NotFound(new { message = "Không tìm thấy tiện nghi" });
 
-                return Ok(ApiResponse<object>.SuccessResponse(success, "Tiện ích đã được cập nhật thành công"));
+                return Ok(ApiResponse<object>.SuccessResponse("Tiện ích đã được cập nhật thành công"));
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { message = ex.Message });
-            }
+				return BadRequest(ApiResponse<object>.Fail(ex.Message));
+			}
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật tiện ích", error = ex.Message });
-            }
+				return StatusCode(500, ApiResponse<object>.Fail("Đã xảy ra lỗi khi cập nhật tiện ích: " + ex.Message));
+			}
         }
 
         // DELETE: /api/host/amenities/{id}
@@ -147,17 +148,17 @@ namespace CondotelManagement.Controllers.Host
             {
                 var success = await _amenityService.DeleteAsync(id);
                 if (!success)
-                    return NotFound(new { message = "Không thể tìm thấy tiện ích hoặc không thể xóa" });
+                    return NotFound(ApiResponse<object>.Fail("Không thể tìm thấy tiện ích hoặc không thể xóa"));
 
-                return Ok(new { message = "Tiện ích đã được xóa thành công" });
+                return Ok(ApiResponse<object>.SuccessResponse("Tiện ích đã được xóa thành công"));
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Đã xảy ra lỗi khi xóa tiện ích", error = ex.Message });
+                return StatusCode(500, ApiResponse<object>.Fail("Đã xảy ra lỗi khi xóa tiện ích: " + ex.Message));
             }
         }
     }

@@ -1,5 +1,6 @@
 ﻿using CondotelManagement.DTOs;
 using CondotelManagement.Helpers;
+using CondotelManagement.Models;
 using CondotelManagement.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +23,7 @@ namespace CondotelManagement.Controllers.Host
         public async Task<ActionResult<IEnumerable<LocationDTO>>> GetAll()
         {
             var locations = await _locationService.GetAllAsync();
-            return Ok(locations);
+            return Ok(ApiResponse<object>.SuccessResponse(locations));
         }
 
         [HttpGet("{id}")]
@@ -30,8 +31,8 @@ namespace CondotelManagement.Controllers.Host
         {
             var location = await _locationService.GetByIdAsync(id);
             if (location == null) return NotFound();
-            return Ok(location);
-        }
+			return Ok(ApiResponse<object>.SuccessResponse(location));
+		}
 
         [HttpPost]
         public async Task<ActionResult<LocationDTO>> Create(LocationCreateUpdateDTO dto)
@@ -55,7 +56,7 @@ namespace CondotelManagement.Controllers.Host
 			}
 			var updated = await _locationService.UpdateAsync(id, dto);
             if (!updated) return NotFound();
-            return Ok(ApiResponse<object>.SuccessResponse(updated, "Sửa địa điểm thành công"));
+            return Ok(ApiResponse<object>.SuccessResponse("Sửa địa điểm thành công"));
         }
 
         [HttpDelete("{id}")]
@@ -63,7 +64,7 @@ namespace CondotelManagement.Controllers.Host
         {
             var deleted = await _locationService.DeleteAsync(id);
             if (!deleted) return NotFound();
-            return Ok(new { message = "Xóa địa điểm thành công" });
+            return Ok(ApiResponse<object>.SuccessResponse("Xóa địa điểm thành công"));
         }
     }
 }

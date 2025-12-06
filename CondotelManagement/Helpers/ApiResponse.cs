@@ -12,6 +12,7 @@ namespace CondotelManagement.Helpers
 		[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
 		public T? Data { get; set; }
 
+		[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
 		public Dictionary<string, string[]>? Errors { get; set; }
 
 		public static ApiResponse<T> SuccessResponse(T data, string? message = null)

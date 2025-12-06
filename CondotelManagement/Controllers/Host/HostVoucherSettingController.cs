@@ -26,7 +26,7 @@ namespace CondotelManagement.Controllers.Host
 			//current host login
 			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
 			var result = await _voucherService.GetSettingAsync(hostId);
-			return Ok(result);
+			return Ok(ApiResponse<object>.SuccessResponse(result));
 		}
 
 		[HttpPost]

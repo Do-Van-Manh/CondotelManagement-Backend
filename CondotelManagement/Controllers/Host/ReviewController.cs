@@ -25,7 +25,7 @@ namespace CondotelManagement.Controllers.Host
 		public async Task<IActionResult> GetByHost()
 		{             //current host login
 			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
-			return Ok(await _reviewService.GetReviewsByHostAsync(hostId));
+			return Ok(ApiResponse<object>.SuccessResponse(await _reviewService.GetReviewsByHostAsync(hostId)));
 		}
 
 		// Host trả lời review
