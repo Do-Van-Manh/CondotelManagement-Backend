@@ -36,7 +36,7 @@ namespace CondotelManagement.Controllers.Admin
             }
             else
             {
-                return BadRequest(new { success = false, message = "Please provide either userId or hostId" });
+                return BadRequest(new { success = false, message = "Vui lòng cung cấp userId hoặc hostId" });
             }
 
             return Ok(new
@@ -56,7 +56,7 @@ namespace CondotelManagement.Controllers.Admin
         {
             var wallet = await _walletService.GetWalletByIdAsync(id);
             if (wallet == null)
-                return NotFound(new { success = false, message = "Wallet not found" });
+                return NotFound(new { success = false, message = "Không tìm thấy ví" });
 
             return Ok(new { success = true, data = wallet });
         }
@@ -69,13 +69,13 @@ namespace CondotelManagement.Controllers.Admin
         public async Task<IActionResult> CreateWallet([FromBody] WalletCreateDTO dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(new { success = false, message = "Invalid data", errors = ModelState });
+                return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ", errors = ModelState });
 
             var created = await _walletService.CreateWalletAsync(dto);
             return CreatedAtAction(nameof(GetWalletById), new { id = created.WalletId }, new
             {
                 success = true,
-                message = "Wallet created successfully",
+                message = "Ví đã được tạo thành công",
                 data = created
             });
         }
@@ -88,13 +88,13 @@ namespace CondotelManagement.Controllers.Admin
         public async Task<IActionResult> UpdateWallet(int id, [FromBody] WalletUpdateDTO dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(new { success = false, message = "Invalid data", errors = ModelState });
+                return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ", errors = ModelState });
 
             var updated = await _walletService.UpdateWalletAsync(id, dto);
             if (!updated)
-                return NotFound(new { success = false, message = "Wallet not found" });
+                return NotFound(new { success = false, message = "Không tìm thấy ví" });
 
-            return Ok(new { success = true, message = "Wallet updated successfully" });
+            return Ok(new { success = true, message = "Ví đã được cập nhật thành công" });
         }
 
         /// <summary>
@@ -106,9 +106,9 @@ namespace CondotelManagement.Controllers.Admin
         {
             var deleted = await _walletService.DeleteWalletAsync(id);
             if (!deleted)
-                return NotFound(new { success = false, message = "Wallet not found" });
+                return NotFound(new { success = false, message = "Không tìm thấy ví" });
 
-            return Ok(new { success = true, message = "Wallet deleted successfully" });
+            return Ok(new { success = true, message = "Ví đã được xóa thành công" });
         }
     }
 }

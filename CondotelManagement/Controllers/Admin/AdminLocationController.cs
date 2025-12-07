@@ -42,7 +42,7 @@ namespace CondotelManagement.Controllers.Admin
         {
             var location = await _locationService.GetByIdAsync(id);
             if (location == null)
-                return NotFound(new { success = false, message = "Location not found" });
+                return NotFound(new { success = false, message = "Không tìm thấy vị trí" });
             
             return Ok(new { success = true, data = location });
         }
@@ -55,13 +55,13 @@ namespace CondotelManagement.Controllers.Admin
         public async Task<ActionResult<LocationDTO>> Create([FromBody] LocationCreateUpdateDTO dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(new { success = false, message = "Invalid data", errors = ModelState });
+                return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ", errors = ModelState });
 
             var created = await _locationService.CreateAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = created.LocationId }, new
             {
                 success = true,
-                message = "Location created successfully",
+                message = "Vị trí đã được tạo thành công",
                 data = created
             });
         }
@@ -74,13 +74,13 @@ namespace CondotelManagement.Controllers.Admin
         public async Task<IActionResult> Update(int id, [FromBody] LocationCreateUpdateDTO dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(new { success = false, message = "Invalid data", errors = ModelState });
+                return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ", errors = ModelState });
 
             var updated = await _locationService.UpdateAsync(id, dto);
             if (!updated)
-                return NotFound(new { success = false, message = "Location not found" });
+                return NotFound(new { success = false, message = "Không tìm thấy vị trí" });
             
-            return Ok(new { success = true, message = "Location updated successfully" });
+            return Ok(new { success = true, message = "Vị trí đã được cập nhật thành công" });
         }
 
         /// <summary>
@@ -92,9 +92,9 @@ namespace CondotelManagement.Controllers.Admin
         {
             var deleted = await _locationService.DeleteAsync(id);
             if (!deleted)
-                return NotFound(new { success = false, message = "Location not found" });
+                return NotFound(new { success = false, message = "Không tìm thấy vị trí" });
             
-            return Ok(new { success = true, message = "Location deleted successfully" });
+            return Ok(new { success = true, message = "Đã xóa vị trí thành công" });
         }
     }
 }

@@ -158,7 +158,7 @@ namespace CondotelManagement.Services.Implementations.Admin
                 RoleName = role.RoleName
             };
 
-            // SỬA ĐỔI: Trả về thông báo mới
+            
             return (true, "Tạo user thành công. Mã OTP đã được gửi đến email để kích hoạt.", userView);
         }
 
@@ -243,8 +243,7 @@ namespace CondotelManagement.Services.Implementations.Admin
             return true;
         }
 
-        // 6. Admin cập nhật trạng thái
-        // 6. Admin cập nhật trạng thái
+        
         public async Task<bool> AdminUpdateUserStatusAsync(int userId, string newStatus)
         {
             // (Bạn nên kiểm tra newStatus hợp lệ ở đây)

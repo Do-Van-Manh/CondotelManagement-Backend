@@ -36,7 +36,7 @@ namespace CondotelManagement.Controllers.Admin
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Error getting pending payouts", error = ex.Message });
+                return StatusCode(500, new { message = "Lỗi khi nhận khoản thanh toán đang chờ xử lý", error = ex.Message });
             }
         }
 
@@ -53,7 +53,7 @@ namespace CondotelManagement.Controllers.Admin
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Error processing payouts", error = ex.Message });
+                return StatusCode(500, new { message = "Lỗi xử lý thanh toán", error = ex.Message });
             }
         }
 
@@ -76,7 +76,7 @@ namespace CondotelManagement.Controllers.Admin
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Error confirming payout", error = ex.Message });
+                return StatusCode(500, new { message = "Lỗi xác nhận thanh toán", error = ex.Message });
             }
         }
 
@@ -112,7 +112,7 @@ namespace CondotelManagement.Controllers.Admin
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Error getting paid payouts", error = ex.Message });
+                return StatusCode(500, new { message = "Lỗi khi nhận được khoản thanh toán", error = ex.Message });
             }
         }
     }
