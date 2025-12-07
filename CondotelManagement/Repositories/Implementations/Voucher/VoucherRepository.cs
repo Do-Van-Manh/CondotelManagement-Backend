@@ -25,16 +25,41 @@ namespace CondotelManagement.Repositories
 
 		public async Task<IEnumerable<Voucher>> GetByCondotelAsync(int condotelId)
 		{
+			var today = DateOnly.FromDateTime(DateTime.UtcNow);
 			return await _context.Vouchers
 				.Include(v => v.Condotel)
 				.Include(v => v.User)
-				.Where(v => v.CondotelId == condotelId && v.Status == "Active")
+				.Where(v => v.CondotelId == condotelId 
+					&& v.Status == "Active"
+					&& v.EndDate >= today) // Chỉ lấy voucher còn hiệu lực
+				.OrderByDescending(v => v.EndDate) // Sắp xếp theo ngày hết hạn
+				.ToListAsync();
+		}
+
+		public async Task<IEnumerable<Voucher>> GetByUserIdAsync(int userId)
+		{
+			var today = DateOnly.FromDateTime(DateTime.UtcNow);
+			return await _context.Vouchers
+				.Include(v => v.Condotel)
+				.Include(v => v.User)
+				.Where(v => v.UserId == userId 
+					&& v.Status == "Active"
+					&& v.EndDate >= today) // Chỉ lấy voucher còn hiệu lực
+				.OrderByDescending(v => v.EndDate) // Sắp xếp theo ngày hết hạn (gần nhất trước)
 				.ToListAsync();
 		}
 
 		public async Task<Voucher?> GetByIdAsync(int id)
 		{
 			return await _context.Vouchers.FindAsync(id);
+		}
+
+		public async Task<Voucher?> GetByCodeAsync(string code)
+		{
+			return await _context.Vouchers
+				.Include(v => v.Condotel)
+				.Include(v => v.User)
+				.FirstOrDefaultAsync(v => v.Code == code);
 		}
 
 		public async Task<Voucher> AddAsync(Voucher voucher)

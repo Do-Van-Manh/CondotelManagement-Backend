@@ -1,16 +1,20 @@
 ﻿using CondotelManagement.DTOs;
 using CondotelManagement.Models;
 using CondotelManagement.Repositories;
+using CondotelManagement.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace CondotelManagement.Services
 {
     public class ServicePackageService : IServicePackageService
     {
         private readonly IServicePackageRepository _repo;
+        private readonly CondotelDbVer1Context _context;
 
-        public ServicePackageService(IServicePackageRepository repo)
+        public ServicePackageService(IServicePackageRepository repo, CondotelDbVer1Context context)
         {
             _repo = repo;
+            _context = context;
         }
 
         public async Task<IEnumerable<ServicePackageDTO>> GetAllByHostAsync(int hostId)
@@ -98,6 +102,30 @@ namespace CondotelManagement.Services
             await _repo.UpdateAsync(entity);
             await _repo.SaveAsync();
             return true;
+        }
+
+        public async Task<IEnumerable<ServicePackageDTO>> GetByCondotelAsync(int condotelId)
+        {
+            // Lấy condotel để biết HostId
+            var condotel = await _context.Condotels
+                .Include(c => c.Host)
+                .FirstOrDefaultAsync(c => c.CondotelId == condotelId);
+
+            if (condotel == null)
+                return Enumerable.Empty<ServicePackageDTO>();
+
+            // Lấy service packages của host
+            var data = await _repo.GetAllByHostAsync(condotel.HostId);
+            return data
+                .Where(x => x.Status == "Active") // Chỉ lấy service packages active
+                .Select(x => new ServicePackageDTO
+                {
+                    ServiceId = x.ServiceId,
+                    Name = x.Name,
+                    Description = x.Description,
+                    Price = x.Price,
+                    Status = x.Status
+                });
         }
     }
 }

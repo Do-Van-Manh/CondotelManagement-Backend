@@ -1,5 +1,7 @@
 ﻿using CondotelManagement.DTOs.Payment;
 using CondotelManagement.Services.Interfaces.Payment;
+using CondotelManagement.Services.Interfaces.BookingService;
+using CondotelManagement.Services;
 using CondotelManagement.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -380,8 +382,8 @@ namespace CondotelManagement.Controllers.Payment
                     {
                         // Refund payment successful - customer đã nhận tiền
                         refundRequest.Status = "Refunded";
-                        refundRequest.ProcessedAt = DateTime.Now;
-                        refundRequest.UpdatedAt = DateTime.Now;
+                        refundRequest.ProcessedAt = DateTime.UtcNow;
+                        refundRequest.UpdatedAt = DateTime.UtcNow;
                         // Booking status giữ nguyên "Cancelled", không đổi thành "Refunded"
                         await _context.SaveChangesAsync();
                         Console.WriteLine($"RefundRequest {refundRequest.Id} (Booking {bookingId}) status updated to Refunded from Return URL (Payment Link Id: {id})");
@@ -429,6 +431,23 @@ namespace CondotelManagement.Controllers.Payment
                     {
                         booking.Status = "Confirmed";
                         await _context.SaveChangesAsync();
+                        
+                        // Tăng Voucher UsedCount khi payment thành công (từ Return URL)
+                        if (booking.VoucherId.HasValue)
+                        {
+                            try
+                            {
+                                using var scope = HttpContext.RequestServices.CreateScope();
+                                var voucherService = scope.ServiceProvider.GetRequiredService<IVoucherService>();
+                                await voucherService.ApplyVoucherToBookingAsync(booking.VoucherId.Value);
+                                Console.WriteLine($"[Return URL] Đã tăng UsedCount cho Voucher {booking.VoucherId.Value}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[Return URL] Lỗi khi tăng Voucher UsedCount: {ex.Message}");
+                            }
+                        }
+                        
                         Console.WriteLine($"Booking {bookingId} status updated to Confirmed from Return URL (Payment Link Id: {id})");
                     }
 
@@ -436,14 +455,39 @@ namespace CondotelManagement.Controllers.Payment
                 }
                 else if (status == "CANCELLED" || cancel == "true")
                 {
-                    // Payment was cancelled
+                    // Payment was cancelled - Hủy thanh toán (KHÔNG refund)
                     Console.WriteLine($"Payment cancelled for booking {bookingId} (Payment Link Id: {id})");
 
                     if (booking.Status != "Cancelled")
                     {
-                        booking.Status = "Cancelled";
-                        await _context.SaveChangesAsync();
-                        Console.WriteLine($"Booking {bookingId} status updated to Cancelled from Return URL (Payment Link Id: {id})");
+                        // Sử dụng CancelPayment để đảm bảo không refund
+                        try
+                        {
+                            using var scope = HttpContext.RequestServices.CreateScope();
+                            var bookingService = scope.ServiceProvider.GetRequiredService<IBookingService>();
+                            var customerId = booking.CustomerId;
+                            var cancelResult = await bookingService.CancelPayment(bookingId, customerId);
+                            
+                            if (cancelResult)
+                            {
+                                Console.WriteLine($"Booking {bookingId} status updated to Cancelled from Return URL (Payment Link Id: {id}) - Payment cancelled, no refund");
+                            }
+                            else
+                            {
+                                // Fallback: set status manually nếu CancelPayment fail
+                                booking.Status = "Cancelled";
+                                await _context.SaveChangesAsync();
+                                Console.WriteLine($"Booking {bookingId} status updated to Cancelled (fallback) from Return URL");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error calling CancelPayment: {ex.Message}");
+                            // Fallback: set status manually
+                            booking.Status = "Cancelled";
+                            await _context.SaveChangesAsync();
+                            Console.WriteLine($"Booking {bookingId} status updated to Cancelled (fallback) from Return URL");
+                        }
                     }
 
                     return Redirect($"{frontendUrl}/payment/cancel?bookingId={bookingId}&status=cancelled&orderCode={orderCode}&paymentLinkId={id}");

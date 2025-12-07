@@ -51,11 +51,11 @@ namespace CondotelManagement.Controllers
 
         // POST api/booking
         [HttpPost]
-        public IActionResult CreateBooking([FromBody] BookingDTO dto)
+        public async Task<IActionResult> CreateBooking([FromBody] BookingDTO dto)
         {
             dto.CustomerId = GetCustomerId();
 
-            var result = _bookingService.CreateBooking(dto);
+            var result = await _bookingService.CreateBookingAsync(dto);
 
             if (!result.Success)
                 return BadRequest(result);
@@ -109,6 +109,17 @@ namespace CondotelManagement.Controllers
             var success = await _bookingService.CancelBooking(id, customerId);
             if (!success) return NotFound();
             return NoContent();
+        }
+
+        // POST api/booking/{id}/cancel-payment - Hủy thanh toán (KHÔNG refund)
+        [HttpPost("{id}/cancel-payment")]
+        public async Task<IActionResult> CancelPayment(int id)
+        {
+            int customerId = GetCustomerId();
+            var success = await _bookingService.CancelPayment(id, customerId);
+            if (!success) 
+                return BadRequest(new { success = false, message = "Cannot cancel payment. Booking may have already been paid or cancelled." });
+            return Ok(new { success = true, message = "Payment cancelled successfully. Booking status updated to Cancelled." });
         }
     }
 }

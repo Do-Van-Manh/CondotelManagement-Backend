@@ -8,10 +8,11 @@ namespace CondotelManagement.Services.Interfaces.BookingService
     {
         Task<IEnumerable<BookingDTO>> GetBookingsByCustomerAsync(int customerId);
         BookingDTO GetBookingById(int id);
-        ServiceResultDTO CreateBooking(BookingDTO booking);
+        Task<ServiceResultDTO> CreateBookingAsync(BookingDTO booking);
 
         BookingDTO UpdateBooking(BookingDTO booking);
         Task<bool> CancelBooking(int bookingId, int customerId);
+        Task<bool> CancelPayment(int bookingId, int customerId);
         Task<ServiceResultDTO> RefundBooking(int bookingId, int customerId, string? bankCode = null, string? accountNumber = null, string? accountHolder = null);
         Task<ServiceResultDTO> AdminRefundBooking(int bookingId, string? reason = null);
 

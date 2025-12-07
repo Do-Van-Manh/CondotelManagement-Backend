@@ -125,6 +125,9 @@ builder.Services.AddCors(options =>
 // Dependency Injection (gồm Auth, Admin, Booking,...)
 builder.Services.AddDependencyInjectionConfiguration(builder.Configuration);
 
+// Background Service: Tự động cập nhật booking status khi qua EndDate
+builder.Services.AddHostedService<CondotelManagement.Services.Background.BookingStatusUpdateService>();
+
 // ====================== Build ======================
 var app = builder.Build();
 

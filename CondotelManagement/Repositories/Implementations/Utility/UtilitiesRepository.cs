@@ -23,9 +23,18 @@ namespace CondotelManagement.Repositories
 			.ToListAsync();
 	}
 
-	public async Task<Utility> GetByIdAsync(int id)
+	public async Task<IEnumerable<Utility>> GetAllAsync()
 	{
-		return await _context.Utilities.FindAsync(id);
+		return await _context.Utilities
+			.Include(u => u.Host)
+			.ToListAsync();
+	}
+
+	public async Task<Utility?> GetByIdAsync(int id)
+	{
+		return await _context.Utilities
+			.Include(u => u.Host)
+			.FirstOrDefaultAsync(u => u.UtilityId == id);
 	}
 
 	public async Task<Utility> CreateAsync(Utility model)
@@ -46,6 +55,15 @@ namespace CondotelManagement.Repositories
 		var item = await _context.Utilities
 			.FirstOrDefaultAsync(u => u.UtilityId == id && u.HostId == hostId);
 
+		if (item == null) return false;
+
+		_context.Utilities.Remove(item);
+		return await _context.SaveChangesAsync() > 0;
+	}
+
+	public async Task<bool> AdminDeleteAsync(int id)
+	{
+		var item = await _context.Utilities.FindAsync(id);
 		if (item == null) return false;
 
 		_context.Utilities.Remove(item);

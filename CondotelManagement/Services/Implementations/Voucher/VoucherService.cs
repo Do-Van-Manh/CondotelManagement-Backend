@@ -56,11 +56,36 @@ namespace CondotelManagement.Services
 			});
 		}
 
+		public async Task<IEnumerable<VoucherDTO>> GetVouchersByUserIdAsync(int userId)
+		{
+			var list = await _repo.GetByUserIdAsync(userId);
+			return list.Select(v => new VoucherDTO
+			{
+				VoucherID = v.VoucherId,
+				CondotelID = v.Condotel?.CondotelId,
+				CondotelName = v.Condotel?.Name,
+				UserID = v.User?.UserId,
+				FullName = v.User?.FullName,
+				Code = v.Code,
+				DiscountAmount = v.DiscountAmount,
+				DiscountPercentage = v.DiscountPercentage,
+				StartDate = v.StartDate,
+				EndDate = v.EndDate,
+				Status = v.Status
+			});
+		}
+
 		public async Task<VoucherDTO?> CreateVoucherAsync(VoucherCreateDTO dto)
 		{
+			// Validate: Voucher PHẢI có CondotelID (voucher chỉ áp dụng cho condotel cụ thể)
+			if (!dto.CondotelID.HasValue || dto.CondotelID.Value <= 0)
+			{
+				throw new ArgumentException("CondotelID is required. Voucher must be associated with a specific condotel.");
+			}
+
 			var entity = new Voucher
 			{
-				CondotelId = dto.CondotelID,
+				CondotelId = dto.CondotelID.Value, // Bắt buộc có giá trị
 				UserId = dto.UserID,
 				Code = dto.Code,
 				DiscountAmount = dto.DiscountAmount,
@@ -232,6 +257,88 @@ namespace CondotelManagement.Services
 				UsageLimit = saved.UsageLimit,
 				ValidMonths = saved.ValidMonths
 			};
+		}
+
+		public async Task<Voucher?> ValidateVoucherByCodeAsync(string code, int condotelId, int userId, DateOnly bookingDate)
+		{
+			var voucher = await _repo.GetByCodeAsync(code);
+			if (voucher == null)
+				return null;
+
+			// Kiểm tra status
+			if (voucher.Status != "Active")
+				return null;
+
+			// Kiểm tra thời hạn
+			var today = DateOnly.FromDateTime(DateTime.UtcNow);
+			if (bookingDate < voucher.StartDate || bookingDate > voucher.EndDate)
+				return null;
+
+			// Kiểm tra condotel - Voucher PHẢI có CondotelId và phải match với condotel đang booking
+			// Voucher chỉ áp dụng cho những condotel nhất định (không cho phép voucher dùng cho tất cả condotel)
+			if (!voucher.CondotelId.HasValue)
+			{
+				// Voucher không có CondotelId → không hợp lệ (voucher phải gắn với condotel cụ thể)
+				return null;
+			}
+
+			if (voucher.CondotelId.Value != condotelId)
+			{
+				// Voucher không thuộc về condotel này
+				return null;
+			}
+
+			// Kiểm tra user (nếu voucher có UserId - voucher cá nhân)
+			if (voucher.UserId.HasValue && voucher.UserId.Value != userId)
+				return null;
+
+			// Kiểm tra usage limit
+			if (voucher.UsageLimit.HasValue)
+			{
+				var usedCount = voucher.UsedCount ?? 0;
+				if (usedCount >= voucher.UsageLimit.Value)
+					return null;
+			}
+
+			return voucher;
+		}
+
+		public async Task ApplyVoucherToBookingAsync(int voucherId)
+		{
+			var voucher = await _repo.GetByIdAsync(voucherId);
+			if (voucher == null) return;
+
+			// Tăng UsedCount
+			voucher.UsedCount = (voucher.UsedCount ?? 0) + 1;
+
+			// Nếu đã đạt giới hạn, set status = "Used"
+			if (voucher.UsageLimit.HasValue && voucher.UsedCount >= voucher.UsageLimit.Value)
+			{
+				voucher.Status = "Used";
+			}
+
+			await _repo.UpdateAsync(voucher);
+		}
+
+		public async Task RollbackVoucherUsageAsync(int voucherId)
+		{
+			var voucher = await _repo.GetByIdAsync(voucherId);
+			if (voucher == null) return;
+
+			// Giảm UsedCount
+			var currentUsedCount = voucher.UsedCount ?? 0;
+			if (currentUsedCount > 0)
+			{
+				voucher.UsedCount = currentUsedCount - 1;
+
+				// Nếu status là "Used" và UsedCount < UsageLimit, set lại "Active"
+				if (voucher.Status == "Used" && voucher.UsageLimit.HasValue && voucher.UsedCount < voucher.UsageLimit.Value)
+				{
+					voucher.Status = "Active";
+				}
+
+				await _repo.UpdateAsync(voucher);
+			}
 		}
 	}
 }

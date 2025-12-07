@@ -1,4 +1,5 @@
-﻿using CondotelManagement.Models;
+﻿using CondotelManagement.DTOs.Booking;
+using CondotelManagement.Models;
 using System;
 
 namespace CondotelManagement.DTOs
@@ -14,6 +15,9 @@ namespace CondotelManagement.DTOs
         public decimal? TotalPrice { get; set; }
         public string Status { get; set; }
         public int? PromotionId { get; set; }
+        public string? VoucherCode { get; set; } // Mã voucher để áp dụng
+        public int? VoucherId { get; set; } // ID voucher đã áp dụng
+        public List<ServicePackageSelectionDTO>? ServicePackages { get; set; } // Danh sách service packages được chọn
         public DateTime CreatedAt { get; set; }
         public bool CanReview { get; set; }
         public bool HasReviewed { get; set; }

@@ -6,7 +6,9 @@ namespace CondotelManagement.Repositories
 	{
 		Task<IEnumerable<Voucher>> GetByHostAsync(int hostId);
 		Task<IEnumerable<Voucher>> GetByCondotelAsync(int condotelId);
+		Task<IEnumerable<Voucher>> GetByUserIdAsync(int userId);
 		Task<Voucher?> GetByIdAsync(int id);
+		Task<Voucher?> GetByCodeAsync(string code);
 		Task<Voucher> AddAsync(Voucher voucher);
 		Task<Voucher?> UpdateAsync(Voucher voucher);
 		Task<bool> DeleteAsync(int id);

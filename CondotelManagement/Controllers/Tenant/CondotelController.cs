@@ -2,6 +2,7 @@
 using CondotelManagement.Helpers;
 using CondotelManagement.Services;
 using CondotelManagement.Data;
+using CondotelManagement.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,11 +14,13 @@ namespace CondotelManagement.Controllers
 	public class CondotelController : ControllerBase
 	{
 		private readonly ICondotelService _condotelService;
+		private readonly IServicePackageService _servicePackageService;
 		private readonly CondotelDbVer1Context _context;
 
-		public CondotelController(ICondotelService condotelService, CondotelDbVer1Context context)
+		public CondotelController(ICondotelService condotelService, IServicePackageService servicePackageService, CondotelDbVer1Context context)
 		{
 			_condotelService = condotelService;
+			_servicePackageService = servicePackageService;
 			_context = context;
 		}
 
@@ -128,6 +131,19 @@ namespace CondotelManagement.Controllers
 				.ToListAsync();
 
 			return Ok(utilities);
+		}
+
+		// GET api/tenant/condotels/{id}/service-packages - Lấy danh sách service packages của condotel
+		[HttpGet("{id}/service-packages")]
+		[AllowAnonymous]
+		public async Task<IActionResult> GetServicePackagesByCondotel(int id)
+		{
+			var condotelExists = await _context.Condotels.AnyAsync(c => c.CondotelId == id);
+			if (!condotelExists)
+				return NotFound(new { message = "Condotel not found" });
+
+			var servicePackages = await _servicePackageService.GetByCondotelAsync(id);
+			return Ok(servicePackages);
 		}
 
 		// GET api/tenant/condotels/{id} - Lấy chi tiết condotel (ĐẶT CUỐI CÙNG)

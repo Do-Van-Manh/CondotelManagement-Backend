@@ -92,7 +92,11 @@ namespace CondotelManagement.Services.Implementations.Host
                     CondotelId = booking.CondotelId,
                     CondotelName = booking.Condotel?.Name ?? "N/A",
                     HostId = booking.Condotel?.HostId ?? 0,
-                    HostName = booking.Condotel?.Host?.CompanyName ?? "N/A",
+                    HostName = !string.IsNullOrWhiteSpace(booking.Condotel?.Host?.CompanyName) 
+                        ? booking.Condotel.Host.CompanyName 
+                        : (!string.IsNullOrWhiteSpace(booking.Condotel?.Host?.User?.FullName) 
+                            ? booking.Condotel.Host.User.FullName 
+                            : "N/A"),
                     Amount = booking.TotalPrice ?? 0m,
                     EndDate = booking.EndDate,
                     PaidAt = booking.PaidToHostAt,
@@ -275,7 +279,11 @@ namespace CondotelManagement.Services.Implementations.Host
                         CondotelId = booking.CondotelId,
                         CondotelName = booking.Condotel?.Name ?? "N/A",
                         HostId = booking.Condotel?.HostId ?? 0,
-                        HostName = booking.Condotel?.Host?.CompanyName ?? "N/A",
+                        HostName = !string.IsNullOrWhiteSpace(booking.Condotel?.Host?.CompanyName) 
+                            ? booking.Condotel.Host.CompanyName 
+                            : (!string.IsNullOrWhiteSpace(booking.Condotel?.Host?.User?.FullName) 
+                                ? booking.Condotel.Host.User.FullName 
+                                : "N/A"),
                         Amount = booking.TotalPrice ?? 0m,
                         EndDate = booking.EndDate,
                         PaidAt = booking.PaidToHostAt,
@@ -296,6 +304,90 @@ namespace CondotelManagement.Services.Implementations.Host
             };
         }
 
+        /// <summary>
+        /// Admin báo lỗi thông tin tài khoản khi chuyển tiền thủ công
+        /// Gửi email thông báo cho host về lỗi thông tin tài khoản
+        /// </summary>
+        public async Task<HostPayoutResponseDTO> ReportAccountErrorAsync(int bookingId, string errorMessage)
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Condotel)
+                    .ThenInclude(c => c.Host)
+                        .ThenInclude(h => h.User)
+                .Include(b => b.Customer)
+                .FirstOrDefaultAsync(b => b.BookingId == bookingId);
+
+            if (booking == null)
+            {
+                return new HostPayoutResponseDTO
+                {
+                    Success = false,
+                    Message = "Booking not found."
+                };
+            }
+
+            if (!IsCompletedStatus(booking.Status))
+            {
+                return new HostPayoutResponseDTO
+                {
+                    Success = false,
+                    Message = "Booking must be completed to report account error."
+                };
+            }
+
+            // Lấy thông tin tài khoản hiện tại của host
+            var hostWallet = await _context.Wallets
+                .Where(w => w.HostId == booking.Condotel.HostId && w.Status == "Active")
+                .OrderByDescending(w => w.IsDefault)
+                .FirstOrDefaultAsync();
+
+            // Gửi email thông báo lỗi cho host
+            try
+            {
+                var hostEmail = booking.Condotel.Host?.User?.Email;
+                if (!string.IsNullOrEmpty(hostEmail))
+                {
+                    await _emailService.SendPayoutAccountErrorEmailAsync(
+                        toEmail: hostEmail,
+                        hostName: booking.Condotel.Host?.CompanyName ?? booking.Condotel.Host?.User?.FullName ?? "Host",
+                        bookingId: booking.BookingId,
+                        condotelName: booking.Condotel.Name,
+                        amount: booking.TotalPrice ?? 0m,
+                        currentBankName: hostWallet?.BankName,
+                        currentAccountNumber: hostWallet?.AccountNumber,
+                        currentAccountHolderName: hostWallet?.AccountHolderName,
+                        errorMessage: errorMessage
+                    );
+                }
+                else
+                {
+                    return new HostPayoutResponseDTO
+                    {
+                        Success = false,
+                        Message = "Host email not found. Cannot send error notification."
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PayoutService] Error sending account error email to host: {ex.Message}");
+                return new HostPayoutResponseDTO
+                {
+                    Success = false,
+                    Message = $"Failed to send error notification email: {ex.Message}"
+                };
+            }
+
+            return new HostPayoutResponseDTO
+            {
+                Success = true,
+                Message = $"Đã gửi thông báo lỗi thông tin tài khoản cho host qua email. Host cần cập nhật thông tin tài khoản để nhận thanh toán.",
+                ProcessedCount = 0,
+                TotalAmount = 0m,
+                ProcessedItems = new List<HostPayoutItemDTO>()
+            };
+        }
+
         public async Task<List<HostPayoutItemDTO>> GetPendingPayoutsAsync(int? hostId = null)
         {
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -304,6 +396,7 @@ namespace CondotelManagement.Services.Implementations.Host
             var query = _context.Bookings
                 .Include(b => b.Condotel)
                     .ThenInclude(c => c.Host)
+                        .ThenInclude(h => h.User)
                 .Include(b => b.Customer)
                 .Where(b => b.EndDate <= cutoffDate
                     && (b.IsPaidToHost == null || b.IsPaidToHost == false)
@@ -356,7 +449,11 @@ namespace CondotelManagement.Services.Implementations.Host
                     CondotelId = b.CondotelId,
                     CondotelName = b.Condotel?.Name ?? "N/A",
                     HostId = b.Condotel?.HostId ?? 0,
-                    HostName = b.Condotel?.Host?.CompanyName ?? "N/A",
+                    HostName = !string.IsNullOrWhiteSpace(b.Condotel?.Host?.CompanyName) 
+                        ? b.Condotel.Host.CompanyName 
+                        : (!string.IsNullOrWhiteSpace(b.Condotel?.Host?.User?.FullName) 
+                            ? b.Condotel.Host.User.FullName 
+                            : "N/A"),
                     Amount = b.TotalPrice ?? 0m,
                     EndDate = b.EndDate,
                     PaidAt = null,
@@ -381,6 +478,7 @@ namespace CondotelManagement.Services.Implementations.Host
             var query = _context.Bookings
                 .Include(b => b.Condotel)
                     .ThenInclude(c => c.Host)
+                        .ThenInclude(h => h.User)
                 .Include(b => b.Customer)
                 .Where(b => b.IsPaidToHost == true
                     && b.TotalPrice.HasValue
@@ -435,7 +533,11 @@ namespace CondotelManagement.Services.Implementations.Host
                     CondotelId = b.CondotelId,
                     CondotelName = b.Condotel?.Name ?? "N/A",
                     HostId = b.Condotel?.HostId ?? 0,
-                    HostName = b.Condotel?.Host?.CompanyName ?? "N/A",
+                    HostName = !string.IsNullOrWhiteSpace(b.Condotel?.Host?.CompanyName) 
+                        ? b.Condotel.Host.CompanyName 
+                        : (!string.IsNullOrWhiteSpace(b.Condotel?.Host?.User?.FullName) 
+                            ? b.Condotel.Host.User.FullName 
+                            : "N/A"),
                     Amount = b.TotalPrice ?? 0m,
                     EndDate = b.EndDate,
                     PaidAt = b.PaidToHostAt,

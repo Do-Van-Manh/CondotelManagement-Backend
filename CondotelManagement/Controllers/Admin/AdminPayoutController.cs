@@ -81,6 +81,35 @@ namespace CondotelManagement.Controllers.Admin
         }
 
         /// <summary>
+        /// Admin báo lỗi thông tin tài khoản khi chuyển tiền thủ công
+        /// Gửi email thông báo cho host về lỗi thông tin tài khoản
+        /// </summary>
+        [HttpPost("{bookingId}/report-account-error")]
+        public async Task<IActionResult> ReportAccountError(int bookingId, [FromBody] ReportAccountErrorRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.ErrorMessage))
+                {
+                    return BadRequest(new { success = false, message = "Error message is required." });
+                }
+
+                var result = await _payoutService.ReportAccountErrorAsync(bookingId, request.ErrorMessage);
+                
+                if (!result.Success)
+                {
+                    return BadRequest(result);
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error reporting account error", error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Lấy danh sách booking đã thanh toán cho host (đã hoàn thành và đã trả tiền)
         /// GET /api/admin/payouts/paid?hostId=1&fromDate=2025-01-01&toDate=2025-12-31
         /// </summary>
