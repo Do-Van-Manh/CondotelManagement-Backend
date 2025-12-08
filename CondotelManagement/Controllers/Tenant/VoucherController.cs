@@ -3,6 +3,8 @@ using CondotelManagement.Helpers;
 using CondotelManagement.Models;
 using CondotelManagement.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace CondotelManagement.Controllers.Tenant
 {
@@ -17,6 +19,31 @@ namespace CondotelManagement.Controllers.Tenant
             _voucherService = voucherService;
         }
 
+        /// <summary>
+        /// Lấy danh sách voucher của user đang đăng nhập
+        /// </summary>
+        [HttpGet("my")]
+        [Authorize(Roles = "Tenant")]
+        public async Task<IActionResult> GetMyVouchers()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized(new { message = "Invalid user" });
+            }
+
+            var vouchers = await _voucherService.GetVouchersByUserIdAsync(userId);
+            return Ok(new
+            {
+                success = true,
+                data = vouchers,
+                total = vouchers.Count()
+            });
+        }
+
+        /// <summary>
+        /// Lấy danh sách voucher theo condotel (public, không cần auth)
+        /// </summary>
         [HttpGet("condotel/{condotelId}")]
         public async Task<IActionResult> GetVouchersByCondotel(int condotelId)
         {

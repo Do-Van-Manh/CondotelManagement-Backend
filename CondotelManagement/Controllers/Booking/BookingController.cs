@@ -34,9 +34,9 @@ namespace CondotelManagement.Controllers
 
         // GET api/booking/{id}
         [HttpGet("{id}")]
-        public IActionResult GetBookingById(int id)
+        public async Task<IActionResult> GetBookingById(int id)
         {
-            var booking = _bookingService.GetBookingById(id);
+            var booking = await _bookingService.GetBookingByIdAsync(id);
             if (booking == null) return NotFound();
             return Ok(booking);
         }
@@ -51,11 +51,11 @@ namespace CondotelManagement.Controllers
 
         // POST api/booking
         [HttpPost]
-        public IActionResult CreateBooking([FromBody] BookingDTO dto)
+        public async Task<IActionResult> CreateBooking([FromBody] BookingDTO dto)
         {
             dto.CustomerId = GetCustomerId();
 
-            var result = _bookingService.CreateBooking(dto);
+            var result = await _bookingService.CreateBookingAsync(dto);
 
             if (!result.Success)
                 return BadRequest(result);
@@ -109,6 +109,36 @@ namespace CondotelManagement.Controllers
             var success = await _bookingService.CancelBooking(id, customerId);
             if (!success) return NotFound();
             return NoContent();
+        }
+
+        // POST api/booking/{id}/cancel-payment - Hủy thanh toán (KHÔNG refund)
+        [HttpPost("{id}/cancel-payment")]
+        public async Task<IActionResult> CancelPayment(int id)
+        {
+            int customerId = GetCustomerId();
+            var success = await _bookingService.CancelPayment(id, customerId);
+            if (!success) 
+                return BadRequest(new { success = false, message = "Cannot cancel payment. Booking may have already been paid or cancelled." });
+            return Ok(new { success = true, message = "Payment cancelled successfully. Booking status updated to Cancelled." });
+        }
+
+        /// <summary>
+        /// Kiểm tra xem booking có thể hoàn tiền được không (để hiển thị nút hoàn tiền)
+        /// </summary>
+        [HttpGet("{id}/can-refund")]
+        public async Task<IActionResult> CanRefundBooking(int id)
+        {
+            int customerId = GetCustomerId();
+            var canRefund = await _bookingService.CanRefundBooking(id, customerId);
+            
+            return Ok(new 
+            { 
+                success = true,
+                canRefund = canRefund,
+                message = canRefund 
+                    ? "Booking can be refunded. Refund button should be displayed." 
+                    : "Booking cannot be refunded. Refund button should be hidden."
+            });
         }
     }
 }

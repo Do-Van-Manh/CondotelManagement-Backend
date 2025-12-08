@@ -340,6 +340,151 @@ namespace CondotelManagement.Services.Implementations.Shared
             await smtp.SendAsync(email);
             await smtp.DisconnectAsync(true);
         }
+
+        public async Task SendPayoutAccountErrorEmailAsync(string toEmail, string hostName, int bookingId, string condotelName, decimal amount, string? currentBankName = null, string? currentAccountNumber = null, string? currentAccountHolderName = null, string? errorMessage = null)
+        {
+            var email = new MimeMessage();
+            email.From.Add(new MailboxAddress(
+                _config["EmailSettings:SenderName"],
+                _config["EmailSettings:SenderEmail"]));
+            email.To.Add(MailboxAddress.Parse(toEmail));
+            email.Subject = $"⚠️ Thông báo lỗi thông tin tài khoản - Booking #{bookingId}";
+
+            // Format số tiền
+            var formattedAmount = amount.ToString("N0").Replace(",", ".") + " VNĐ";
+            
+            // Tạo nội dung email đẹp
+            var bankInfoHtml = "";
+            if (!string.IsNullOrEmpty(currentBankName) && !string.IsNullOrEmpty(currentAccountNumber))
+            {
+                bankInfoHtml = $@"
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Ngân hàng hiện tại:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{currentBankName}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Số tài khoản hiện tại:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{currentAccountNumber}</td>
+                    </tr>";
+                if (!string.IsNullOrEmpty(currentAccountHolderName))
+                {
+                    bankInfoHtml += $@"
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Chủ tài khoản hiện tại:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{currentAccountHolderName}</td>
+                    </tr>";
+                }
+            }
+
+            var errorMessageHtml = "";
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                errorMessageHtml = $@"
+                    <div style='background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;'>
+                        <h4 style='margin-top: 0; color: #856404;'>Chi tiết lỗi:</h4>
+                        <p style='color: #856404; margin: 0;'>{errorMessage}</p>
+                    </div>";
+            }
+
+            var htmlBody = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+        .warning-icon {{ font-size: 48px; margin-bottom: 20px; }}
+        .info-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .amount {{ font-size: 24px; font-weight: bold; color: #ff9800; margin: 10px 0; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
+        .action-box {{ background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 20px 0; border-radius: 4px; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <div class='warning-icon'>⚠️</div>
+            <h1>Thông báo lỗi thông tin tài khoản</h1>
+        </div>
+        <div class='content'>
+            <p>Xin chào <strong>{hostName}</strong>,</p>
+            
+            <p>Chúng tôi xin thông báo rằng khi thực hiện thanh toán cho booking <strong>#{bookingId}</strong>, chúng tôi phát hiện <strong style='color: #d32f2f;'>thông tin tài khoản ngân hàng không chính xác</strong>.</p>
+            
+            <div class='info-box'>
+                <h3 style='margin-top: 0; color: #ff9800;'>Thông tin booking</h3>
+                <table>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Mã booking:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>#{bookingId}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Tên condotel:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{condotelName}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Số tiền cần thanh toán:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><span class='amount'>{formattedAmount}</span></td>
+                    </tr>
+                </table>
+            </div>
+
+            {errorMessageHtml}
+
+            <div class='info-box'>
+                <h3 style='margin-top: 0; color: #ff9800;'>Thông tin tài khoản hiện tại trong hệ thống</h3>
+                <table>
+                    {bankInfoHtml}
+                </table>
+            </div>
+
+            <div class='action-box'>
+                <h4 style='margin-top: 0; color: #1976d2;'>Hành động cần thực hiện:</h4>
+                <ol style='color: #1976d2; padding-left: 20px;'>
+                    <li>Vui lòng đăng nhập vào hệ thống và kiểm tra lại thông tin tài khoản ngân hàng của bạn.</li>
+                    <li>Cập nhật thông tin tài khoản ngân hàng chính xác (số tài khoản, tên chủ tài khoản, tên ngân hàng).</li>
+                    <li>Sau khi cập nhật, vui lòng liên hệ với chúng tôi để chúng tôi có thể thực hiện lại thanh toán.</li>
+                </ol>
+            </div>
+            
+            <p><strong>Lưu ý:</strong> Thanh toán sẽ chỉ được thực hiện sau khi bạn cập nhật thông tin tài khoản chính xác.</p>
+            
+            <p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi qua email hoặc hotline.</p>
+            
+            <p>Trân trọng,<br>
+            <strong>Đội ngũ Condotel Management</strong></p>
+            
+            <div class='footer'>
+                <p>Email này được gửi tự động, vui lòng không trả lời email này.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
+
+            var body = new BodyBuilder
+            {
+                HtmlBody = htmlBody
+            };
+            email.Body = body.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            await smtp.ConnectAsync(
+                _config["EmailSettings:SmtpServer"],
+                int.Parse(_config["EmailSettings:Port"]),
+                SecureSocketOptions.StartTls);
+
+            await smtp.AuthenticateAsync(
+                _config["EmailSettings:SenderEmail"],
+                _config["EmailSettings:Password"]);
+
+            await smtp.SendAsync(email);
+            await smtp.DisconnectAsync(true);
+        }
     }
 }
 

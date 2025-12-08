@@ -30,7 +30,7 @@ namespace CondotelManagement.Services
 		}
 
 		// GET BY ID (host scope)
-		public async Task<UtilityResponseDTO> GetByIdAsync(int id, int hostId)
+		public async Task<UtilityResponseDTO?> GetByIdAsync(int id, int hostId)
 		{
 			var utility = await _repository.GetByIdAsync(id);
 
@@ -89,6 +89,81 @@ namespace CondotelManagement.Services
 		public async Task<bool> DeleteAsync(int id, int hostId)
 		{
 			return await _repository.DeleteAsync(id, hostId);
+		}
+
+		// ========== ADMIN METHODS ==========
+
+		// GET ALL UTILITIES (Admin)
+		public async Task<IEnumerable<UtilityResponseDTO>> AdminGetAllAsync()
+		{
+			var utilities = await _repository.GetAllAsync();
+
+			return utilities.Select(u => new UtilityResponseDTO
+			{
+				UtilityId = u.UtilityId,
+				HostId = u.HostId,
+				Name = u.Name,
+				Category = u.Category,
+				Description = u.Description
+			});
+		}
+
+		// GET BY ID (Admin)
+		public async Task<UtilityResponseDTO?> AdminGetByIdAsync(int id)
+		{
+			var utility = await _repository.GetByIdAsync(id);
+			if (utility == null) return null;
+
+			return new UtilityResponseDTO
+			{
+				UtilityId = utility.UtilityId,
+				HostId = utility.HostId,
+				Name = utility.Name,
+				Category = utility.Category,
+				Description = utility.Description
+			};
+		}
+
+		// CREATE (Admin) - Admin tạo utility với HostId = 0 (system utility)
+		public async Task<UtilityResponseDTO> AdminCreateAsync(UtilityRequestDTO dto)
+		{
+			var utility = new Utility
+			{
+				HostId = 0, // 0 = System/Admin utility
+				Name = dto.Name,
+				Description = dto.Description,
+				Category = dto.Category
+			};
+
+			var created = await _repository.CreateAsync(utility);
+
+			return new UtilityResponseDTO
+			{
+				UtilityId = created.UtilityId,
+				HostId = created.HostId,
+				Name = created.Name,
+				Description = created.Description,
+				Category = created.Category
+			};
+		}
+
+		// UPDATE (Admin) - Admin có thể update bất kỳ utility nào
+		public async Task<bool> AdminUpdateAsync(int id, UtilityRequestDTO dto)
+		{
+			var entity = await _repository.GetByIdAsync(id);
+			if (entity == null) return false;
+
+			entity.Name = dto.Name;
+			entity.Description = dto.Description;
+			entity.Category = dto.Category;
+
+			return await _repository.UpdateAsync(entity);
+		}
+
+		// DELETE (Admin) - Admin có thể xóa bất kỳ utility nào
+		public async Task<bool> AdminDeleteAsync(int id)
+		{
+			return await _repository.AdminDeleteAsync(id);
 		}
 	}
 }

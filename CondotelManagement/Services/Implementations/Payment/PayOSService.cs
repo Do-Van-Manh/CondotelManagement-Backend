@@ -1,5 +1,6 @@
 ﻿using CondotelManagement.DTOs.Payment;
 using CondotelManagement.Services.Interfaces.Payment;
+using CondotelManagement.Services;
 using CondotelManagement.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
@@ -13,17 +14,19 @@ namespace CondotelManagement.Services.Implementations.Payment
         private readonly IConfiguration _configuration;
         private readonly HttpClient _httpClient;
         private readonly CondotelDbVer1Context _context;
+        private readonly IServiceProvider _serviceProvider;
         private readonly string _clientId;
         private readonly string _apiKey;
         private readonly string _checksumKey;
         private readonly string _baseUrl;
         private const int PayOsDescriptionLimit = 25;
 
-        public PayOSService(IConfiguration configuration, HttpClient httpClient, CondotelDbVer1Context context)
+        public PayOSService(IConfiguration configuration, HttpClient httpClient, CondotelDbVer1Context context, IServiceProvider serviceProvider)
         {
             _configuration = configuration;
             _httpClient = httpClient;
             _context = context;
+            _serviceProvider = serviceProvider;
             _clientId = _configuration["PayOS:ClientId"] ?? throw new InvalidOperationException("PayOS:ClientId is not configured");
             _apiKey = _configuration["PayOS:ApiKey"] ?? throw new InvalidOperationException("PayOS:ApiKey is not configured");
             _checksumKey = _configuration["PayOS:ChecksumKey"] ?? throw new InvalidOperationException("PayOS:ChecksumKey is not configured");
@@ -392,8 +395,25 @@ namespace CondotelManagement.Services.Implementations.Payment
                     if (refundRequest != null)
                     {
                         refundRequest.Status = "Refunded";
-                        refundRequest.ProcessedAt = DateTime.Now;
-                        refundRequest.UpdatedAt = DateTime.Now;
+                        refundRequest.ProcessedAt = DateTime.UtcNow;
+                        refundRequest.UpdatedAt = DateTime.UtcNow;
+                        
+                        // Rollback Voucher UsedCount khi refund thành công
+                        if (refundRequest.Booking?.VoucherId.HasValue == true)
+                        {
+                            try
+                            {
+                                using var scope = _serviceProvider.CreateScope();
+                                var voucherService = scope.ServiceProvider.GetRequiredService<IVoucherService>();
+                                await voucherService.RollbackVoucherUsageAsync(refundRequest.Booking.VoucherId.Value);
+                                Console.WriteLine($"[Webhook] Đã rollback UsedCount cho Voucher {refundRequest.Booking.VoucherId.Value}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[Webhook] Lỗi khi rollback Voucher UsedCount: {ex.Message}");
+                                // Không throw để không ảnh hưởng đến refund
+                            }
+                        }
                         // Booking status giữ nguyên "Cancelled", không đổi thành "Refunded"
                         await _context.SaveChangesAsync();
                         Console.WriteLine($"[Webhook] ĐÃ HOÀN TIỀN THÀNH CÔNG CHO REFUND REQUEST {refundRequest.Id} (Booking {bookingId})!");
@@ -423,6 +443,24 @@ namespace CondotelManagement.Services.Implementations.Payment
 
                     booking.Status = "Confirmed";
                     await _context.SaveChangesAsync();
+                    
+                    // Tăng Voucher UsedCount khi payment thành công
+                    if (booking.VoucherId.HasValue)
+                    {
+                        try
+                        {
+                            using var scope = _serviceProvider.CreateScope();
+                            var voucherService = scope.ServiceProvider.GetRequiredService<IVoucherService>();
+                            await voucherService.ApplyVoucherToBookingAsync(booking.VoucherId.Value);
+                            Console.WriteLine($"[Webhook] Đã tăng UsedCount cho Voucher {booking.VoucherId.Value}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[Webhook] Lỗi khi tăng Voucher UsedCount: {ex.Message}");
+                            // Không throw để không ảnh hưởng đến booking confirmation
+                        }
+                    }
+                    
                     Console.WriteLine($"[Webhook] ĐÃ XÁC NHẬN BOOKING {bookingId_normal} THÀNH CÔNG!");
                     return true;
                 }

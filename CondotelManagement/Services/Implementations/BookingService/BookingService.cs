@@ -11,6 +11,7 @@ using CondotelManagement.Repositories;
 using CondotelManagement.Services.Interfaces.BookingService;
 using CondotelManagement.Services.Interfaces.Payment;
 using CondotelManagement.Services.Interfaces.Shared;
+using CondotelManagement.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace CondotelManagement.Services
@@ -26,6 +27,8 @@ namespace CondotelManagement.Services
         private readonly IVietQRService _vietQRService;
         private readonly IConfiguration _configuration;
         private readonly IEmailService _emailService;
+        private readonly IVoucherService _voucherService;
+        private readonly IServicePackageService _servicePackageService;
 
         public BookingService(
             CondotelDbVer1Context context,
@@ -34,7 +37,9 @@ namespace CondotelManagement.Services
             IPayOSService payOSService,
             IVietQRService vietQRService,
             IConfiguration configuration,
-            IEmailService emailService)
+            IEmailService emailService,
+            IVoucherService voucherService,
+            IServicePackageService servicePackageService)
         {
             _context = context;
             _bookingRepo = bookingRepo;
@@ -43,6 +48,8 @@ namespace CondotelManagement.Services
             _vietQRService = vietQRService;
             _configuration = configuration;
             _emailService = emailService;
+            _voucherService = voucherService;
+            _servicePackageService = servicePackageService;
         }
 
         public async Task<IEnumerable<BookingDTO>> GetBookingsByCustomerAsync(int customerId)
@@ -54,28 +61,155 @@ namespace CondotelManagement.Services
         .OrderByDescending(b => b.EndDate)
         .ToListAsync();
 
-            var bookingDTOs = bookings.Select(b => new BookingDTO
-            {
-                BookingId = b.BookingId,
-                CondotelId = b.CondotelId,
-                CondotelName = b.Condotel.Name,
-                CustomerId = b.CustomerId,
-                StartDate = b.StartDate,
-                EndDate = b.EndDate,
-                TotalPrice = b.TotalPrice,
-                Status = b.Status, // Status đã được update bởi Background Service
-                PromotionId = b.PromotionId,
-                CreatedAt = b.CreatedAt,
+            // Lấy tất cả RefundRequests để check một lần
+            var bookingIds = bookings.Select(b => b.BookingId).ToList();
+            var refundRequests = await _context.RefundRequests
+                .Where(r => bookingIds.Contains(r.BookingId))
+                .ToListAsync();
 
-                CanReview = b.Status == "Completed"
-                         && !_context.Reviews.Any(r => r.BookingId == b.BookingId),
-                HasReviewed = _context.Reviews.Any(r => r.BookingId == b.BookingId)
+            var bookingDTOs = bookings.Select(b => 
+            {
+                var existingRefundRequest = refundRequests.FirstOrDefault(r => r.BookingId == b.BookingId);
+                
+                // Logic kiểm tra có thể refund không
+                bool canRefund = false;
+                
+                // Kiểm tra booking đã được payout cho host chưa
+                if (b.IsPaidToHost != true)
+                {
+                    // Nếu đã có refund request và đã completed/refunded → không có nút hoàn tiền
+                    if (existingRefundRequest != null && 
+                        (existingRefundRequest.Status == "Completed" || existingRefundRequest.Status == "Refunded"))
+                    {
+                        canRefund = false;
+                    }
+                    // Nếu status là "Cancelled" và chưa có RefundRequest → đây là cancel payment (chưa thanh toán) → KHÔNG có nút hoàn tiền
+                    else if (b.Status == "Cancelled" && existingRefundRequest == null)
+                    {
+                        canRefund = false; // Cancel payment → không có nút hoàn tiền
+                    }
+                    // Nếu status là "Pending" → chưa thanh toán, không có nút hoàn tiền
+                    else if (b.Status == "Pending")
+                    {
+                        canRefund = false;
+                    }
+                    // Nếu status là "Confirmed" hoặc "Completed" → có nút hoàn tiền
+                    else if (b.Status == "Confirmed" || b.Status == "Completed")
+                    {
+                        var now = DateTime.UtcNow;
+                        
+                        if (b.Status == "Confirmed")
+                        {
+                            // Với booking "Confirmed": Phải hủy trước 2 ngày check-in
+                            var startDateTime = b.StartDate.ToDateTime(TimeOnly.MinValue);
+                            var daysBeforeCheckIn = (startDateTime - now).TotalDays;
+                            
+                            canRefund = daysBeforeCheckIn >= 2; // Có thể refund nếu còn >= 2 ngày
+                        }
+                        else if (b.Status == "Completed")
+                        {
+                            // Với booking "Completed": Cho phép refund trong vòng 7 ngày sau EndDate
+                            var endDateTime = b.EndDate.ToDateTime(TimeOnly.MaxValue);
+                            var daysAfterCheckOut = (now - endDateTime).TotalDays;
+                            
+                            canRefund = daysAfterCheckOut >= 0 && daysAfterCheckOut <= 7; // Có thể refund trong vòng 7 ngày sau check-out
+                        }
+                    }
+                }
+
+                // Xác định trạng thái refund
+                string? refundStatus = null;
+                if (b.Status == "Cancelled")
+                {
+                    if (existingRefundRequest != null)
+                    {
+                        // Có RefundRequest → lấy status của nó
+                        refundStatus = existingRefundRequest.Status; // "Pending", "Refunded", "Completed"
+                    }
+                    else
+                    {
+                        // Không có RefundRequest → cancel payment (chưa thanh toán)
+                        refundStatus = null; // null = chưa có refund request
+                    }
+                }
+                // Với các status khác (Pending, Confirmed, Completed), refundStatus = null
+
+                return new BookingDTO
+                {
+                    BookingId = b.BookingId,
+                    CondotelId = b.CondotelId,
+                    CondotelName = b.Condotel.Name,
+                    CustomerId = b.CustomerId,
+                    StartDate = b.StartDate,
+                    EndDate = b.EndDate,
+                    TotalPrice = b.TotalPrice,
+                    Status = b.Status, // Status đã được update bởi Background Service
+                    PromotionId = b.PromotionId,
+                    CreatedAt = b.CreatedAt,
+
+                    // Logic hiển thị nút review
+                    // Nếu status là "Completed" thì cho phép review (không cần kiểm tra EndDate)
+                    CanReview = b.Status == "Completed"
+                             && !_context.Reviews.Any(r => r.BookingId == b.BookingId),
+
+                    HasReviewed = _context.Reviews.Any(r => r.BookingId == b.BookingId),
+                    
+                    // Logic hiển thị nút hoàn tiền
+                    CanRefund = canRefund,
+                    
+                    // Trạng thái hoàn tiền (chỉ có giá trị khi Status = "Cancelled")
+                    RefundStatus = refundStatus
+                };
             }).ToList();
 
 
             return bookingDTOs;
         }
 
+        public async Task<BookingDTO?> GetBookingByIdAsync(int id)
+        {
+            // Lấy booking với Include Condotel
+            var b = await _context.Bookings
+                .Include(b => b.Condotel)
+                .FirstOrDefaultAsync(b => b.BookingId == id);
+            
+            if (b == null) return null;
+
+            // Lấy RefundRequest nếu có
+            var refundRequest = await _context.RefundRequests
+                .FirstOrDefaultAsync(r => r.BookingId == id);
+
+            // Xác định trạng thái refund
+            string? refundStatus = null;
+            if (b.Status == "Cancelled")
+            {
+                if (refundRequest != null)
+                {
+                    refundStatus = refundRequest.Status; // "Pending", "Refunded", "Completed"
+                }
+                else
+                {
+                    refundStatus = null; // null = chưa có refund request (cancel payment)
+                }
+            }
+
+            var dto = ToDTO(b);
+            dto.RefundStatus = refundStatus;
+            dto.CondotelName = b.Condotel?.Name ?? "";
+
+            // Set các field khác
+            dto.CanReview = b.Status == "Completed"
+                         && !_context.Reviews.Any(r => r.BookingId == b.BookingId);
+            dto.HasReviewed = _context.Reviews.Any(r => r.BookingId == b.BookingId);
+
+            // Check CanRefund (cần async, nhưng tạm thời dùng logic đơn giản)
+            // Có thể gọi CanRefundBookingAsync nếu cần, nhưng cần customerId
+            // Tạm thời để false, frontend có thể gọi API can-refund riêng
+
+            return dto;
+        }
+
+        [Obsolete("Use GetBookingByIdAsync instead")]
         public BookingDTO GetBookingById(int id)
         {
             var b = _bookingRepo.GetBookingById(id);
@@ -84,25 +218,39 @@ namespace CondotelManagement.Services
 
         public bool CheckAvailability(int condotelId, DateOnly checkIn, DateOnly checkOut)
         {
-            var today = DateOnly.FromDateTime(DateTime.Today);
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-            var bookings = _bookingRepo.GetBookingsByCondotel(condotelId)
-                .Where(b =>
-                    b.Status != "Cancelled" &&
-                    b.EndDate >= today   // Chỉ check những phòng chưa kết thúc
-                )
-                .ToList();
+            // Sử dụng transaction để tránh race condition
+            using var transaction = _context.Database.BeginTransaction();
+            try
+            {
+                var bookings = _bookingRepo.GetBookingsByCondotel(condotelId)
+                    .Where(b =>
+                        (b.Status == "Confirmed" || b.Status == "Completed") && // Chỉ tính bookings đã confirmed/completed
+                        b.Status != "Cancelled" &&
+                        b.EndDate >= today   // Chỉ check những phòng chưa kết thúc
+                    )
+                    .ToList();
 
-            return !bookings.Any(b =>
-                checkIn < b.EndDate &&
-                checkOut > b.StartDate
-            );
+                var isAvailable = !bookings.Any(b =>
+                    checkIn < b.EndDate &&
+                    checkOut > b.StartDate
+                );
+
+                transaction.Commit();
+                return isAvailable;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
         }
 
 
-        public ServiceResultDTO CreateBooking(BookingDTO dto)
+        public async Task<ServiceResultDTO> CreateBookingAsync(BookingDTO dto)
         {
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
             // Không được đặt ngày trong quá khứ
             if (dto.StartDate < today)
@@ -177,14 +325,109 @@ namespace CondotelManagement.Services
             // Nếu PromotionId = 0 hoặc null, không áp dụng promotion
             dto.PromotionId = appliedPromotionId;
 
+            // Áp dụng Voucher nếu có (sau khi đã áp dụng promotion)
+            int? appliedVoucherId = null;
+            if (!string.IsNullOrWhiteSpace(dto.VoucherCode))
+            {
+                var voucher = await _voucherService.ValidateVoucherByCodeAsync(
+                    dto.VoucherCode.Trim(), 
+                    dto.CondotelId, 
+                    dto.CustomerId, 
+                    dto.StartDate);
+
+                if (voucher == null)
+                {
+                    return ServiceResultDTO.Fail("Voucher code is invalid, expired, or not applicable to this booking.");
+                }
+
+                // Áp dụng discount từ voucher
+                if (voucher.DiscountAmount.HasValue && voucher.DiscountAmount.Value > 0)
+                {
+                    // Giảm số tiền cố định
+                    price -= voucher.DiscountAmount.Value;
+                    if (price < 0) price = 0; // Đảm bảo giá không âm
+                }
+                else if (voucher.DiscountPercentage.HasValue && voucher.DiscountPercentage.Value > 0)
+                {
+                    // Giảm theo phần trăm
+                    decimal discountAmount = price * (voucher.DiscountPercentage.Value / 100m);
+                    price -= discountAmount;
+                }
+
+                appliedVoucherId = voucher.VoucherId;
+            }
+
+            // Tính tiền Service Packages nếu có
+            decimal servicePackagesTotal = 0;
+            List<BookingDetail> bookingDetails = new List<BookingDetail>();
+            
+            if (dto.ServicePackages != null && dto.ServicePackages.Any())
+            {
+                foreach (var serviceSelection in dto.ServicePackages)
+                {
+                    if (serviceSelection.Quantity <= 0) continue;
+
+                    var servicePackage = await _servicePackageService.GetByIdAsync(serviceSelection.ServiceId);
+                    if (servicePackage == null || servicePackage.Status != "Active")
+                    {
+                        return ServiceResultDTO.Fail($"Service package with ID {serviceSelection.ServiceId} not found or inactive.");
+                    }
+
+                    // Validate service package thuộc về host của condotel này
+                    var condotelForValidation = _condotelRepo.GetCondotelById(dto.CondotelId);
+                    if (condotelForValidation == null)
+                    {
+                        return ServiceResultDTO.Fail("Condotel not found.");
+                    }
+
+                    // Lấy service package từ DB để kiểm tra HostID
+                    var servicePackageEntity = await _context.ServicePackages.FindAsync(serviceSelection.ServiceId);
+                    if (servicePackageEntity == null || servicePackageEntity.HostID != condotelForValidation.HostId)
+                    {
+                        return ServiceResultDTO.Fail($"Service package does not belong to this condotel's host.");
+                    }
+
+                    // Tính tiền: Price * Quantity
+                    decimal serviceTotal = servicePackage.Price * serviceSelection.Quantity;
+                    servicePackagesTotal += serviceTotal;
+
+                    // Tạo BookingDetail (sẽ lưu sau khi có BookingId)
+                    bookingDetails.Add(new BookingDetail
+                    {
+                        ServiceId = serviceSelection.ServiceId,
+                        Quantity = serviceSelection.Quantity,
+                        Price = servicePackage.Price
+                    });
+                }
+            }
+
+            // Tổng tiền = giá phòng (đã áp dụng promotion + voucher) + tiền service packages
+            price += servicePackagesTotal;
+
             // Set fields
             dto.TotalPrice = price;
+            dto.VoucherId = appliedVoucherId;
             dto.Status = "Pending";
-            dto.CreatedAt = DateTime.Now;
+            dto.CreatedAt = DateTime.UtcNow;
 
             var entity = ToEntity(dto);
             _bookingRepo.AddBooking(entity);
             _bookingRepo.SaveChanges();
+
+            // Lưu BookingDetails sau khi có BookingId
+            if (bookingDetails.Any())
+            {
+                foreach (var detail in bookingDetails)
+                {
+                    detail.BookingId = entity.BookingId;
+                    _context.BookingDetails.Add(detail);
+                }
+                await _context.SaveChangesAsync();
+            }
+
+            // KHÔNG tăng Voucher UsedCount ở đây
+            // Voucher sẽ được tăng UsedCount khi payment thành công (trong webhook)
+            // Điều này đảm bảo voucher chỉ bị dùng khi booking thực sự được thanh toán
 
             dto.BookingId = entity.BookingId;
 
@@ -222,25 +465,127 @@ namespace CondotelManagement.Services
                 var refundResult = await RefundBooking(bookingId, customerId);
                 if (!refundResult.Success)
                 {
-                    // Nếu refund thất bại, vẫn hủy booking nhưng log lỗi
+                    // Nếu refund thất bại, KHÔNG hủy booking để user có thể thử lại
                     Console.WriteLine($"Refund failed when cancelling booking {bookingId}: {refundResult.Message}");
-                    booking.Status = "Cancelled";
-                    _bookingRepo.UpdateBooking(booking);
-                    return _bookingRepo.SaveChanges();
+                    return false; // Không hủy booking nếu refund fail
                 }
-                // Refund request đã được tạo, booking status sẽ được set thành "Cancelled" trong ProcessRefund
-                // Đảm bảo status là "Cancelled" sau khi refund request được tạo
-                booking.Status = "Cancelled";
-                _bookingRepo.UpdateBooking(booking);
-                return _bookingRepo.SaveChanges();
+                // Refund request đã được tạo thành công, booking status sẽ được set thành "Cancelled" trong ProcessRefund
+                // ProcessRefund đã set status = "Cancelled", không cần set lại ở đây
+                return true;
             }
             else if (booking.Status == "Pending")
             {
                 // Booking chưa thanh toán, chỉ cần hủy
-            booking.Status = "Cancelled";
-            _bookingRepo.UpdateBooking(booking);
-            return _bookingRepo.SaveChanges();
+                booking.Status = "Cancelled";
+                _bookingRepo.UpdateBooking(booking);
+                return _bookingRepo.SaveChanges();
+            }
+
+            return false;
         }
+        
+        /// <summary>
+        /// Hủy thanh toán (cancel payment) - chỉ set status = "Cancelled", KHÔNG refund
+        /// Sử dụng khi user hủy thanh toán trước khi thanh toán thành công
+        /// </summary>
+        public async Task<bool> CancelPayment(int bookingId, int customerId)
+        {
+            var booking = _bookingRepo.GetBookingById(bookingId);
+            if (booking == null || booking.CustomerId != customerId)
+                return false;
+
+            // Chỉ cho phép cancel payment nếu booking chưa thanh toán (Pending)
+            if (booking.Status == "Pending")
+            {
+                booking.Status = "Cancelled";
+                _bookingRepo.UpdateBooking(booking);
+                return _bookingRepo.SaveChanges();
+            }
+            else if (booking.Status == "Cancelled")
+            {
+                // Đã bị hủy rồi
+                return true;
+            }
+
+            // Nếu booking đã thanh toán (Confirmed/Completed), không cho cancel payment
+            // Phải dùng CancelBooking để refund
+            return false;
+        }
+
+        /// <summary>
+        /// Kiểm tra xem booking có thể hoàn tiền được không (để hiển thị nút hoàn tiền)
+        /// </summary>
+        public async Task<bool> CanRefundBooking(int bookingId, int customerId)
+        {
+            var booking = _bookingRepo.GetBookingById(bookingId);
+            if (booking == null || booking.CustomerId != customerId)
+                return false;
+
+            // Kiểm tra booking đã được payout cho host chưa
+            if (booking.IsPaidToHost == true)
+                return false;
+
+            // Kiểm tra xem đã có RefundRequest với status Completed/Refunded chưa
+            var existingRefundRequest = await _context.RefundRequests
+                .FirstOrDefaultAsync(r => r.BookingId == bookingId);
+
+            // Nếu đã có refund request và đã completed/refunded, thì không có nút hoàn tiền
+            if (existingRefundRequest != null && 
+                (existingRefundRequest.Status == "Completed" || existingRefundRequest.Status == "Refunded"))
+            {
+                return false;
+            }
+
+            // Nếu status là "Cancelled" và chưa có RefundRequest → đây là cancel payment (chưa thanh toán)
+            // KHÔNG có nút hoàn tiền
+            if (booking.Status == "Cancelled" && existingRefundRequest == null)
+            {
+                return false; // Cancel payment → không có nút hoàn tiền
+            }
+
+            // Nếu status là "Pending" → chưa thanh toán, không có nút hoàn tiền
+            if (booking.Status == "Pending")
+            {
+                return false;
+            }
+
+            // Nếu status là "Confirmed" hoặc "Completed" → có nút hoàn tiền
+            if (booking.Status == "Confirmed" || booking.Status == "Completed")
+            {
+                var now = DateTime.UtcNow;
+                
+                if (booking.Status == "Confirmed")
+                {
+                    // Với booking "Confirmed": Phải hủy trước 2 ngày check-in
+                    var startDateTime = booking.StartDate.ToDateTime(TimeOnly.MinValue);
+                    var daysBeforeCheckIn = (startDateTime - now).TotalDays;
+                    
+                    if (daysBeforeCheckIn < 2)
+                        return false; // Quá gần ngày check-in, không cho refund
+                }
+                else if (booking.Status == "Completed")
+                {
+                    // Với booking "Completed": Cho phép refund trong vòng 7 ngày sau EndDate
+                    var endDateTime = booking.EndDate.ToDateTime(TimeOnly.MaxValue);
+                    var daysAfterCheckOut = (now - endDateTime).TotalDays;
+                    
+                    if (daysAfterCheckOut > 7)
+                        return false; // Quá 7 ngày sau check-out, không cho refund
+                    
+                    if (daysAfterCheckOut < 0)
+                        return false; // Chưa check-out, không cho refund
+                }
+
+                return true; // Có thể refund
+            }
+
+            // Nếu status là "Cancelled" nhưng đã có RefundRequest → có thể đang pending refund
+            // Có thể hiển thị nút để xem trạng thái refund
+            if (booking.Status == "Cancelled" && existingRefundRequest != null)
+            {
+                // Đã có refund request, không cần nút hoàn tiền nữa (đã xử lý)
+                return false;
+            }
 
             return false;
         }
@@ -255,6 +600,12 @@ namespace CondotelManagement.Services
             Console.WriteLine($"[RefundBooking Service] BookingId: {bookingId}, CustomerId: {customerId}");
             Console.WriteLine($"[RefundBooking Service] BankCode: {bankCode}, AccountNumber: {accountNumber}, AccountHolder: {accountHolder}");
 
+            // Kiểm tra booking đã được payout cho host chưa
+            if (booking.IsPaidToHost == true)
+            {
+                return ServiceResultDTO.Fail("Cannot refund booking that has already been paid to host.");
+            }
+
             // Kiểm tra xem đã có RefundRequest với status Completed/Refunded chưa
             var existingRefundRequest = await _context.RefundRequests
                 .FirstOrDefaultAsync(r => r.BookingId == bookingId);
@@ -266,19 +617,52 @@ namespace CondotelManagement.Services
                 return ServiceResultDTO.Fail("Booking has already been refunded.");
             }
 
+            // Nếu status là "Cancelled" và chưa có RefundRequest → kiểm tra xem có phải cancel payment không
+            // Cancel payment: Status = "Cancelled", TotalPrice = 0 hoặc null, chưa thanh toán
+            // Cancel booking: Status = "Cancelled", TotalPrice > 0, đã thanh toán nhưng chưa có RefundRequest
+            if (booking.Status == "Cancelled" && existingRefundRequest == null)
+            {
+                // Kiểm tra TotalPrice để phân biệt cancel payment vs cancel booking
+                // Nếu TotalPrice <= 0 hoặc null → đây là cancel payment (chưa thanh toán) → không cho refund
+                if (booking.TotalPrice == null || booking.TotalPrice <= 0)
+                {
+                    return ServiceResultDTO.Fail("Cannot refund booking that was cancelled before payment. This booking was not paid.");
+                }
+                // Nếu TotalPrice > 0 → đây là cancel booking (đã thanh toán) → cho phép tạo RefundRequest
+            }
+
             // Nếu status là "Refunded" nhưng chưa có refund request, coi như booking vừa hủy và cho phép tạo refund request
-            // Hoặc nếu status là "Cancelled", "Confirmed", "Completed" thì cho phép
+            // Hoặc nếu status là "Confirmed", "Completed" thì cho phép
             if (booking.Status != "Cancelled" && booking.Status != "Confirmed" && booking.Status != "Completed" && booking.Status != "Refunded")
             {
-                return ServiceResultDTO.Fail("Only cancelled, confirmed, or completed bookings can be refunded.");
+                return ServiceResultDTO.Fail("Only cancelled (after payment), confirmed, or completed bookings can be refunded.");
             }
 
             var now = DateTime.UtcNow;
-            var startDateTime = booking.StartDate.ToDateTime(TimeOnly.MinValue);
-            var daysBeforeCheckIn = (startDateTime - now).TotalDays;
+            
+            // Logic kiểm tra thời gian refund khác nhau cho "Confirmed" và "Completed"
+            if (booking.Status == "Confirmed")
+            {
+                // Với booking "Confirmed" (chưa check-in): Phải hủy trước 2 ngày check-in
+                var startDateTime = booking.StartDate.ToDateTime(TimeOnly.MinValue);
+                var daysBeforeCheckIn = (startDateTime - now).TotalDays;
 
-            if (daysBeforeCheckIn < 2)
-                return ServiceResultDTO.Fail("Refund is only available when cancelling at least 2 days before check-in.");
+                if (daysBeforeCheckIn < 2)
+                    return ServiceResultDTO.Fail("Refund is only available when cancelling at least 2 days before check-in.");
+            }
+            else if (booking.Status == "Completed")
+            {
+                // Với booking "Completed" (đã check-out): Cho phép refund trong vòng 7 ngày sau EndDate
+                var endDateTime = booking.EndDate.ToDateTime(TimeOnly.MaxValue);
+                var daysAfterCheckOut = (now - endDateTime).TotalDays;
+
+                if (daysAfterCheckOut > 7)
+                    return ServiceResultDTO.Fail("Refund is only available within 7 days after check-out date.");
+                
+                if (daysAfterCheckOut < 0)
+                    return ServiceResultDTO.Fail("Cannot refund booking that has not completed yet.");
+            }
+            // Với booking "Cancelled" (đã hủy sau khi thanh toán): Không cần check thời gian
 
             return await ProcessRefund(booking, "Tenant", null, bankCode, accountNumber, accountHolder);
         }
@@ -288,6 +672,12 @@ namespace CondotelManagement.Services
             var booking = _bookingRepo.GetBookingById(bookingId);
             if (booking == null)
                 return ServiceResultDTO.Fail("Booking not found.");
+
+            // Kiểm tra booking đã được payout cho host chưa
+            if (booking.IsPaidToHost == true)
+            {
+                return ServiceResultDTO.Fail("Cannot refund booking that has already been paid to host.");
+            }
 
             // Kiểm tra xem đã có RefundRequest với status Completed/Refunded chưa
             var existingRefundRequest = await _context.RefundRequests
@@ -308,204 +698,176 @@ namespace CondotelManagement.Services
 
         private async Task<ServiceResultDTO> ProcessRefund(Booking booking, string initiatedBy, string? reason = null, string? requestBankCode = null, string? requestAccountNumber = null, string? requestAccountHolder = null)
         {
-            var totalPrice = booking.TotalPrice ?? 0m;
-            if (totalPrice <= 0)
-                return ServiceResultDTO.Fail("Booking does not contain a refundable amount.");
-
-            // Lấy thông tin customer
-            var customer = await _context.Users
-                .Include(u => u.Wallets)
-                .FirstOrDefaultAsync(u => u.UserId == booking.CustomerId);
-
-            if (customer == null)
-                return ServiceResultDTO.Fail("Customer not found.");
-
-            // Ưu tiên sử dụng bank info từ request body, nếu không có thì lấy từ Wallet
-            string? bankCode = requestBankCode;
-            string? accountNumber = requestAccountNumber;
-            string? accountHolder = requestAccountHolder;
-
-            // Log bank info để debug
-            Console.WriteLine($"[ProcessRefund] Request bank info - BankCode: {requestBankCode}, AccountNumber: {requestAccountNumber}, AccountHolder: {requestAccountHolder}");
-            Console.WriteLine($"[ProcessRefund] Final bank info - BankCode: {bankCode}, AccountNumber: {accountNumber}, AccountHolder: {accountHolder}");
-
-            // Nếu request body không có bank info, lấy từ Wallet
-            if (string.IsNullOrEmpty(bankCode) || string.IsNullOrEmpty(accountNumber))
-            {
-                Console.WriteLine("[ProcessRefund] Bank info từ request body không đầy đủ, lấy từ Wallet");
-                
-                // Lấy wallet đầu tiên của customer (Wallet model không có IsDefault và Status)
-                var customerWallet = customer.Wallets
-                    .FirstOrDefault();
-
-                if (string.IsNullOrEmpty(accountNumber))
-                    accountNumber = customerWallet?.AccountNumber;
-                if (string.IsNullOrEmpty(accountHolder))
-                    accountHolder = customerWallet?.AccountHolderName;
-
-                if (string.IsNullOrEmpty(bankCode) && customerWallet != null && !string.IsNullOrEmpty(customerWallet.BankName))
-                {
-                    try
-                    {
-                        var banks = await _vietQRService.GetBanksAsync();
-                        var bank = banks.Data.FirstOrDefault(b =>
-                            b.Name.Contains(customerWallet.BankName, StringComparison.OrdinalIgnoreCase) ||
-                            b.Code.Equals(customerWallet.BankName, StringComparison.OrdinalIgnoreCase) ||
-                            b.ShortName.Equals(customerWallet.BankName, StringComparison.OrdinalIgnoreCase));
-
-                        if (bank != null)
-                        {
-                            bankCode = bank.Code; // Sử dụng mã ngân hàng (MB, VCB, etc.)
-                        }
-                        else
-                        {
-                            bankCode = customerWallet.BankName; // Fallback
-                        }
-                    }
-                    catch
-                    {
-                        bankCode = customerWallet.BankName; // Fallback nếu lỗi
-                    }
-                }
-            }
-
-            // Kiểm tra xem đã có RefundRequest chưa
-            var existingRefundRequest = await _context.RefundRequests
-                .FirstOrDefaultAsync(r => r.BookingId == booking.BookingId);
-
-            RefundRequest refundRequest;
-            if (existingRefundRequest != null)
-            {
-                // Cập nhật existing request - cập nhật bank info nếu có từ request
-                refundRequest = existingRefundRequest;
-                if (!string.IsNullOrEmpty(bankCode))
-                    refundRequest.BankCode = bankCode;
-                if (!string.IsNullOrEmpty(accountNumber))
-                    refundRequest.AccountNumber = accountNumber;
-                if (!string.IsNullOrEmpty(accountHolder))
-                    refundRequest.AccountHolder = accountHolder;
-                refundRequest.UpdatedAt = DateTime.Now;
-                
-                Console.WriteLine($"[ProcessRefund] Updated existing RefundRequest {refundRequest.Id} with bank info - BankCode: {refundRequest.BankCode}, AccountNumber: {refundRequest.AccountNumber}, AccountHolder: {refundRequest.AccountHolder}");
-            }
-            else
-            {
-                // Tạo mới RefundRequest
-                refundRequest = new RefundRequest
-                {
-                    BookingId = booking.BookingId,
-                    CustomerId = booking.CustomerId,
-                    CustomerName = customer.FullName ?? "",
-                    CustomerEmail = customer.Email,
-                    RefundAmount = totalPrice,
-                    Status = "Pending",
-                    BankCode = bankCode,
-                    AccountNumber = accountNumber,
-                    AccountHolder = accountHolder,
-                    Reason = reason,
-                    CancelDate = DateTime.Now,
-                    CreatedAt = DateTime.Now
-                };
-                _context.RefundRequests.Add(refundRequest);
-                
-                Console.WriteLine($"[ProcessRefund] Created new RefundRequest with bank info - BankCode: {refundRequest.BankCode}, AccountNumber: {refundRequest.AccountNumber}, AccountHolder: {refundRequest.AccountHolder}");
-            }
-
+            // Sử dụng transaction để đảm bảo data consistency
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Kiểm tra xem đã có PayOS link chưa (nếu đã có TransactionId thì không tạo mới)
-                bool shouldCreatePayOSLink = string.IsNullOrEmpty(refundRequest.TransactionId);
-                
-                PayOSCreatePaymentResponse? refundResponse = null;
-                
-                if (shouldCreatePayOSLink)
+                var totalPrice = booking.TotalPrice ?? 0m;
+                if (totalPrice <= 0)
                 {
-                    // Tạo PayOS refund payment link cho customer
-                    var refundAmount = (int)totalPrice;
-                    refundResponse = await _payOSService.CreateRefundPaymentLinkAsync(
-                        booking.BookingId,
-                        totalPrice,
-                        customer.FullName,
-                        customer.Email,
-                        customer.Phone
-                    );
+                    await transaction.RollbackAsync();
+                    return ServiceResultDTO.Fail("Booking does not contain a refundable amount.");
+                }
+
+                // Lấy thông tin customer
+                var customer = await _context.Users
+                    .Include(u => u.Wallets)
+                    .FirstOrDefaultAsync(u => u.UserId == booking.CustomerId);
+
+                if (customer == null)
+                {
+                    await transaction.RollbackAsync();
+                    return ServiceResultDTO.Fail("Customer not found.");
+                }
+
+                // Ưu tiên sử dụng bank info từ request body, nếu không có thì lấy từ Wallet
+                string? bankCode = requestBankCode;
+                string? accountNumber = requestAccountNumber;
+                string? accountHolder = requestAccountHolder;
+
+                // Log bank info để debug
+                Console.WriteLine($"[ProcessRefund] Request bank info - BankCode: {requestBankCode}, AccountNumber: {requestAccountNumber}, AccountHolder: {requestAccountHolder}");
+                Console.WriteLine($"[ProcessRefund] Final bank info - BankCode: {bankCode}, AccountNumber: {accountNumber}, AccountHolder: {accountHolder}");
+
+                // Nếu request body không có bank info, lấy từ Wallet
+                if (string.IsNullOrEmpty(bankCode) || string.IsNullOrEmpty(accountNumber))
+                {
+                    Console.WriteLine("[ProcessRefund] Bank info từ request body không đầy đủ, lấy từ Wallet");
+
+                    // Lấy wallet ưu tiên IsDefault và Status = "Active"
+                    var customerWallet = customer.Wallets
+                        .Where(w => w.Status == "Active")
+                        .OrderByDescending(w => w.IsDefault)
+                        .FirstOrDefault();
+
+                    if (string.IsNullOrEmpty(accountNumber))
+                        accountNumber = customerWallet?.AccountNumber;
+                    if (string.IsNullOrEmpty(accountHolder))
+                        accountHolder = customerWallet?.AccountHolderName;
+
+                    if (string.IsNullOrEmpty(bankCode) && customerWallet != null && !string.IsNullOrEmpty(customerWallet.BankName))
+                    {
+                        try
+                        {
+                            var banks = await _vietQRService.GetBanksAsync();
+                            var bank = banks.Data.FirstOrDefault(b =>
+                                b.Name.Contains(customerWallet.BankName, StringComparison.OrdinalIgnoreCase) ||
+                                b.Code.Equals(customerWallet.BankName, StringComparison.OrdinalIgnoreCase) ||
+                                b.ShortName.Equals(customerWallet.BankName, StringComparison.OrdinalIgnoreCase));
+
+                            if (bank != null)
+                            {
+                                bankCode = bank.Code; // Sử dụng mã ngân hàng (MB, VCB, etc.)
+                            }
+                            else
+                            {
+                                bankCode = customerWallet.BankName; // Fallback
+                            }
+                        }
+                        catch
+                        {
+                            bankCode = customerWallet.BankName; // Fallback nếu lỗi
+                        }
+                    }
+                }
+
+                // Kiểm tra xem đã có RefundRequest chưa
+                var existingRefundRequest = await _context.RefundRequests
+                    .FirstOrDefaultAsync(r => r.BookingId == booking.BookingId);
+
+                RefundRequest refundRequest;
+                if (existingRefundRequest != null)
+                {
+                    // Cập nhật existing request - cập nhật bank info nếu có từ request
+                    refundRequest = existingRefundRequest;
+                    if (!string.IsNullOrEmpty(bankCode))
+                        refundRequest.BankCode = bankCode;
+                    if (!string.IsNullOrEmpty(accountNumber))
+                        refundRequest.AccountNumber = accountNumber;
+                    if (!string.IsNullOrEmpty(accountHolder))
+                        refundRequest.AccountHolder = accountHolder;
+                    refundRequest.UpdatedAt = DateTime.UtcNow;
+
+                    Console.WriteLine($"[ProcessRefund] Updated existing RefundRequest {refundRequest.Id} with bank info - BankCode: {refundRequest.BankCode}, AccountNumber: {refundRequest.AccountNumber}, AccountHolder: {refundRequest.AccountHolder}");
                 }
                 else
                 {
-                    Console.WriteLine($"[ProcessRefund] RefundRequest {refundRequest.Id} đã có TransactionId ({refundRequest.TransactionId}), bỏ qua tạo PayOS link mới");
+                    // Tạo mới RefundRequest
+                    refundRequest = new RefundRequest
+                    {
+                        BookingId = booking.BookingId,
+                        CustomerId = booking.CustomerId,
+                        CustomerName = customer.FullName ?? "",
+                        CustomerEmail = customer.Email,
+                        RefundAmount = totalPrice,
+                        Status = "Pending",
+                        BankCode = bankCode,
+                        AccountNumber = accountNumber,
+                        AccountHolder = accountHolder,
+                        Reason = reason,
+                        CancelDate = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.RefundRequests.Add(refundRequest);
+
+                    Console.WriteLine($"[ProcessRefund] Created new RefundRequest with bank info - BankCode: {refundRequest.BankCode}, AccountNumber: {refundRequest.AccountNumber}, AccountHolder: {refundRequest.AccountHolder}");
                 }
 
-                if (refundResponse != null && refundResponse.Code == "00" && refundResponse.Data != null)
+                try
                 {
-                    // Tạo payment link thành công - KHÔNG set status thành "Refunded" ngay
-                    // Chỉ set "Refunded" khi customer thực sự nhận tiền qua PayOS link
-                    // Giữ status "Cancelled" hoặc status hiện tại
-                    if (booking.Status != "Cancelled")
+                    // Kiểm tra xem đã có PayOS link chưa (nếu đã có TransactionId thì không tạo mới)
+                    bool shouldCreatePayOSLink = string.IsNullOrEmpty(refundRequest.TransactionId);
+
+                    PayOSCreatePaymentResponse? refundResponse = null;
+
+                    if (shouldCreatePayOSLink)
                     {
-                        booking.Status = "Cancelled";
-            _bookingRepo.UpdateBooking(booking);
+                        // Tạo PayOS refund payment link cho customer
+                        var refundAmount = (int)totalPrice;
+                        refundResponse = await _payOSService.CreateRefundPaymentLinkAsync(
+                            booking.BookingId,
+                            totalPrice,
+                            customer.FullName,
+                            customer.Email,
+                            customer.Phone
+                        );
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[ProcessRefund] RefundRequest {refundRequest.Id} đã có TransactionId ({refundRequest.TransactionId}), bỏ qua tạo PayOS link mới");
                     }
 
-                    // Cập nhật RefundRequest - vẫn Pending cho đến khi customer nhận tiền
-                    refundRequest.Status = "Pending";
-                    refundRequest.PaymentMethod = "Auto";
-                    refundRequest.TransactionId = refundResponse.Data.PaymentLinkId?.ToString();
-                    refundRequest.UpdatedAt = DateTime.Now;
-
-                    await _context.SaveChangesAsync();
-                    
-                    // Log sau khi save để verify
-                    Console.WriteLine($"[ProcessRefund] After SaveChanges - RefundRequest {refundRequest.Id} bank info saved:");
-                    Console.WriteLine($"[ProcessRefund]   BankCode: {refundRequest.BankCode}");
-                    Console.WriteLine($"[ProcessRefund]   AccountNumber: {refundRequest.AccountNumber}");
-                    Console.WriteLine($"[ProcessRefund]   AccountHolder: {refundRequest.AccountHolder}");
-
-            var refundInfo = new
-            {
-                booking.BookingId,
-                        RefundRequestId = refundRequest.Id,
-                RefundAmount = totalPrice,
-                Currency = "VND",
-                InitiatedBy = initiatedBy,
-                        Reason = reason,
-                        RefundOrderCode = refundResponse.Data.OrderCode,
-                        PaymentLinkId = refundResponse.Data.PaymentLinkId,
-                        CheckoutUrl = refundResponse.Data.CheckoutUrl,
-                        QrCode = refundResponse.Data.QrCode,
-                        Status = "Pending",
-                        BankInfo = new
+                    if (refundResponse != null && refundResponse.Code == "00" && refundResponse.Data != null)
+                    {
+                        // Tạo payment link thành công - KHÔNG set status thành "Refunded" ngay
+                        // Chỉ set "Refunded" khi customer thực sự nhận tiền qua PayOS link
+                        // Giữ status "Cancelled" hoặc status hiện tại
+                        if (booking.Status != "Cancelled")
                         {
-                            BankCode = refundRequest.BankCode,
-                            AccountNumber = refundRequest.AccountNumber,
-                            AccountHolder = refundRequest.AccountHolder
-                        },
-                        Message = "Refund payment link created successfully. Customer can use the link to receive refund. Status will be updated to 'Refunded' when payment is completed."
-                    };
+                            booking.Status = "Cancelled";
+                            _bookingRepo.UpdateBooking(booking);
+                        }
 
-                    return ServiceResultDTO.Ok("Refund payment link created successfully.", refundInfo);
-                }
-                else if (refundResponse != null)
-                {
-                    // Tạo payment link thất bại - giữ status Pending
-                    booking.Status = "Cancelled"; // Giữ status Cancelled nếu chưa refund thành công
-                    _bookingRepo.UpdateBooking(booking);
+                        // Cập nhật RefundRequest - vẫn Pending cho đến khi customer nhận tiền
+                        refundRequest.Status = "Pending";
+                        refundRequest.PaymentMethod = "Auto";
+                        refundRequest.TransactionId = refundResponse.Data.PaymentLinkId?.ToString();
+                        refundRequest.UpdatedAt = DateTime.UtcNow;
 
-                    // Cập nhật RefundRequest - vẫn Pending
-                    refundRequest.Status = "Pending";
-                    refundRequest.PaymentMethod = null;
-                    refundRequest.UpdatedAt = DateTime.Now;
+                        // KHÔNG rollback Voucher UsedCount ở đây
+                        // Voucher sẽ được rollback khi refund thực sự thành công (trong Webhook/Return URL)
+                        // Điều này đảm bảo voucher chỉ bị rollback khi customer thực sự nhận tiền
 
-                    await _context.SaveChangesAsync();
-                    
-                    // Log sau khi save để verify
-                    Console.WriteLine($"[ProcessRefund] After SaveChanges (Payment Link Failed) - RefundRequest {refundRequest.Id} bank info saved:");
-                    Console.WriteLine($"[ProcessRefund]   BankCode: {refundRequest.BankCode}");
-                    Console.WriteLine($"[ProcessRefund]   AccountNumber: {refundRequest.AccountNumber}");
-                    Console.WriteLine($"[ProcessRefund]   AccountHolder: {refundRequest.AccountHolder}");
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
 
-                    return ServiceResultDTO.Ok(
-                        $"Refund request created. Failed to create payment link: {refundResponse.Desc}",
-                        new
+                        // Log sau khi save để verify
+                        Console.WriteLine($"[ProcessRefund] After SaveChanges - RefundRequest {refundRequest.Id} bank info saved:");
+                        Console.WriteLine($"[ProcessRefund]   BankCode: {refundRequest.BankCode}");
+                        Console.WriteLine($"[ProcessRefund]   AccountNumber: {refundRequest.AccountNumber}");
+                        Console.WriteLine($"[ProcessRefund]   AccountHolder: {refundRequest.AccountHolder}");
+
+                        var refundInfo = new
                         {
                             booking.BookingId,
                             RefundRequestId = refundRequest.Id,
@@ -513,6 +875,10 @@ namespace CondotelManagement.Services
                             Currency = "VND",
                             InitiatedBy = initiatedBy,
                             Reason = reason,
+                            RefundOrderCode = refundResponse.Data.OrderCode,
+                            PaymentLinkId = refundResponse.Data.PaymentLinkId,
+                            CheckoutUrl = refundResponse.Data.CheckoutUrl,
+                            QrCode = refundResponse.Data.QrCode,
                             Status = "Pending",
                             BankInfo = new
                             {
@@ -520,31 +886,164 @@ namespace CondotelManagement.Services
                                 AccountNumber = refundRequest.AccountNumber,
                                 AccountHolder = refundRequest.AccountHolder
                             },
-                            Error = refundResponse.Desc,
-                            Note = "Please process manual refund"
-                        }
-                    );
+                            Message = "Refund payment link created successfully. Customer can use the link to receive refund. Status will be updated to 'Refunded' when payment is completed."
+                        };
+
+                        return ServiceResultDTO.Ok("Refund payment link created successfully.", refundInfo);
+                    }
+                    else if (refundResponse != null)
+                    {
+                        // Tạo payment link thất bại - giữ status Pending
+                        booking.Status = "Cancelled"; // Giữ status Cancelled nếu chưa refund thành công
+                        _bookingRepo.UpdateBooking(booking);
+
+                        // Cập nhật RefundRequest - vẫn Pending
+                        refundRequest.Status = "Pending";
+                        refundRequest.PaymentMethod = null;
+                        refundRequest.UpdatedAt = DateTime.UtcNow;
+
+                        // KHÔNG rollback Voucher UsedCount ở đây
+                        // Voucher sẽ được rollback khi refund thực sự thành công (trong Webhook/Return URL)
+
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        // Log sau khi save để verify
+                        Console.WriteLine($"[ProcessRefund] After SaveChanges (Payment Link Failed) - RefundRequest {refundRequest.Id} bank info saved:");
+                        Console.WriteLine($"[ProcessRefund]   BankCode: {refundRequest.BankCode}");
+                        Console.WriteLine($"[ProcessRefund]   AccountNumber: {refundRequest.AccountNumber}");
+                        Console.WriteLine($"[ProcessRefund]   AccountHolder: {refundRequest.AccountHolder}");
+
+                        return ServiceResultDTO.Ok(
+                            $"Refund request created. Failed to create payment link: {refundResponse.Desc}",
+                            new
+                            {
+                                booking.BookingId,
+                                RefundRequestId = refundRequest.Id,
+                                RefundAmount = totalPrice,
+                                Currency = "VND",
+                                InitiatedBy = initiatedBy,
+                                Reason = reason,
+                                Status = "Pending",
+                                BankInfo = new
+                                {
+                                    BankCode = refundRequest.BankCode,
+                                    AccountNumber = refundRequest.AccountNumber,
+                                    AccountHolder = refundRequest.AccountHolder
+                                },
+                                Error = refundResponse.Desc,
+                                Note = "Please process manual refund"
+                            }
+                        );
+                    }
+                    else
+                    {
+                        // Không tạo PayOS link (đã có TransactionId), chỉ cập nhật bank info
+                        booking.Status = "Cancelled";
+                        _bookingRepo.UpdateBooking(booking);
+
+                        // Cập nhật RefundRequest - vẫn Pending
+                        refundRequest.Status = "Pending";
+                        refundRequest.UpdatedAt = DateTime.UtcNow;
+
+                        // KHÔNG rollback Voucher UsedCount ở đây
+                        // Voucher sẽ được rollback khi refund thực sự thành công (trong Webhook/Return URL)
+
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        // Log sau khi save để verify
+                        Console.WriteLine($"[ProcessRefund] After SaveChanges (Skip PayOS - Already has TransactionId) - RefundRequest {refundRequest.Id} bank info saved:");
+                        Console.WriteLine($"[ProcessRefund]   BankCode: {refundRequest.BankCode}");
+                        Console.WriteLine($"[ProcessRefund]   AccountNumber: {refundRequest.AccountNumber}");
+                        Console.WriteLine($"[ProcessRefund]   AccountHolder: {refundRequest.AccountHolder}");
+
+                        return ServiceResultDTO.Ok(
+                            "Refund request updated with bank info. PayOS link already exists.",
+                            new
+                            {
+                                booking.BookingId,
+                                RefundRequestId = refundRequest.Id,
+                                RefundAmount = totalPrice,
+                                Currency = "VND",
+                                InitiatedBy = initiatedBy,
+                                Reason = reason,
+                                Status = "Pending",
+                                BankInfo = new
+                                {
+                                    BankCode = refundRequest.BankCode,
+                                    AccountNumber = refundRequest.AccountNumber,
+                                    AccountHolder = refundRequest.AccountHolder
+                                },
+                                TransactionId = refundRequest.TransactionId,
+                                Note = "Refund request updated. Bank info saved successfully."
+                            }
+                        );
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    // Không tạo PayOS link (đã có TransactionId), chỉ cập nhật bank info
+                    Console.WriteLine($"PayOS Refund Error for Booking {booking.BookingId}: {ex.Message}");
+                    Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+
+                    // Kiểm tra xem có phải lỗi "Đơn thanh toán đã tồn tại" không
+                    bool isDuplicateOrderError = ex.Message.Contains("Đơn thanh toán đã tồn tại") ||
+                                                ex.Message.Contains("Code: 231") ||
+                                                ex.Message.Contains("orderCode already exists");
+
+                    // Nếu đã tạo RefundRequest, vẫn giữ lại và commit
+                    // Nếu chưa tạo RefundRequest, rollback transaction
+                    if (refundRequest == null || refundRequest.Id == 0)
+                    {
+                        // Chưa tạo RefundRequest, rollback transaction
+                        try
+                        {
+                            await transaction.RollbackAsync();
+                        }
+                         catch (Exception rollbackEx)
+                         {
+                             Console.WriteLine($"[ProcessRefund] Error rolling back transaction: {rollbackEx.Message}");
+                         }
+                        return ServiceResultDTO.Fail($"Failed to create refund request: {ex.Message}");
+                    }
+
+                    // Đã tạo RefundRequest, giữ lại nhưng không tạo PayOS link
                     booking.Status = "Cancelled";
                     _bookingRepo.UpdateBooking(booking);
 
-                    // Cập nhật RefundRequest - vẫn Pending
                     refundRequest.Status = "Pending";
-                    refundRequest.UpdatedAt = DateTime.Now;
+
+                    if (isDuplicateOrderError && string.IsNullOrEmpty(refundRequest.TransactionId))
+                    {
+                        var refundOrderCode = (long)booking.BookingId * 1000000L + 999999L;
+                        refundRequest.TransactionId = $"PayOS-{refundOrderCode}";
+                        refundRequest.PaymentMethod = "Auto";
+                        Console.WriteLine($"[ProcessRefund] PayOS order already exists (Code: 231), marking as Auto payment method");
+                    }
+                    else if (!isDuplicateOrderError)
+                    {
+                        refundRequest.PaymentMethod = null;
+                    }
+
+                    refundRequest.UpdatedAt = DateTime.UtcNow;
+
+                    // KHÔNG rollback Voucher UsedCount ở đây
+                    // Voucher sẽ được rollback khi refund thực sự thành công (trong Webhook/Return URL)
 
                     await _context.SaveChangesAsync();
-                    
-                    // Log sau khi save để verify
-                    Console.WriteLine($"[ProcessRefund] After SaveChanges (Skip PayOS - Already has TransactionId) - RefundRequest {refundRequest.Id} bank info saved:");
+                    await transaction.CommitAsync();
+
+                    Console.WriteLine($"[ProcessRefund] After SaveChanges (Exception) - RefundRequest {refundRequest.Id} bank info saved:");
                     Console.WriteLine($"[ProcessRefund]   BankCode: {refundRequest.BankCode}");
                     Console.WriteLine($"[ProcessRefund]   AccountNumber: {refundRequest.AccountNumber}");
                     Console.WriteLine($"[ProcessRefund]   AccountHolder: {refundRequest.AccountHolder}");
 
+                    var message = isDuplicateOrderError
+                        ? "Refund request updated with bank info. PayOS payment link may already exist."
+                        : "Refund request created. Failed to create automatic refund link. Manual refund may be required.";
+
                     return ServiceResultDTO.Ok(
-                        "Refund request updated with bank info. PayOS link already exists.",
+                        message,
                         new
                         {
                             booking.BookingId,
@@ -560,81 +1059,26 @@ namespace CondotelManagement.Services
                                 AccountNumber = refundRequest.AccountNumber,
                                 AccountHolder = refundRequest.AccountHolder
                             },
-                            TransactionId = refundRequest.TransactionId,
-                            Note = "Refund request updated. Bank info saved successfully."
+                            Error = isDuplicateOrderError ? null : ex.Message,
+                            Note = isDuplicateOrderError
+                                ? "PayOS payment link may already exist. Bank info updated successfully."
+                                : "Please process manual refund"
                         }
                     );
                 }
             }
-            catch (Exception ex)
+            catch (Exception outerEx)
             {
-                // Nếu tạo payment link thất bại, vẫn tạo RefundRequest với status Pending
-                Console.WriteLine($"PayOS Refund Error for Booking {booking.BookingId}: {ex.Message}");
-                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-
-                // Kiểm tra xem có phải lỗi "Đơn thanh toán đã tồn tại" không
-                bool isDuplicateOrderError = ex.Message.Contains("Đơn thanh toán đã tồn tại") || 
-                                            ex.Message.Contains("Code: 231") ||
-                                            ex.Message.Contains("orderCode already exists");
-
-                booking.Status = "Cancelled"; // Giữ status Cancelled
-                _bookingRepo.UpdateBooking(booking);
-
-                // Cập nhật RefundRequest - vẫn Pending
-                refundRequest.Status = "Pending";
-                
-                // Nếu là lỗi duplicate order, có thể đã có PayOS link, giữ PaymentMethod là "Auto"
-                if (isDuplicateOrderError && string.IsNullOrEmpty(refundRequest.TransactionId))
+                // Nếu có lỗi ở ngoài try block (không phải từ PayOS), rollback transaction
+                try
                 {
-                    // Có thể đã có PayOS link với OrderCode này, nhưng chưa lưu TransactionId
-                    // Tạo OrderCode để tìm PayOS link (nếu cần)
-                    var refundOrderCode = (long)booking.BookingId * 1000000L + 999999L;
-                    refundRequest.TransactionId = $"PayOS-{refundOrderCode}"; // Tạm thời lưu OrderCode
-                    refundRequest.PaymentMethod = "Auto";
-                    Console.WriteLine($"[ProcessRefund] PayOS order already exists (Code: 231), marking as Auto payment method");
+                    await transaction.RollbackAsync();
                 }
-                else if (!isDuplicateOrderError)
+                catch (Exception rollbackEx)
                 {
-                    refundRequest.PaymentMethod = null;
+                    Console.WriteLine($"[ProcessRefund] Error rolling back transaction: {rollbackEx.Message}");
                 }
-                
-                refundRequest.UpdatedAt = DateTime.Now;
-
-                await _context.SaveChangesAsync();
-                
-                // Log sau khi save để verify
-                Console.WriteLine($"[ProcessRefund] After SaveChanges (Exception) - RefundRequest {refundRequest.Id} bank info saved:");
-                Console.WriteLine($"[ProcessRefund]   BankCode: {refundRequest.BankCode}");
-                Console.WriteLine($"[ProcessRefund]   AccountNumber: {refundRequest.AccountNumber}");
-                Console.WriteLine($"[ProcessRefund]   AccountHolder: {refundRequest.AccountHolder}");
-
-                var message = isDuplicateOrderError 
-                    ? "Refund request updated with bank info. PayOS payment link may already exist."
-                    : "Refund request created. Failed to create automatic refund link. Manual refund may be required.";
-
-                return ServiceResultDTO.Ok(
-                    message,
-                    new
-                    {
-                        booking.BookingId,
-                        RefundRequestId = refundRequest.Id,
-                        RefundAmount = totalPrice,
-                        Currency = "VND",
-                        InitiatedBy = initiatedBy,
-                        Reason = reason,
-                        Status = "Pending",
-                        BankInfo = new
-                        {
-                            BankCode = refundRequest.BankCode,
-                            AccountNumber = refundRequest.AccountNumber,
-                            AccountHolder = refundRequest.AccountHolder
-                        },
-                        Error = isDuplicateOrderError ? null : ex.Message,
-                        Note = isDuplicateOrderError 
-                            ? "PayOS payment link may already exist. Bank info updated successfully."
-                            : "Please process manual refund"
-                    }
-                );
+                return ServiceResultDTO.Fail($"Failed to process refund: {outerEx.Message}");
             }
         }
         // Helper mapping
@@ -661,6 +1105,7 @@ namespace CondotelManagement.Services
             TotalPrice = dto.TotalPrice,
             Status = dto.Status,
             PromotionId = dto.PromotionId,
+            VoucherId = dto.VoucherId,
             CreatedAt = dto.CreatedAt
         };
 
@@ -807,8 +1252,8 @@ namespace CondotelManagement.Services
                         CustomerEmail = customer.Email,
                         RefundAmount = booking.TotalPrice ?? 0m,
                         Status = "Pending",
-                        CancelDate = DateTime.Now,
-                        CreatedAt = DateTime.Now
+                        CancelDate = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow
                     };
                     
                     _context.RefundRequests.Add(refundRequest);
@@ -833,8 +1278,22 @@ namespace CondotelManagement.Services
             // Cập nhật RefundRequest
             refundRequest.Status = "Completed";
             refundRequest.PaymentMethod = "Manual";
-            refundRequest.ProcessedAt = DateTime.Now;
-            refundRequest.UpdatedAt = DateTime.Now;
+            refundRequest.ProcessedAt = DateTime.UtcNow;
+            refundRequest.UpdatedAt = DateTime.UtcNow;
+            
+            // Rollback Voucher UsedCount khi refund thành công
+            if (refundRequest.Booking?.VoucherId.HasValue == true)
+            {
+                try
+                {
+                    await _voucherService.RollbackVoucherUsageAsync(refundRequest.Booking.VoucherId.Value);
+                    Console.WriteLine($"[ConfirmRefundManually] Đã rollback UsedCount cho Voucher {refundRequest.Booking.VoucherId.Value}");
+                }
+                catch (Exception voucherEx)
+                {
+                    Console.WriteLine($"[ConfirmRefundManually] Lỗi khi rollback Voucher UsedCount: {voucherEx.Message}");
+                }
+            }
             // TODO: Lấy Admin ID từ Claims nếu cần
             // refundRequest.ProcessedBy = adminId;
 

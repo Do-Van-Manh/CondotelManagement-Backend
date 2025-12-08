@@ -7,12 +7,16 @@ namespace CondotelManagement.Services.Interfaces.BookingService
     public interface IBookingService
     {
         Task<IEnumerable<BookingDTO>> GetBookingsByCustomerAsync(int customerId);
+        Task<BookingDTO?> GetBookingByIdAsync(int id);
+        [Obsolete("Use GetBookingByIdAsync instead")]
         BookingDTO GetBookingById(int id);
-        ServiceResultDTO CreateBooking(BookingDTO booking);
+        Task<ServiceResultDTO> CreateBookingAsync(BookingDTO booking);
 
         BookingDTO UpdateBooking(BookingDTO booking);
         Task<bool> CancelBooking(int bookingId, int customerId);
+        Task<bool> CancelPayment(int bookingId, int customerId);
         Task<ServiceResultDTO> RefundBooking(int bookingId, int customerId, string? bankCode = null, string? accountNumber = null, string? accountHolder = null);
+        Task<bool> CanRefundBooking(int bookingId, int customerId);
         Task<ServiceResultDTO> AdminRefundBooking(int bookingId, string? reason = null);
 
         bool CheckAvailability(int roomId, DateOnly checkIn, DateOnly checkOut);
