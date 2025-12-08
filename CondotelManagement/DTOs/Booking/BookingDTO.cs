@@ -21,5 +21,13 @@ namespace CondotelManagement.DTOs
         public DateTime CreatedAt { get; set; }
         public bool CanReview { get; set; }
         public bool HasReviewed { get; set; }
+        public bool CanRefund { get; set; }
+        
+        // Trạng thái hoàn tiền cho booking hủy
+        // null = Chưa có refund request (cancel payment - chưa thanh toán)
+        // "Pending" = Đang chờ hoàn tiền
+        // "Refunded" = Đã hoàn tiền thành công (qua PayOS)
+        // "Completed" = Đã hoàn tiền thủ công (admin xác nhận)
+        public string? RefundStatus { get; set; }
     }
 }
