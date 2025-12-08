@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CondotelManagement.Controllers.Admin
 {
 	[ApiController]
-	[Route("api/host/location")]
+	[Route("api/admin/location")]
 	[Authorize(Roles = "Admin")]
 	public class AdminLocationController : ControllerBase
 	{
