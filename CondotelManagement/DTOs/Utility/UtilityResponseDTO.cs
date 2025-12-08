@@ -4,8 +4,6 @@
 	{
 		public int UtilityId { get; set; }
 
-		public int HostId { get; set; }
-
 		public string Name { get; set; } = null!;
 
 		public string? Description { get; set; }

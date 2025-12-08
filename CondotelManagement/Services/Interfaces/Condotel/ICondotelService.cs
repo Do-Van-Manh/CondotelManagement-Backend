@@ -5,7 +5,6 @@ namespace CondotelManagement.Services
 {
     public interface ICondotelService
     {
-        IEnumerable<CondotelDTO> GetCondotels();
 		CondotelDetailDTO GetCondotelById(int id);
         CondotelUpdateDTO CreateCondotel(CondotelCreateDTO condotel);
         CondotelUpdateDTO UpdateCondotel(CondotelUpdateDTO condotel);

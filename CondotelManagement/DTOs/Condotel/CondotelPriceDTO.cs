@@ -13,7 +13,5 @@
 		public string PriceType { get; set; } = null!;
 
 		public string? Description { get; set; }
-
-		public string Status { get; set; } = null!;
 	}
 }
