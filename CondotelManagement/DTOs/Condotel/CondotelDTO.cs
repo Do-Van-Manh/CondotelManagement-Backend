@@ -18,5 +18,6 @@
 
         // Promotion đang active (nếu có)
         public PromotionDTO? ActivePromotion { get; set; }
-    }
+		public CondotelPriceDTO? ActivePrice { get; set; }
+	}
 }

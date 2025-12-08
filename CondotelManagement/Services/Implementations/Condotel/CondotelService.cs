@@ -98,8 +98,6 @@ public class CondotelService : ICondotelService
                 CondotelId = condotelId,
                 BuildingName = d.BuildingName?.Trim(),
                 RoomNumber = d.RoomNumber?.Trim(),
-                Beds = d.Beds,
-                Bathrooms = d.Bathrooms,
                 SafetyFeatures = d.SafetyFeatures?.Trim(),
                 HygieneStandards = d.HygieneStandards?.Trim(),
                 Status = "Active"
@@ -189,8 +187,6 @@ public class CondotelService : ICondotelService
             {
                 BuildingName = d.BuildingName,
                 RoomNumber = d.RoomNumber,
-                Beds = d.Beds,
-                Bathrooms = d.Bathrooms,
                 SafetyFeatures = d.SafetyFeatures,
                 HygieneStandards = d.HygieneStandards
             }).ToList(),
@@ -244,8 +240,6 @@ public class CondotelService : ICondotelService
             {
                 BuildingName = d.BuildingName,
                 RoomNumber = d.RoomNumber,
-                Beds = d.Beds,
-                Bathrooms = d.Bathrooms,
                 SafetyFeatures = d.SafetyFeatures,
                 HygieneStandards = d.HygieneStandards
             }).ToList(),
@@ -303,8 +297,24 @@ public class CondotelService : ICondotelService
                     Status = p.Status,
                     CondotelId = p.CondotelId
                 })
-                .FirstOrDefault()
-        });
+                .FirstOrDefault(),
+			ActivePrice = c.CondotelPrices
+				.Where(p => p.Status == "Active"
+					&& p.StartDate <= today
+					&& p.EndDate >= today)
+				.OrderByDescending(p => p.BasePrice) // ưu tiên giá cao nhất nếu có nhiều mức
+				.Select(p => new CondotelPriceDTO
+				{
+					PriceId = p.PriceId,
+					StartDate = p.StartDate,
+					EndDate = p.EndDate,
+					PriceType = p.PriceType,
+					BasePrice = p.BasePrice,
+					Description = p.Description,
+					Status = p.Status
+				})
+				.FirstOrDefault()
+		});
     }
 
     public IEnumerable<CondotelDTO> GetCondtelsByHost(int hostId)
@@ -340,8 +350,24 @@ public class CondotelService : ICondotelService
                     Status = p.Status,
                     CondotelId = p.CondotelId
                 })
-                .FirstOrDefault()
-        });
+                .FirstOrDefault(),
+			ActivePrice = c.CondotelPrices
+	            .Where(p => p.Status == "Active"
+		            && p.StartDate <= today
+		            && p.EndDate >= today)
+	            .OrderByDescending(p => p.BasePrice) // ưu tiên giá cao nhất nếu có nhiều mức
+	            .Select(p => new CondotelPriceDTO
+	            {
+		            PriceId = p.PriceId,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate,
+		            PriceType = p.PriceType,
+					BasePrice = p.BasePrice,
+		            Description = p.Description,
+                    Status = p.Status
+	            })
+	            .FirstOrDefault()
+		});
     }
 
 	public IEnumerable<CondotelDTO> GetCondotelsByFilters(
@@ -385,6 +411,22 @@ public class CondotelService : ICondotelService
 					TargetAudience = p.TargetAudience,
 					Status = p.Status,
 					CondotelId = p.CondotelId
+				})
+				.FirstOrDefault(),
+			ActivePrice = c.CondotelPrices
+				.Where(p => p.Status == "Active"
+					&& p.StartDate <= today
+					&& p.EndDate >= today)
+				.OrderByDescending(p => p.BasePrice) // ưu tiên giá cao nhất nếu có nhiều mức
+				.Select(p => new CondotelPriceDTO
+				{
+					PriceId = p.PriceId,
+					StartDate = p.StartDate,
+					EndDate = p.EndDate,
+					PriceType = p.PriceType,
+					BasePrice = p.BasePrice,
+					Description = p.Description,
+					Status = p.Status
 				})
 				.FirstOrDefault()
 		});
@@ -449,8 +491,6 @@ public class CondotelService : ICondotelService
                 CondotelId = dto.CondotelId,
                 BuildingName = d.BuildingName?.Trim(),
                 RoomNumber = d.RoomNumber?.Trim(),
-                Beds = d.Beds,
-                Bathrooms = d.Bathrooms,
                 SafetyFeatures = d.SafetyFeatures?.Trim(),
                 HygieneStandards = d.HygieneStandards?.Trim(),
                 Status = "Active"
@@ -513,8 +553,6 @@ public class CondotelService : ICondotelService
             {
                 BuildingName = d.BuildingName,
                 RoomNumber = d.RoomNumber,
-                Beds = d.Beds,
-                Bathrooms = d.Bathrooms,
                 SafetyFeatures = d.SafetyFeatures,
                 HygieneStandards = d.HygieneStandards
             }).ToList(),

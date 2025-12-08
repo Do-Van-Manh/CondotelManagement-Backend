@@ -60,6 +60,7 @@ namespace CondotelManagement.Repositories
                 .Include(c => c.Host)
                 .Include(c => c.CondotelImages)
                 .Include(c => c.Promotions)
+				.Include (c => c.CondotelPrices)
                 .ToList();
         }
 
@@ -164,7 +165,8 @@ namespace CondotelManagement.Repositories
                     .Include(c => c.Host)
                     .Include(c => c.CondotelImages)
                     .Include(c => c.Promotions)
-                    .ToList();
+					.Include(c => c.CondotelPrices)
+					.ToList();
         }
 
 	public IEnumerable<Condotel> GetCondotelsByFilters(
@@ -264,7 +266,8 @@ namespace CondotelManagement.Repositories
 				.ThenInclude(r => r.Location)
 			.Include(c => c.Host)
 			.Include(c => c.CondotelImages)
-			.Include(c => c.Promotions);
+			.Include(c => c.Promotions)
+			.Include(c => c.CondotelPrices);
 
 		return query.ToList();
 	}
