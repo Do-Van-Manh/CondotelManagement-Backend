@@ -37,8 +37,6 @@ public partial class Host
 
     public virtual Wallet Wallet { get; set; }
 
-	public virtual ICollection<Utility> Utilities { get; set; } = new List<Utility>();
-
 	public virtual ICollection<ServicePackage> ServicePackages { get; set; }
     
 

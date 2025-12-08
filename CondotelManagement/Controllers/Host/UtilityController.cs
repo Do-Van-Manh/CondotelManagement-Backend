@@ -13,97 +13,20 @@ namespace CondotelManagement.Controllers.Host
 	public class UtilityController : ControllerBase
 	{
 		private readonly IUtilitiesService _service;
-		private readonly IHostService _hostService;
 
-		public UtilityController(IUtilitiesService service, IHostService hostService)
+		public UtilityController(IUtilitiesService service)
 		{
 			_service = service;
-			_hostService = hostService;
 		}
 
 		// ===========================
-		// GET: /api/utility
-		// Lấy tất cả Utilities của Host
+		// Lấy tất cả Utilities active by resort
 		// ===========================
-		[HttpGet]
-		public async Task<IActionResult> GetByHost()
+		[HttpGet("resort/{resortId}")]
+		public async Task<IActionResult> GetByResort(int resortId)
 		{
-			//current host login
-			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
-			var result = await _service.GetUtilitiesByHostAsync(hostId);
+			var result = await _service.GetByResortAsync(resortId);
 			return Ok(ApiResponse<object>.SuccessResponse(result));
-		}
-
-		// ===========================
-		// GET: /api/utility/5
-		// Lấy Utility theo ID (kèm Host check)
-		// ===========================
-		[HttpGet("{utilityId}")]
-		public async Task<IActionResult> GetById(int utilityId)
-		{
-			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
-			var result = await _service.GetByIdAsync(utilityId, hostId);
-
-			if (result == null)
-				return NotFound(ApiResponse<object>.Fail("Tiện ích không tồn tại hoặc không thuộc về host này"));
-
-			return Ok(ApiResponse<object>.SuccessResponse(result));
-		}
-
-		// ===========================
-		// POST: /api/utility
-		// tạo Utility (host chỉ tạo Utility của chính họ)
-		// ===========================
-		[HttpPost]
-		public async Task<IActionResult> Create([FromBody] UtilityRequestDTO dto)
-		{
-			// Validate DataAnnotation
-			if (!ModelState.IsValid)
-			{
-				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
-			}
-
-			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
-			var created = await _service.CreateAsync(hostId, dto);
-			return Ok(ApiResponse<object>.SuccessResponse(created, "Đã tạo thành công"));
-		}
-
-		// ===========================
-		// PUT: /api/utility/5/
-		// update Utility (host = owner)
-		// ===========================
-		[HttpPut("{utilityId}")]
-		public async Task<IActionResult> Update(int utilityId, [FromBody] UtilityRequestDTO dto)
-		{
-			// Validate DataAnnotation
-			if (!ModelState.IsValid)
-			{
-				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
-			}
-
-			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
-			var success = await _service.UpdateAsync(utilityId, hostId, dto);
-
-			if (!success)
-				return NotFound(ApiResponse<object>.Fail("Tiện ích không tồn tại hoặc không thuộc về host này"));
-
-			return Ok(ApiResponse<object>.SuccessResponse("Đã sửa thành công"));
-		}
-
-		// ===========================
-		// DELETE: /api/utility/5
-		// xóa Utility (host = owner)
-		// ===========================
-		[HttpDelete("{utilityId}")]
-		public async Task<IActionResult> Delete(int utilityId)
-		{
-			var hostId = _hostService.GetByUserId(User.GetUserId()).HostId;
-			var success = await _service.DeleteAsync(utilityId, hostId);
-
-			if (!success)
-				return NotFound(ApiResponse<object>.Fail("Tiện ích không tồn tại hoặc không thuộc về host này"));
-
-			return Ok(ApiResponse<object>.SuccessResponse("Đã xóa thành công"));
 		}
 	}
 }

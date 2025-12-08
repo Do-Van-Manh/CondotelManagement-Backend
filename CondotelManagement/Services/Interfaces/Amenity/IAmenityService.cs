@@ -1,3 +1,4 @@
+using CondotelManagement.DTOs;
 using CondotelManagement.DTOs.Amenity;
 
 namespace CondotelManagement.Services.Interfaces.Amenity
@@ -10,6 +11,7 @@ namespace CondotelManagement.Services.Interfaces.Amenity
         Task<AmenityResponseDTO> CreateAsync(int hostId, AmenityRequestDTO dto);
         Task<bool> UpdateAsync(int id, AmenityRequestDTO dto);
         Task<bool> DeleteAsync(int id);
-    }
+
+	}
 }
 

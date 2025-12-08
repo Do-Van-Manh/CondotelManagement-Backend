@@ -187,7 +187,7 @@ namespace CondotelManagement.Repositories
 		}
 
 		// Bắt đầu với query cơ bản
-		var query = _context.Condotels.AsQueryable();
+		var query = _context.Condotels.AsQueryable().Where(c => c.Status == "Hoạt động");
 
 		// Lọc theo tên condotel
 		if (!string.IsNullOrWhiteSpace(name))
@@ -290,13 +290,6 @@ namespace CondotelManagement.Repositories
 		if (utilityIds == null || !utilityIds.Any()) return true; // Optional
 		var existingCount = _context.Utilities.Count(u => utilityIds.Contains(u.UtilityId));
 		return existingCount == utilityIds.Count;
-	}
-
-	public bool UtilitiesBelongToHost(List<int>? utilityIds, int hostId)
-	{
-		if (utilityIds == null || !utilityIds.Any()) return true; // Optional
-		var validCount = _context.Utilities.Count(u => utilityIds.Contains(u.UtilityId) && u.HostId == hostId);
-		return validCount == utilityIds.Count;
 	}
 
 	public bool HostExists(int hostId)

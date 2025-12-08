@@ -25,11 +25,6 @@ namespace CondotelManagement.DTOs
 		[Range(1, 20, ErrorMessage = "Số phòng tắm phải từ 1 đến 20.")]
 		public int Bathrooms { get; set; }
 
-		[Required(ErrorMessage = "Trạng thái không được để trống.")]
-		[RegularExpression("Active|Inactive|Available",
-			ErrorMessage = "Trạng thái chỉ chấp nhận: Active, Inactive, Available.")]
-		public string Status { get; set; }
-
 		// Liên kết 1-n
 		public List<ImageDTO>? Images { get; set; }
         public List<PriceDTO>? Prices { get; set; }

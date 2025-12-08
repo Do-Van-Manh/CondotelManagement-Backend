@@ -28,7 +28,6 @@ namespace CondotelManagement.Repositories
 		bool ResortExists(int? resortId);
 		bool AmenitiesExist(List<int>? amenityIds);
 		bool UtilitiesExist(List<int>? utilityIds);
-		bool UtilitiesBelongToHost(List<int>? utilityIds, int hostId);
 		bool HostExists(int hostId);
 		
 		// Methods for adding child entities

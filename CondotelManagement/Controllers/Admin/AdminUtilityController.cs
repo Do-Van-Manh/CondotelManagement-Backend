@@ -1,100 +1,101 @@
 using CondotelManagement.DTOs;
+using CondotelManagement.Helpers;
 using CondotelManagement.Services;
+using CondotelManagement.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CondotelManagement.Controllers.Admin
 {
 	[ApiController]
-	[Route("api/admin/utilities")]
+	[Route("api/admin/utility")]
 	[Authorize(Roles = "Admin")]
 	public class AdminUtilityController : ControllerBase
 	{
-		private readonly IUtilitiesService _utilitiesService;
+		private readonly IUtilitiesService _service;
 
-		public AdminUtilityController(IUtilitiesService utilitiesService)
+		public AdminUtilityController(IUtilitiesService service)
 		{
-			_utilitiesService = utilitiesService;
+			_service = service;
 		}
 
-		/// <summary>
-		/// Lấy tất cả utilities
-		/// GET /api/admin/utilities
-		/// </summary>
-		[HttpGet]
-		public async Task<ActionResult<IEnumerable<UtilityResponseDTO>>> GetAll()
+		// ===========================
+		// GET: /api/utility/all
+		// Lấy tất cả Utilities
+		// ===========================
+		[HttpGet("all")]
+		public async Task<IActionResult> GetAll()
 		{
-			var utilities = await _utilitiesService.AdminGetAllAsync();
-			return Ok(new
-			{
-				success = true,
-				data = utilities,
-				total = utilities.Count()
-			});
+			var result = await _service.GetAllAsync();
+			return Ok(ApiResponse<object>.SuccessResponse(result));
 		}
 
-		/// <summary>
-		/// Lấy utility theo ID
-		/// GET /api/admin/utilities/{id}
-		/// </summary>
-		[HttpGet("{id}")]
-		public async Task<ActionResult<UtilityResponseDTO>> GetById(int id)
+		// ===========================
+		// GET: /api/utility/5
+		// Lấy Utility theo ID 
+		// ===========================
+		[HttpGet("{utilityId}")]
+		public async Task<IActionResult> GetById(int utilityId)
 		{
-			var utility = await _utilitiesService.AdminGetByIdAsync(id);
-			if (utility == null)
-				return NotFound(new { success = false, message = "Utility not found" });
+			var result = await _service.GetByIdAsync(utilityId);
 
-			return Ok(new { success = true, data = utility });
+			if (result == null)
+				return NotFound(ApiResponse<object>.Fail("Tiện ích không tồn tại"));
+
+			return Ok(ApiResponse<object>.SuccessResponse(result));
 		}
 
-		/// <summary>
-		/// Tạo utility mới
-		/// POST /api/admin/utilities
-		/// </summary>
+		// ===========================
+		// POST: /api/utility
+		// tạo Utility
+		// ===========================
 		[HttpPost]
-		public async Task<ActionResult<UtilityResponseDTO>> Create([FromBody] UtilityRequestDTO dto)
+		public async Task<IActionResult> Create([FromBody] UtilityRequestDTO dto)
 		{
+			// Validate DataAnnotation
 			if (!ModelState.IsValid)
-				return BadRequest(new { success = false, message = "Invalid data", errors = ModelState });
-
-			var created = await _utilitiesService.AdminCreateAsync(dto);
-			return CreatedAtAction(nameof(GetById), new { id = created.UtilityId }, new
 			{
-				success = true,
-				message = "Utility created successfully",
-				data = created
-			});
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
+
+			var created = await _service.CreateAsync(dto);
+			return Ok(ApiResponse<object>.SuccessResponse(created, "Đã tạo thành công"));
 		}
 
-		/// <summary>
-		/// Cập nhật utility
-		/// PUT /api/admin/utilities/{id}
-		/// </summary>
-		[HttpPut("{id}")]
-		public async Task<IActionResult> Update(int id, [FromBody] UtilityRequestDTO dto)
+		// ===========================
+		// PUT: /api/utility/5/
+		// update Utility
+		// ===========================
+		[HttpPut("{utilityId}")]
+		public async Task<IActionResult> Update(int utilityId, [FromBody] UtilityRequestDTO dto)
 		{
+			// Validate DataAnnotation
 			if (!ModelState.IsValid)
-				return BadRequest(new { success = false, message = "Invalid data", errors = ModelState });
+			{
+				return BadRequest(ApiResponse<object>.Fail(ModelState.ToErrorDictionary()));
+			}
 
-			var updated = await _utilitiesService.AdminUpdateAsync(id, dto);
-			if (!updated)
-				return NotFound(new { success = false, message = "Utility not found" });
+			var success = await _service.UpdateAsync(utilityId, dto);
 
-			return Ok(new { success = true, message = "Utility updated successfully" });
+			if (!success)
+				return NotFound(ApiResponse<object>.Fail("Tiện ích không tồn tại"));
+
+			return Ok(ApiResponse<object>.SuccessResponse("Đã sửa thành công"));
 		}
 
-		/// <summary>
-		/// Xóa utility
-		/// DELETE /api/admin/utilities/{id}
-		/// </summary>
-		[HttpDelete("{id}")]
-		public async Task<IActionResult> Delete(int id)
+		// ===========================
+		// DELETE: /api/utility/5
+		// xóa Utility
+		// ===========================
+		[HttpDelete("{utilityId}")]
+		public async Task<IActionResult> Delete(int utilityId)
 		{
-			var deleted = await _utilitiesService.AdminDeleteAsync(id);
-			if (!deleted)
-				return NotFound(new { success = false, message = "Utility not found" });
+			var success = await _service.DeleteAsync(utilityId);
 
-			return Ok(new { success = true, message = "Utility deleted successfully" });
+			if (!success)
+				return NotFound(ApiResponse<object>.Fail("Tiện ích không tồn tại"));
+
+			return Ok(ApiResponse<object>.SuccessResponse("Đã xóa thành công"));
 		}
 	}
 }
