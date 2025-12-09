@@ -454,6 +454,7 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.LocationId).HasColumnName("LocationID");
             entity.Property(e => e.Description).HasMaxLength(255);
             entity.Property(e => e.Name).HasMaxLength(150);
+            entity.Property(e => e.ImageUrl).HasMaxLength(500);
         });
 
         modelBuilder.Entity<Package>(entity =>

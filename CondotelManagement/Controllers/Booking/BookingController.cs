@@ -106,9 +106,58 @@ namespace CondotelManagement.Controllers
         public async Task<IActionResult> CancelBooking(int id)
         {
             int customerId = GetCustomerId();
+            
+            // Kiểm tra booking có tồn tại và thuộc về user không
+            var booking = await _bookingService.GetBookingByIdAsync(id);
+            if (booking == null || booking.CustomerId != customerId)
+            {
+                return NotFound(new { success = false, message = "Booking not found or you don't have permission to cancel this booking." });
+            }
+            
+            // Nếu booking đã thanh toán, thử refund trước
+            if (booking.Status == "Confirmed" || booking.Status == "Completed")
+            {
+                // Kiểm tra có thể refund không
+                var canRefund = await _bookingService.CanRefundBooking(id, customerId);
+                if (!canRefund)
+                {
+                    return BadRequest(new { 
+                        success = false, 
+                        message = "Cannot cancel this booking. It may not be eligible for refund (e.g., too close to check-in date, already paid to host, or outside refund window)." 
+                    });
+                }
+                
+                // Thử refund
+                var refundResult = await _bookingService.RefundBooking(id, customerId);
+                if (!refundResult.Success)
+                {
+                    return BadRequest(new { 
+                        success = false, 
+                        message = refundResult.Message ?? "Failed to process refund. Please try again or contact support." 
+                    });
+                }
+                
+                return Ok(new { 
+                    success = true, 
+                    message = "Booking cancelled and refund request created successfully.",
+                    data = refundResult.Data
+                });
+            }
+            
+            // Nếu booking chưa thanh toán, chỉ cần cancel
             var success = await _bookingService.CancelBooking(id, customerId);
-            if (!success) return NotFound();
-            return NoContent();
+            if (!success)
+            {
+                return BadRequest(new { 
+                    success = false, 
+                    message = "Failed to cancel booking. Please try again or contact support." 
+                });
+            }
+            
+            return Ok(new { 
+                success = true, 
+                message = "Booking cancelled successfully." 
+            });
         }
 
         // POST api/booking/{id}/cancel-payment - Hủy thanh toán (KHÔNG refund)

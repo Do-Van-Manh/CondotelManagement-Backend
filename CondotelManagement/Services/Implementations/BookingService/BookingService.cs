@@ -1119,11 +1119,13 @@ namespace CondotelManagement.Services
             return _bookingRepo.GetBookingsByHostAndCustomer(hostId, customerId);
         }
 
-        public async Task<List<RefundRequestDTO>> GetRefundRequestsAsync(string? searchTerm = null, string? status = "all", DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<List<RefundRequestDTO>> GetRefundRequestsAsync(string? searchTerm = null, string? status = "all", DateTime? startDate = null, DateTime? endDate = null, int? condotelTypeId = null)
         {
             // Lấy từ bảng RefundRequests
             var query = _context.RefundRequests
                 .Include(r => r.Booking)
+                    .ThenInclude(b => b.Condotel)
+                        .ThenInclude(c => c.Resort)
                 .Include(r => r.Customer)
                 .AsQueryable();
 
@@ -1137,7 +1139,7 @@ namespace CondotelManagement.Services
                     (r.Customer != null && r.Customer.FullName != null && r.Customer.FullName.ToLower().Contains(search)));
             }
 
-            // Filter by status
+            // Filter by status - phân biệt rõ ràng các status
             if (!string.IsNullOrEmpty(status) && status != "all")
             {
                 if (status == "Pending")
@@ -1146,8 +1148,24 @@ namespace CondotelManagement.Services
                 }
                 else if (status == "Completed")
                 {
-                    query = query.Where(r => r.Status == "Completed" || r.Status == "Refunded");
+                    query = query.Where(r => r.Status == "Completed");
                 }
+                else if (status == "Refunded")
+                {
+                    query = query.Where(r => r.Status == "Refunded");
+                }
+                else if (status == "Rejected")
+                {
+                    query = query.Where(r => r.Status == "Rejected");
+                }
+            }
+
+            // Filter by condotel type (ResortId) - "loại chỗ ở"
+            if (condotelTypeId.HasValue)
+            {
+                query = query.Where(r => r.Booking != null 
+                    && r.Booking.Condotel != null 
+                    && r.Booking.Condotel.ResortId == condotelTypeId.Value);
             }
 
             // Filter by date range (using CancelDate or CreatedAt)
@@ -1171,8 +1189,9 @@ namespace CondotelManagement.Services
 
             foreach (var refundRequest in refundRequests)
             {
-                // Map status: "Refunded" -> "Completed"
-                var displayStatus = refundRequest.Status == "Refunded" ? "Completed" : refundRequest.Status;
+                // KHÔNG map status nữa - giữ nguyên status để frontend phân biệt được
+                // "Refunded" và "Completed" là 2 status khác nhau
+                var displayStatus = refundRequest.Status;
 
                 result.Add(new RefundRequestDTO
                 {
@@ -1349,6 +1368,80 @@ namespace CondotelManagement.Services
                         AccountNumber = refundRequest.AccountNumber,
                         AccountHolder = refundRequest.AccountHolder
                     }
+                }
+            );
+        }
+
+        public async Task<ServiceResultDTO> RejectRefundRequest(int refundRequestId, string reason)
+        {
+            // Tìm RefundRequest theo Id (không phải BookingId)
+            var refundRequest = await _context.RefundRequests
+                .Include(r => r.Booking)
+                    .ThenInclude(b => b.Condotel)
+                .Include(r => r.Customer)
+                .FirstOrDefaultAsync(r => r.Id == refundRequestId);
+
+            if (refundRequest == null)
+            {
+                return ServiceResultDTO.Fail("Refund request not found.");
+            }
+
+            // Kiểm tra status hiện tại
+            if (refundRequest.Status == "Rejected")
+            {
+                return ServiceResultDTO.Fail("Refund request has already been rejected.");
+            }
+
+            if (refundRequest.Status == "Completed" || refundRequest.Status == "Refunded")
+            {
+                return ServiceResultDTO.Fail("Cannot reject a refund request that has already been completed or refunded.");
+            }
+
+            // Cập nhật status thành "Rejected"
+            refundRequest.Status = "Rejected";
+            refundRequest.Reason = reason;
+            refundRequest.ProcessedAt = DateTime.UtcNow;
+            refundRequest.UpdatedAt = DateTime.UtcNow;
+            // TODO: Lấy Admin ID từ Claims nếu cần
+            // refundRequest.ProcessedBy = adminId;
+
+            await _context.SaveChangesAsync();
+
+            // Gửi email thông báo reject cho customer
+            try
+            {
+                if (!string.IsNullOrEmpty(refundRequest.CustomerEmail))
+                {
+                    await _emailService.SendRefundRejectionEmailAsync(
+                        refundRequest.CustomerEmail,
+                        refundRequest.CustomerName,
+                        refundRequest.BookingId,
+                        refundRequest.RefundAmount,
+                        reason
+                    );
+                    Console.WriteLine($"[RejectRefundRequest] Email sent successfully to {refundRequest.CustomerEmail} for refund request {refundRequestId}");
+                }
+                else
+                {
+                    Console.WriteLine($"[RejectRefundRequest] Customer email is empty, skipping email notification for refund request {refundRequestId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log lỗi nhưng không fail request nếu email không gửi được
+                Console.WriteLine($"[RejectRefundRequest] Error sending email: {ex.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+            }
+
+            return ServiceResultDTO.Ok(
+                "Refund request rejected successfully.",
+                new
+                {
+                    RefundRequestId = refundRequest.Id,
+                    BookingId = refundRequest.BookingId,
+                    Status = "Rejected",
+                    Reason = reason,
+                    ProcessedAt = refundRequest.ProcessedAt
                 }
             );
         }

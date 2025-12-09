@@ -25,7 +25,8 @@ namespace CondotelManagement.Services.Interfaces.BookingService
         IEnumerable<HostBookingDTO> GetBookingsByHostAndCustomer(int hostId, int customerId);
 
         // Admin refund management
-        Task<List<RefundRequestDTO>> GetRefundRequestsAsync(string? searchTerm = null, string? status = "all", DateTime? startDate = null, DateTime? endDate = null);
+        Task<List<RefundRequestDTO>> GetRefundRequestsAsync(string? searchTerm = null, string? status = "all", DateTime? startDate = null, DateTime? endDate = null, int? condotelTypeId = null);
         Task<ServiceResultDTO> ConfirmRefundManually(int bookingId);
+        Task<ServiceResultDTO> RejectRefundRequest(int refundRequestId, string reason);
     }
 }

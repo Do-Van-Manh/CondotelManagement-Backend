@@ -7,6 +7,7 @@ namespace CondotelManagement.Services.Interfaces.Host
         Task<HostPayoutResponseDTO> ProcessPayoutsAsync();
         Task<HostPayoutResponseDTO> ProcessPayoutForBookingAsync(int bookingId);
         Task<HostPayoutResponseDTO> ReportAccountErrorAsync(int bookingId, string errorMessage);
+        Task<HostPayoutResponseDTO> RejectPayoutAsync(int bookingId, string reason);
         Task<List<HostPayoutItemDTO>> GetPendingPayoutsAsync(int? hostId = null);
         Task<List<HostPayoutItemDTO>> GetPaidPayoutsAsync(int? hostId = null, DateTime? fromDate = null, DateTime? toDate = null);
     }

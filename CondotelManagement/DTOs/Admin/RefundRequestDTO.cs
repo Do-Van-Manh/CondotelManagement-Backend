@@ -7,7 +7,7 @@ namespace CondotelManagement.DTOs.Admin
         public string CustomerName { get; set; } = string.Empty;
         public decimal RefundAmount { get; set; }
         public BankInfoDTO BankInfo { get; set; } = new();
-        public string Status { get; set; } = string.Empty; // "Pending" | "Completed"
+        public string Status { get; set; } = string.Empty; // "Pending" | "Completed" | "Refunded" | "Rejected"
         public string CancelDate { get; set; } = string.Empty; // Format: dd/MM/yyyy
     }
 

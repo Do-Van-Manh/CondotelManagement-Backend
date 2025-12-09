@@ -215,6 +215,103 @@ namespace CondotelManagement.Services.Implementations.Shared
             await smtp.DisconnectAsync(true);
         }
 
+        public async Task SendRefundRejectionEmailAsync(string toEmail, string customerName, int bookingId, decimal refundAmount, string reason)
+        {
+            var email = new MimeMessage();
+            email.From.Add(new MailboxAddress(
+                _config["EmailSettings:SenderName"],
+                _config["EmailSettings:SenderEmail"]));
+            email.To.Add(MailboxAddress.Parse(toEmail));
+            email.Subject = $"Thông báo từ chối yêu cầu hoàn tiền - Booking #{bookingId}";
+
+            // Format số tiền
+            var formattedAmount = refundAmount.ToString("N0").Replace(",", ".") + " VNĐ";
+
+            var htmlBody = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+        .warning-icon {{ font-size: 48px; margin-bottom: 20px; }}
+        .info-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .amount {{ font-size: 24px; font-weight: bold; color: #dc3545; margin: 10px 0; }}
+        .reason-box {{ background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; border-radius: 4px; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <div class='warning-icon'>⚠</div>
+            <h1>Yêu cầu hoàn tiền đã bị từ chối</h1>
+        </div>
+        <div class='content'>
+            <p>Xin chào <strong>{customerName}</strong>,</p>
+            
+            <p>Chúng tôi rất tiếc phải thông báo rằng yêu cầu hoàn tiền cho booking <strong>#{bookingId}</strong> đã bị từ chối.</p>
+            
+            <div class='info-box'>
+                <h3 style='margin-top: 0; color: #dc3545;'>Thông tin yêu cầu hoàn tiền</h3>
+                <table>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Mã booking:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>#{bookingId}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Số tiền yêu cầu hoàn:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><span class='amount'>{formattedAmount}</span></td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px;'><strong>Trạng thái:</strong></td>
+                        <td style='padding: 10px;'><span style='color: #dc3545; font-weight: bold;'>Đã từ chối</span></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class='reason-box'>
+                <h4 style='margin-top: 0; color: #856404;'>Lý do từ chối:</h4>
+                <p style='margin-bottom: 0; color: #856404;'>{reason}</p>
+            </div>
+            
+            <p>Nếu bạn có bất kỳ thắc mắc nào về quyết định này, vui lòng liên hệ với chúng tôi qua email hoặc hotline để được hỗ trợ.</p>
+            
+            <p>Trân trọng,<br>
+            <strong>Đội ngũ Condotel Management</strong></p>
+            
+            <div class='footer'>
+                <p>Email này được gửi tự động, vui lòng không trả lời email này.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
+
+            var body = new BodyBuilder
+            {
+                HtmlBody = htmlBody
+            };
+            email.Body = body.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            await smtp.ConnectAsync(
+                _config["EmailSettings:SmtpServer"],
+                int.Parse(_config["EmailSettings:Port"]),
+                SecureSocketOptions.StartTls);
+
+            await smtp.AuthenticateAsync(
+                _config["EmailSettings:SenderEmail"],
+                _config["EmailSettings:Password"]);
+
+            await smtp.SendAsync(email);
+            await smtp.DisconnectAsync(true);
+        }
+
         public async Task SendPayoutConfirmationEmailAsync(string toEmail, string hostName, int bookingId, string condotelName, decimal amount, DateTime paidAt, string? bankName = null, string? accountNumber = null, string? accountHolderName = null)
         {
             var email = new MimeMessage();
@@ -452,6 +549,105 @@ namespace CondotelManagement.Services.Implementations.Shared
             </div>
             
             <p><strong>Lưu ý:</strong> Thanh toán sẽ chỉ được thực hiện sau khi bạn cập nhật thông tin tài khoản chính xác.</p>
+            
+            <p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi qua email hoặc hotline.</p>
+            
+            <p>Trân trọng,<br>
+            <strong>Đội ngũ Condotel Management</strong></p>
+            
+            <div class='footer'>
+                <p>Email này được gửi tự động, vui lòng không trả lời email này.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
+
+            var body = new BodyBuilder
+            {
+                HtmlBody = htmlBody
+            };
+            email.Body = body.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            await smtp.ConnectAsync(
+                _config["EmailSettings:SmtpServer"],
+                int.Parse(_config["EmailSettings:Port"]),
+                SecureSocketOptions.StartTls);
+
+            await smtp.AuthenticateAsync(
+                _config["EmailSettings:SenderEmail"],
+                _config["EmailSettings:Password"]);
+
+            await smtp.SendAsync(email);
+            await smtp.DisconnectAsync(true);
+        }
+
+        public async Task SendPayoutRejectionEmailAsync(string toEmail, string hostName, int bookingId, string condotelName, decimal amount, string reason)
+        {
+            var email = new MimeMessage();
+            email.From.Add(new MailboxAddress(
+                _config["EmailSettings:SenderName"],
+                _config["EmailSettings:SenderEmail"]));
+            email.To.Add(MailboxAddress.Parse(toEmail));
+            email.Subject = $"❌ Từ chối thanh toán - Booking #{bookingId}";
+
+            // Format số tiền
+            var formattedAmount = amount.ToString("N0").Replace(",", ".") + " VNĐ";
+
+            var htmlBody = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+        .rejection-icon {{ font-size: 48px; margin-bottom: 20px; }}
+        .info-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .amount {{ font-size: 24px; font-weight: bold; color: #d32f2f; margin: 10px 0; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
+        .reason-box {{ background: #ffebee; border-left: 4px solid #d32f2f; padding: 15px; margin: 20px 0; border-radius: 4px; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <div class='rejection-icon'>❌</div>
+            <h1>Thông báo từ chối thanh toán</h1>
+        </div>
+        <div class='content'>
+            <p>Xin chào <strong>{hostName}</strong>,</p>
+            
+            <p>Chúng tôi xin thông báo rằng yêu cầu thanh toán cho booking <strong>#{bookingId}</strong> đã bị <strong style='color: #d32f2f;'>từ chối</strong>.</p>
+            
+            <div class='info-box'>
+                <h3 style='margin-top: 0; color: #d32f2f;'>Thông tin booking</h3>
+                <table>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Mã booking:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>#{bookingId}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Tên condotel:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{condotelName}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Số tiền:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><span class='amount'>{formattedAmount}</span></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class='reason-box'>
+                <h4 style='margin-top: 0; color: #c62828;'>Lý do từ chối:</h4>
+                <p style='color: #c62828; margin: 0;'>{reason}</p>
+            </div>
+            
+            <p><strong>Lưu ý:</strong> Booking này sẽ không được thanh toán cho đến khi vấn đề được giải quyết. Nếu bạn có bất kỳ câu hỏi nào về quyết định này, vui lòng liên hệ với chúng tôi.</p>
             
             <p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi qua email hoặc hotline.</p>
             

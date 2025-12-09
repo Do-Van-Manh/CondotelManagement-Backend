@@ -18,7 +18,8 @@ namespace CondotelManagement.Services
             var location = new Location
             {
                 Name = dto.Name,
-                Description = dto.Description
+                Description = dto.Description,
+                ImageUrl = dto.ImageUrl
             };
             var created = await _locationRepo.AddAsync(location);
 
@@ -26,7 +27,8 @@ namespace CondotelManagement.Services
             {
                 LocationId = created.LocationId,
                 Name = created.Name,
-                Description = created.Description
+                Description = created.Description,
+                ImageUrl = created.ImageUrl
             };
         }
 
@@ -46,7 +48,8 @@ namespace CondotelManagement.Services
             {
                 LocationId = l.LocationId,
                 Name = l.Name,
-                Description = l.Description
+                Description = l.Description,
+                ImageUrl = l.ImageUrl
             });
         }
 
@@ -59,7 +62,8 @@ namespace CondotelManagement.Services
             {
                 LocationId = l.LocationId,
                 Name = l.Name,
-                Description = l.Description
+                Description = l.Description,
+                ImageUrl = l.ImageUrl
             };
         }
 
@@ -70,6 +74,7 @@ namespace CondotelManagement.Services
 
             location.Name = dto.Name;
             location.Description = dto.Description;
+            location.ImageUrl = dto.ImageUrl;
 
             await _locationRepo.UpdateAsync(location);
             return true;

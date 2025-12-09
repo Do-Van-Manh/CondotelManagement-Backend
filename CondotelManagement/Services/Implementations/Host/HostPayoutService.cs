@@ -388,6 +388,105 @@ namespace CondotelManagement.Services.Implementations.Host
             };
         }
 
+        /// <summary>
+        /// Admin từ chối thanh toán cho host
+        /// Gửi email thông báo cho host về lý do từ chối
+        /// </summary>
+        public async Task<HostPayoutResponseDTO> RejectPayoutAsync(int bookingId, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                return new HostPayoutResponseDTO
+                {
+                    Success = false,
+                    Message = "Reason is required for rejecting a payout."
+                };
+            }
+
+            var booking = await _context.Bookings
+                .Include(b => b.Condotel)
+                    .ThenInclude(c => c.Host)
+                        .ThenInclude(h => h.User)
+                .Include(b => b.Customer)
+                .FirstOrDefaultAsync(b => b.BookingId == bookingId);
+
+            if (booking == null)
+            {
+                return new HostPayoutResponseDTO
+                {
+                    Success = false,
+                    Message = "Booking not found."
+                };
+            }
+
+            if (!IsCompletedStatus(booking.Status))
+            {
+                return new HostPayoutResponseDTO
+                {
+                    Success = false,
+                    Message = "Booking must be completed to reject payout."
+                };
+            }
+
+            if (booking.IsPaidToHost == true)
+            {
+                return new HostPayoutResponseDTO
+                {
+                    Success = false,
+                    Message = "Cannot reject payout for a booking that has already been paid to host."
+                };
+            }
+
+            // Gửi email thông báo từ chối thanh toán cho host
+            try
+            {
+                var hostEmail = booking.Condotel.Host?.User?.Email;
+                if (!string.IsNullOrEmpty(hostEmail))
+                {
+                    var hostName = !string.IsNullOrWhiteSpace(booking.Condotel.Host?.CompanyName)
+                        ? booking.Condotel.Host.CompanyName
+                        : (!string.IsNullOrWhiteSpace(booking.Condotel.Host?.User?.FullName)
+                            ? booking.Condotel.Host.User.FullName
+                            : "Host");
+
+                    await _emailService.SendPayoutRejectionEmailAsync(
+                        toEmail: hostEmail,
+                        hostName: hostName,
+                        bookingId: booking.BookingId,
+                        condotelName: booking.Condotel.Name,
+                        amount: booking.TotalPrice ?? 0m,
+                        reason: reason
+                    );
+                }
+                else
+                {
+                    return new HostPayoutResponseDTO
+                    {
+                        Success = false,
+                        Message = "Host email not found. Cannot send rejection notification."
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PayoutService] Error sending payout rejection email to host: {ex.Message}");
+                return new HostPayoutResponseDTO
+                {
+                    Success = false,
+                    Message = $"Failed to send rejection notification email: {ex.Message}"
+                };
+            }
+
+            return new HostPayoutResponseDTO
+            {
+                Success = true,
+                Message = $"Đã từ chối thanh toán và gửi thông báo cho host qua email.",
+                ProcessedCount = 0,
+                TotalAmount = 0m,
+                ProcessedItems = new List<HostPayoutItemDTO>()
+            };
+        }
+
         public async Task<List<HostPayoutItemDTO>> GetPendingPayoutsAsync(int? hostId = null)
         {
             var today = DateOnly.FromDateTime(DateTime.UtcNow);

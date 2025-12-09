@@ -1,3 +1,4 @@
+using CondotelManagement.DTOs.Admin;
 using CondotelManagement.DTOs.Host;
 using CondotelManagement.Services.Interfaces.Host;
 using Microsoft.AspNetCore.Authorization;
@@ -106,6 +107,35 @@ namespace CondotelManagement.Controllers.Admin
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Error reporting account error", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Admin từ chối thanh toán cho host
+        /// Gửi email thông báo cho host về lý do từ chối
+        /// </summary>
+        [HttpPost("{bookingId}/reject")]
+        public async Task<IActionResult> RejectPayout(int bookingId, [FromBody] RejectPayoutRequestDTO request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Reason))
+                {
+                    return BadRequest(new { success = false, message = "Reason is required for rejecting a payout." });
+                }
+
+                var result = await _payoutService.RejectPayoutAsync(bookingId, request.Reason);
+                
+                if (!result.Success)
+                {
+                    return BadRequest(result);
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error rejecting payout", error = ex.Message });
             }
         }
 

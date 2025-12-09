@@ -25,9 +25,10 @@ namespace CondotelManagement.Controllers.Admin
             [FromQuery] string? searchTerm = null,
             [FromQuery] string? status = "all",
             [FromQuery] DateTime? startDate = null,
-            [FromQuery] DateTime? endDate = null)
+            [FromQuery] DateTime? endDate = null,
+            [FromQuery] int? condotelTypeId = null)
         {
-            var refundRequests = await _bookingService.GetRefundRequestsAsync(searchTerm, status, startDate, endDate);
+            var refundRequests = await _bookingService.GetRefundRequestsAsync(searchTerm, status, startDate, endDate, condotelTypeId);
 
             return Ok(new
             {
@@ -44,6 +45,24 @@ namespace CondotelManagement.Controllers.Admin
         public async Task<IActionResult> ConfirmRefund(int id)
         {
             var result = await _bookingService.ConfirmRefundManually(id);
+            if (!result.Success)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Từ chối yêu cầu hoàn tiền
+        /// </summary>
+        [HttpPost("{id}/reject")]
+        public async Task<IActionResult> RejectRefund(int id, [FromBody] RejectRefundRequestDTO request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Reason))
+            {
+                return BadRequest(new { success = false, message = "Reason is required for rejecting a refund request." });
+            }
+
+            var result = await _bookingService.RejectRefundRequest(id, request.Reason);
             if (!result.Success)
                 return BadRequest(result);
 

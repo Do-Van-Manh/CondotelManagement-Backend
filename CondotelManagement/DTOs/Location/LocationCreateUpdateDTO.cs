@@ -10,5 +10,8 @@ namespace CondotelManagement.DTOs
 
 		[MaxLength(255, ErrorMessage = "Mô tả không được vượt quá 255 ký tự.")]
 		public string? Description { get; set; }
+
+		[MaxLength(500, ErrorMessage = "URL hình ảnh không được vượt quá 500 ký tự.")]
+		public string? ImageUrl { get; set; }
 	}
 }
