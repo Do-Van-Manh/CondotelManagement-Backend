@@ -410,27 +410,76 @@ namespace CondotelManagement.Controllers.Payment
                 }
 
                 // === XỬ LÝ BOOKING PAYMENT (BÌNH THƯỜNG) ===
-                // Get booking
-                var booking = await _context.Bookings
-                    .FirstOrDefaultAsync(b => b.BookingId == bookingId);
-
-                if (booking == null)
+                // Sử dụng transaction với Serializable isolation để tránh race condition
+                using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+                try
                 {
-                    Console.WriteLine($"Booking {bookingId} not found for orderCode {orderCode}");
-                    return Redirect($"{frontendUrl}/payment-error?message=Booking not found");
-                }
+                    // Lock booking row để tránh race condition
+                    var booking = await _context.Bookings
+                        .FromSqlRaw(
+                            "SELECT * FROM Booking WITH (UPDLOCK, ROWLOCK) WHERE BookingId = @bookingId",
+                            new Microsoft.Data.SqlClient.SqlParameter("@bookingId", bookingId))
+                        .FirstOrDefaultAsync();
 
-                // Process based on status and cancel flag
-                // Status values: PAID, PENDING, PROCESSING, CANCELLED
-                // Cancel: "true" = cancelled, "false" = paid/pending
-
-                if (status == "PAID" && cancel != "true")
-                {
-                    // Payment successful
-                    if (booking.Status != "Confirmed" && booking.Status != "Completed")
+                    if (booking == null)
                     {
+                        await transaction.RollbackAsync();
+                        Console.WriteLine($"Booking {bookingId} not found for orderCode {orderCode}");
+                        return Redirect($"{frontendUrl}/payment-error?message=Booking not found");
+                    }
+
+                    // Process based on status and cancel flag
+                    // Status values: PAID, PENDING, PROCESSING, CANCELLED
+                    // Cancel: "true" = cancelled, "false" = paid/pending
+
+                    if (status == "PAID" && cancel != "true")
+                    {
+                        // Payment successful
+                        if (booking.Status == "Confirmed" || booking.Status == "Completed")
+                        {
+                            // Đã confirm rồi → bỏ qua
+                            await transaction.CommitAsync();
+                            Console.WriteLine($"[Return URL] Booking {bookingId} đã xác nhận trước đó → bỏ qua");
+                            return Redirect($"{frontendUrl}/pay-done?bookingId={bookingId}&status=success&orderCode={orderCode}&paymentLinkId={id}");
+                        }
+
+                        // Kiểm tra availability trước khi confirm để tránh double booking
+                        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+                        var conflictingBookings = await _context.Bookings
+                            .FromSqlRaw(@"
+                                SELECT * FROM Booking WITH (UPDLOCK, ROWLOCK)
+                                WHERE CondotelId = @condotelId 
+                                AND BookingId != @currentBookingId
+                                AND Status IN ('Confirmed', 'Completed', 'Pending')
+                                AND Status != 'Cancelled'
+                                AND EndDate >= @today",
+                                new Microsoft.Data.SqlClient.SqlParameter("@condotelId", booking.CondotelId),
+                                new Microsoft.Data.SqlClient.SqlParameter("@currentBookingId", booking.BookingId),
+                                new Microsoft.Data.SqlClient.SqlParameter("@today", today))
+                            .AsEnumerable()
+                            .ToListAsync();
+
+                        // Kiểm tra overlap với các booking đã confirmed/completed
+                        var hasConflict = conflictingBookings
+                            .Where(b => b.Status == "Confirmed" || b.Status == "Completed")
+                            .Any(b => !(booking.EndDate <= b.StartDate || booking.StartDate >= b.EndDate));
+
+                        if (hasConflict)
+                        {
+                            // Có conflict với booking đã confirmed/completed → không thể confirm
+                            Console.WriteLine($"[Return URL] Booking {bookingId} có conflict với booking đã confirmed/completed → hủy booking");
+                            booking.Status = "Cancelled";
+                            await _context.SaveChangesAsync();
+                            await transaction.CommitAsync();
+                            
+                            // TODO: Có thể gửi email thông báo cho customer về việc booking bị hủy do conflict
+                            return Redirect($"{frontendUrl}/payment-error?message=Condotel không còn trống trong khoảng thời gian này. Đặt phòng đã bị hủy.");
+                        }
+
+                        // Không có conflict → confirm booking
                         booking.Status = "Confirmed";
                         await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
                         
                         // Tăng Voucher UsedCount khi payment thành công (từ Return URL)
                         if (booking.VoucherId.HasValue)
@@ -449,23 +498,43 @@ namespace CondotelManagement.Controllers.Payment
                         }
                         
                         Console.WriteLine($"Booking {bookingId} status updated to Confirmed from Return URL (Payment Link Id: {id})");
+                        return Redirect($"{frontendUrl}/pay-done?bookingId={bookingId}&status=success&orderCode={orderCode}&paymentLinkId={id}");
                     }
-
-                    return Redirect($"{frontendUrl}/pay-done?bookingId={bookingId}&status=success&orderCode={orderCode}&paymentLinkId={id}");
+                    else
+                    {
+                        await transaction.CommitAsync();
+                    }
                 }
-                else if (status == "CANCELLED" || cancel == "true")
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"[Return URL] Lỗi khi xử lý booking payment: {ex.Message}");
+                    Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+                    return Redirect($"{frontendUrl}/payment-error?message=Error processing payment");
+                }
+
+                // Xử lý các trường hợp khác (CANCELLED, PENDING, etc.)
+                if (status == "CANCELLED" || cancel == "true")
                 {
                     // Payment was cancelled - Hủy thanh toán (KHÔNG refund)
                     Console.WriteLine($"Payment cancelled for booking {bookingId} (Payment Link Id: {id})");
 
-                    if (booking.Status != "Cancelled")
+                    var bookingForCancel = await _context.Bookings
+                        .FirstOrDefaultAsync(b => b.BookingId == bookingId);
+
+                    if (bookingForCancel == null)
+                    {
+                        return Redirect($"{frontendUrl}/payment-error?message=Booking not found");
+                    }
+
+                    if (bookingForCancel.Status != "Cancelled")
                     {
                         // Sử dụng CancelPayment để đảm bảo không refund
                         try
                         {
                             using var scope = HttpContext.RequestServices.CreateScope();
                             var bookingService = scope.ServiceProvider.GetRequiredService<IBookingService>();
-                            var customerId = booking.CustomerId;
+                            var customerId = bookingForCancel.CustomerId;
                             var cancelResult = await bookingService.CancelPayment(bookingId, customerId);
                             
                             if (cancelResult)
@@ -475,7 +544,7 @@ namespace CondotelManagement.Controllers.Payment
                             else
                             {
                                 // Fallback: set status manually nếu CancelPayment fail
-                                booking.Status = "Cancelled";
+                                bookingForCancel.Status = "Cancelled";
                                 await _context.SaveChangesAsync();
                                 Console.WriteLine($"Booking {bookingId} status updated to Cancelled (fallback) from Return URL");
                             }
@@ -484,7 +553,7 @@ namespace CondotelManagement.Controllers.Payment
                         {
                             Console.WriteLine($"Error calling CancelPayment: {ex.Message}");
                             // Fallback: set status manually
-                            booking.Status = "Cancelled";
+                            bookingForCancel.Status = "Cancelled";
                             await _context.SaveChangesAsync();
                             Console.WriteLine($"Booking {bookingId} status updated to Cancelled (fallback) from Return URL");
                         }

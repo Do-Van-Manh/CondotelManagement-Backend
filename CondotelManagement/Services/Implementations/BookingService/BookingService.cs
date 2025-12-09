@@ -551,16 +551,18 @@ namespace CondotelManagement.Services
                 dto.CondotelId != booking.CondotelId)
                 throw new InvalidOperationException("Không được thay đổi Condotel hoặc khách hàng của đơn đặt phòng.");
 
-            // 3. Validate status hiện tại
+            // 3. Validate status hiện tại - KHÔNG cho sửa khi đã Confirmed hoặc Completed
+            if (booking.Status == "Confirmed")
+                throw new InvalidOperationException("Không thể chỉnh sửa đặt phòng đã được xác nhận thanh toán. Vui lòng hủy đặt phòng và đặt lại.");
+
             if (booking.Status == "Completed")
                 throw new InvalidOperationException("Không thể chỉnh sửa đặt phòng đã hoàn thành.");
 
             if (booking.Status == "Cancelled")
                 throw new InvalidOperationException("Không thể chỉnh sửa đặt phòng đã bị hủy.");
 
-
-            // Không cho sửa nếu còn dưới 1 ngày tới StartDate
-            var today = DateTime.Now.Date;
+            // 4. Không cho sửa nếu còn dưới 1 ngày tới StartDate
+            var today = DateTime.UtcNow.Date;
             var startDate = booking.StartDate; // kiểu DateOnly
 
             var daysBeforeCheckIn = (startDate.ToDateTime(TimeOnly.MinValue) - today).TotalDays;
@@ -568,24 +570,70 @@ namespace CondotelManagement.Services
             if (daysBeforeCheckIn < 1)
                 throw new InvalidOperationException("Phải chỉnh sửa đơn đặt phòng trước ngày bắt đầu ít nhất 1 ngày.");
 
+            // 5. Nếu thay đổi ngày, cần check availability lại
+            if (dto.StartDate != booking.StartDate || dto.EndDate != booking.EndDate)
+            {
+                // Sử dụng transaction để check availability
+                using var transaction = _context.Database.BeginTransaction(System.Data.IsolationLevel.Serializable);
+                try
+                {
+                    // Check availability (loại trừ booking hiện tại)
+                    var todayCheck = DateOnly.FromDateTime(DateTime.UtcNow);
+                    var sql = @"
+                        SELECT * FROM Booking WITH (UPDLOCK, ROWLOCK)
+                        WHERE CondotelId = @condotelId 
+                        AND BookingId != @currentBookingId
+                        AND Status IN ('Confirmed', 'Completed', 'Pending')
+                        AND Status != 'Cancelled'
+                        AND EndDate >= @today";
 
-            // 5. Update field hợp lệ
+                    var conflictingBookings = _context.Bookings
+                        .FromSqlRaw(sql,
+                            new SqlParameter("@condotelId", booking.CondotelId),
+                            new SqlParameter("@currentBookingId", booking.BookingId),
+                            new SqlParameter("@today", todayCheck))
+                        .AsEnumerable()
+                        .ToList();
+
+                    // Kiểm tra overlap
+                    var hasConflict = conflictingBookings.Any(b =>
+                        !(dto.EndDate <= b.StartDate || dto.StartDate >= b.EndDate)
+                    );
+
+                    if (hasConflict)
+                    {
+                        transaction.Rollback();
+                        throw new InvalidOperationException("Condotel không có sẵn trong khoảng thời gian mới. Vui lòng chọn khoảng thời gian khác.");
+                    }
+
+                    transaction.Commit();
+                }
+                catch
+                {
+                    throw;
+                }
+            }
+
+            // 6. Update field hợp lệ
             booking.StartDate = dto.StartDate;
             booking.EndDate = dto.EndDate;
             booking.TotalPrice = dto.TotalPrice;
 
-            // Validate status chuyển đổi hợp lệ
+            // Validate status chuyển đổi hợp lệ - CHỈ cho phép chuyển từ Pending sang Cancelled
             if (dto.Status != booking.Status)
             {
-                var validTransitions = new[] { "Pending", "Confirmed", "Cancelled" };
-
-                if (!validTransitions.Contains(dto.Status))
-                    throw new InvalidOperationException("Trạng thái không hợp lệ.");
-
-                booking.Status = dto.Status;
+                // Chỉ cho phép chuyển từ Pending sang Cancelled (không cho chuyển sang Confirmed)
+                if (booking.Status == "Pending" && dto.Status == "Cancelled")
+                {
+                    booking.Status = dto.Status;
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Không thể chuyển trạng thái từ '{booking.Status}' sang '{dto.Status}'. Chỉ có thể hủy đặt phòng chưa thanh toán.");
+                }
             }
 
-            // 6. Lưu DB
+            // 7. Lưu DB
             _bookingRepo.UpdateBooking(booking);
             _bookingRepo.SaveChanges();
 

@@ -3,6 +3,7 @@ using CondotelManagement.Services.Interfaces.Payment;
 using CondotelManagement.Services;
 using CondotelManagement.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -430,39 +431,100 @@ namespace CondotelManagement.Services.Implementations.Payment
                 // PHẦN 2: XỬ LÝ BOOKING PAYMENT
                 // ========================================================================
                 var bookingId_normal = (int)(orderCode / 1000000);
-                var booking = await _context.Bookings
-                    .FirstOrDefaultAsync(b => b.BookingId == bookingId_normal);
-
-                if (booking != null)
+                
+                // Sử dụng transaction với Serializable isolation để tránh race condition
+                using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+                try
                 {
-                    if (booking.Status == "Confirmed" || booking.Status == "Completed")
+                    // Lock booking row để tránh race condition
+                    var booking = await _context.Bookings
+                        .FromSqlRaw(
+                            "SELECT * FROM Booking WITH (UPDLOCK, ROWLOCK) WHERE BookingId = @bookingId",
+                            new SqlParameter("@bookingId", bookingId_normal))
+                        .FirstOrDefaultAsync();
+
+                    if (booking != null)
                     {
-                        Console.WriteLine($"[Webhook] Booking {bookingId_normal} đã xác nhận trước đó → bỏ qua");
+                        if (booking.Status == "Confirmed" || booking.Status == "Completed")
+                        {
+                            Console.WriteLine($"[Webhook] Booking {bookingId_normal} đã xác nhận trước đó → bỏ qua");
+                            await transaction.CommitAsync();
+                            return true;
+                        }
+
+                        // Kiểm tra availability trước khi confirm để tránh double booking
+                        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+                        var conflictingBookings = await _context.Bookings
+                            .FromSqlRaw(@"
+                                SELECT * FROM Booking WITH (UPDLOCK, ROWLOCK)
+                                WHERE CondotelId = @condotelId 
+                                AND BookingId != @currentBookingId
+                                AND Status IN ('Confirmed', 'Completed', 'Pending')
+                                AND Status != 'Cancelled'
+                                AND EndDate >= @today",
+                                new SqlParameter("@condotelId", booking.CondotelId),
+                                new SqlParameter("@currentBookingId", booking.BookingId),
+                                new SqlParameter("@today", today))
+                            .AsEnumerable()
+                            .ToListAsync();
+
+                        // Kiểm tra overlap với các booking đã confirmed/completed
+                        // CHỈ check conflict với Confirmed/Completed, KHÔNG check với Pending
+                        // Vì nếu có Pending khác trùng thời gian, booking nào thanh toán trước sẽ được confirm
+                        var hasConflict = conflictingBookings
+                            .Where(b => b.Status == "Confirmed" || b.Status == "Completed")
+                            .Any(b => !(booking.EndDate <= b.StartDate || booking.StartDate >= b.EndDate));
+
+                        if (hasConflict)
+                        {
+                            // Có conflict với booking đã confirmed/completed → không thể confirm
+                            Console.WriteLine($"[Webhook] Booking {bookingId_normal} có conflict với booking đã confirmed/completed → hủy booking");
+                            booking.Status = "Cancelled";
+                            await _context.SaveChangesAsync();
+                            await transaction.CommitAsync();
+                            
+                            // TODO: Có thể gửi email thông báo cho customer về việc booking bị hủy do conflict
+                            return false; // Trả về false để PayOS biết có lỗi
+                        }
+
+                        // Không có conflict → confirm booking
+                        booking.Status = "Confirmed";
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+                        
+                        // Tăng Voucher UsedCount khi payment thành công
+                        if (booking.VoucherId.HasValue)
+                        {
+                            try
+                            {
+                                using var scope = _serviceProvider.CreateScope();
+                                var voucherService = scope.ServiceProvider.GetRequiredService<IVoucherService>();
+                                await voucherService.ApplyVoucherToBookingAsync(booking.VoucherId.Value);
+                                Console.WriteLine($"[Webhook] Đã tăng UsedCount cho Voucher {booking.VoucherId.Value}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[Webhook] Lỗi khi tăng Voucher UsedCount: {ex.Message}");
+                                // Không throw để không ảnh hưởng đến booking confirmation
+                            }
+                        }
+                        
+                        Console.WriteLine($"[Webhook] ĐÃ XÁC NHẬN BOOKING {bookingId_normal} THÀNH CÔNG!");
                         return true;
                     }
-
-                    booking.Status = "Confirmed";
-                    await _context.SaveChangesAsync();
-                    
-                    // Tăng Voucher UsedCount khi payment thành công
-                    if (booking.VoucherId.HasValue)
+                    else
                     {
-                        try
-                        {
-                            using var scope = _serviceProvider.CreateScope();
-                            var voucherService = scope.ServiceProvider.GetRequiredService<IVoucherService>();
-                            await voucherService.ApplyVoucherToBookingAsync(booking.VoucherId.Value);
-                            Console.WriteLine($"[Webhook] Đã tăng UsedCount cho Voucher {booking.VoucherId.Value}");
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[Webhook] Lỗi khi tăng Voucher UsedCount: {ex.Message}");
-                            // Không throw để không ảnh hưởng đến booking confirmation
-                        }
+                        await transaction.CommitAsync();
+                        Console.WriteLine($"[Webhook] Không tìm thấy Booking {bookingId_normal}");
+                        return false;
                     }
-                    
-                    Console.WriteLine($"[Webhook] ĐÃ XÁC NHẬN BOOKING {bookingId_normal} THÀNH CÔNG!");
-                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"[Webhook] Lỗi khi xử lý booking payment: {ex.Message}");
+                    Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+                    throw;
                 }
 
                 // ========================================================================
