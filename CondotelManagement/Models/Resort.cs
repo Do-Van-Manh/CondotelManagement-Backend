@@ -13,6 +13,8 @@ public partial class Resort
 
     public string? Description { get; set; }
 
+    public string? Address { get; set; }
+
     public virtual ICollection<Condotel> Condotels { get; set; } = new List<Condotel>();
 
     public virtual Location Location { get; set; } = null!;

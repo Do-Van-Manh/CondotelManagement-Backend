@@ -495,6 +495,7 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.Description).HasMaxLength(255);
             entity.Property(e => e.LocationId).HasColumnName("LocationID");
             entity.Property(e => e.Name).HasMaxLength(150);
+            entity.Property(e => e.Address).HasMaxLength(500);
 
             entity.HasOne(d => d.Location).WithMany(p => p.Resorts)
                 .HasForeignKey(d => d.LocationId)

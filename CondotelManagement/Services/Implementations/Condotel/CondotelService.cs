@@ -203,6 +203,8 @@ public class CondotelService : ICondotelService
         var c = _condotelRepo.GetCondotelById(id);
         if (c == null) return null;
 
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
         return new CondotelDetailDTO
 		{
             CondotelId = c.CondotelId,
@@ -210,7 +212,8 @@ public class CondotelService : ICondotelService
             Resort = new ResortDTO
             {
                 ResortId = c.Resort.ResortId,
-                Name = c.Resort.Name
+                Name = c.Resort.Name,
+                Address = c.Resort.Address
             },
             Name = c.Name,
             Description = c.Description,
@@ -256,7 +259,23 @@ public class CondotelService : ICondotelService
 				StartDate = p.StartDate,
 				EndDate = p.EndDate,
 				DiscountPercentage = p.DiscountPercentage
-			}).ToList()
+			}).ToList(),
+            // Tính toán ActivePrice: Lấy giá đang active (Status = "Hoạt động" và trong khoảng thời gian hiện tại)
+            ActivePrice = c.CondotelPrices?
+                .Where(p => p.Status == "Hoạt động"
+                    && p.StartDate <= today
+                    && p.EndDate >= today)
+                .OrderByDescending(p => p.BasePrice) // Ưu tiên giá cao nhất nếu có nhiều mức
+                .Select(p => new CondotelPriceDTO
+                {
+                    PriceId = p.PriceId,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate,
+                    PriceType = p.PriceType,
+                    BasePrice = p.BasePrice,
+                    Description = p.Description
+                })
+                .FirstOrDefault()
         };
     }
 

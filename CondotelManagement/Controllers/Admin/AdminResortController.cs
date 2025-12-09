@@ -1,5 +1,6 @@
 using CondotelManagement.DTOs;
 using CondotelManagement.Services;
+using CondotelManagement.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,10 +12,12 @@ namespace CondotelManagement.Controllers.Admin
     public class AdminResortController : ControllerBase
     {
         private readonly IResortService _resortService;
+        private readonly IUtilitiesService _utilitiesService;
 
-        public AdminResortController(IResortService resortService)
+        public AdminResortController(IResortService resortService, IUtilitiesService utilitiesService)
         {
             _resortService = resortService;
+            _utilitiesService = utilitiesService;
         }
 
         /// <summary>
@@ -111,6 +114,53 @@ namespace CondotelManagement.Controllers.Admin
                 return NotFound(new { success = false, message = "Resort not found" });
             
             return Ok(new { success = true, message = "Resort deleted successfully" });
+        }
+
+        /// <summary>
+        /// Lấy danh sách utilities của resort
+        /// GET /api/admin/resorts/{resortId}/utilities
+        /// </summary>
+        [HttpGet("{resortId}/utilities")]
+        public async Task<IActionResult> GetUtilities(int resortId)
+        {
+            var utilities = await _utilitiesService.GetByResortAsync(resortId);
+            return Ok(new
+            {
+                success = true,
+                data = utilities,
+                total = utilities.Count()
+            });
+        }
+
+        /// <summary>
+        /// Thêm utility vào resort
+        /// POST /api/admin/resorts/{resortId}/utilities
+        /// </summary>
+        [HttpPost("{resortId}/utilities")]
+        public async Task<IActionResult> AddUtility(int resortId, [FromBody] AddUtilityToResortDTO dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(new { success = false, message = "Invalid data", errors = ModelState });
+
+            var success = await _resortService.AddUtilityToResortAsync(resortId, dto);
+            if (!success)
+                return NotFound(new { success = false, message = "Resort or Utility not found, or utility already exists" });
+            
+            return Ok(new { success = true, message = "Utility added to resort successfully" });
+        }
+
+        /// <summary>
+        /// Xóa utility khỏi resort
+        /// DELETE /api/admin/resorts/{resortId}/utilities/{utilityId}
+        /// </summary>
+        [HttpDelete("{resortId}/utilities/{utilityId}")]
+        public async Task<IActionResult> RemoveUtility(int resortId, int utilityId)
+        {
+            var success = await _resortService.RemoveUtilityFromResortAsync(resortId, utilityId);
+            if (!success)
+                return NotFound(new { success = false, message = "Resort or Utility not found, or utility not associated with resort" });
+            
+            return Ok(new { success = true, message = "Utility removed from resort successfully" });
         }
     }
 }

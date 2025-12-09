@@ -23,6 +23,9 @@ namespace CondotelManagement.DTOs
         public List<AmenityDTO> Amenities { get; set; }
         public List<UtilityDTO> Utilities { get; set; }
         public List<PromotionDTO> Promotions { get; set; }
+
+        // Giá đang active (nếu có)
+        public CondotelPriceDTO? ActivePrice { get; set; }
     }
 
     public class AmenityDTO
