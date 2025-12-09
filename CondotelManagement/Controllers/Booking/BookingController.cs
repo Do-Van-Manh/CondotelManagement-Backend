@@ -8,7 +8,7 @@ using System.Security.Claims;
 namespace CondotelManagement.Controllers
 {
     [ApiController]
-    [Authorize(Roles = "Tenant")]
+    [Authorize]
     [Route("api/[controller]")]
     public class BookingController : ControllerBase
     {
@@ -51,15 +51,19 @@ namespace CondotelManagement.Controllers
 
         // POST api/booking
         [HttpPost]
-        public async Task<IActionResult> CreateBooking([FromBody] BookingDTO dto)
+        public async Task<IActionResult> CreateBooking([FromBody] CreateBookingDTO dto)
         {
-            dto.CustomerId = GetCustomerId();
+           
+            var customerId = GetCustomerId();
+            if (customerId <= 0)
+                return Unauthorized("Không tìm thấy thông tin user.");
 
-            var result = await _bookingService.CreateBookingAsync(dto);
+            var result = await _bookingService.CreateBookingAsync(dto, customerId);
 
             if (!result.Success)
                 return BadRequest(result);
 
+            
             // Ép kiểu data về BookingDTO
             var booking = (BookingDTO)result.Data;
 
@@ -71,11 +75,38 @@ namespace CondotelManagement.Controllers
         [HttpPut("{id}")]
         public IActionResult UpdateBooking(int id, [FromBody] BookingDTO dto)
         {
-            if (id != dto.BookingId) return BadRequest();
-            var updated = _bookingService.UpdateBooking(dto);
-            if (updated == null) return NotFound();
-            return Ok(updated);
+            // 1. Validate null body (phải làm trước)
+            if (dto == null)
+                return BadRequest("Request body trống.");
+
+            // 2. Validate id trùng với body
+            if (id != dto.BookingId)
+                return BadRequest("Booking ID không khớp với URL.");
+
+            // 3. Validate logic nghiệp vụ nhẹ
+            if (dto.StartDate > dto.EndDate)
+                return BadRequest("Ngày bắt đầu phải trước ngày kết thúc.");
+
+            // 4. Validate không cho sửa các field nhạy cảm
+            if (dto.CustomerId <= 0 || dto.CondotelId <= 0)
+                return BadRequest("Không được chỉnh sửa customerId hoặc condotelId.");
+
+            try
+            {
+                var updated = _bookingService.UpdateBooking(dto);
+
+                if (updated == null)
+                    return NotFound("Không tìm thấy booking.");
+
+                return Ok(updated);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Các lỗi nghiệp vụ: Completed, Cancelled, đã check-in, status sai...
+                return BadRequest(ex.Message);
+            }
         }
+
 
         // POST api/booking/{id}/refund - Đặt trước DELETE để tránh route conflict
         [HttpPost("{id}/refund")]
