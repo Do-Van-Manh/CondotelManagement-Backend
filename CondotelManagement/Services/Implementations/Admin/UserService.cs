@@ -175,6 +175,12 @@ namespace CondotelManagement.Services.Implementations.Admin
                 return (false, "Không tìm thấy user", null);
             }
 
+            // 🚨 FIX 1: Kiểm tra user.Role có null không
+            if (user.Role == null)
+            {
+                return (false, "User không có role hợp lệ trong hệ thống", null);
+            }
+
             // KIỂM TRA MỚI: Không cho phép sửa thông tin của Admin
             if (user.Role.RoleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
             {
@@ -191,11 +197,23 @@ namespace CondotelManagement.Services.Implementations.Admin
                 }
             }
 
+            // 🚨 FIX 2: Kiểm tra RoleId có được cung cấp không
+            if (dto.RoleId <= 0)
+            {
+                return (false, "RoleId không hợp lệ. Vui lòng chọn role.", null);
+            }
+
             // Kiểm tra RoleId
             var newRole = await _roleRepository.GetByIdAsync(dto.RoleId);
             if (newRole == null)
             {
                 return (false, "RoleId không hợp lệ", null);
+            }
+
+            // 🚨 FIX 3: Kiểm tra newRole không null trước khi truy cập
+            if (newRole == null)
+            {
+                return (false, "Không tìm thấy role với ID đã cung cấp", null);
             }
 
             // KIỂM TRA MỚI: Không cho phép thăng cấp lên Admin
@@ -221,7 +239,7 @@ namespace CondotelManagement.Services.Implementations.Admin
         }
 
         // 5. Admin reset mật khẩu
-        
+
         public async Task<bool> AdminResetPasswordAsync(int userId, string newPassword)
         {
             // SỬA: Dùng _context để lấy Role
