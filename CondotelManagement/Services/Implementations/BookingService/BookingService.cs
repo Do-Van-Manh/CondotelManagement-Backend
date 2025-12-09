@@ -13,6 +13,7 @@ using CondotelManagement.Services.Interfaces.Payment;
 using CondotelManagement.Services.Interfaces.Shared;
 using CondotelManagement.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 namespace CondotelManagement.Services
 {
@@ -218,242 +219,381 @@ namespace CondotelManagement.Services
 
         public bool CheckAvailability(int condotelId, DateOnly checkIn, DateOnly checkOut)
         {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = DateOnly.FromDateTime(DateTime.Now);
 
-            // Sử dụng transaction để tránh race condition
-            using var transaction = _context.Database.BeginTransaction();
+            // Kiểm tra nếu đã có transaction
+            var currentTransaction = _context.Database.CurrentTransaction;
+
             try
             {
-                var bookings = _bookingRepo.GetBookingsByCondotel(condotelId)
-                    .Where(b =>
-                        (b.Status == "Confirmed" || b.Status == "Completed") && // Chỉ tính bookings đã confirmed/completed
-                        b.Status != "Cancelled" &&
-                        b.EndDate >= today   // Chỉ check những phòng chưa kết thúc
-                    )
-                    .ToList();
-
-                var isAvailable = !bookings.Any(b =>
-                    checkIn < b.EndDate &&
-                    checkOut > b.StartDate
-                );
-
-                transaction.Commit();
-                return isAvailable;
+                // Sử dụng transaction hiện có hoặc tạo mới
+                if (currentTransaction == null)
+                {
+                    using var transaction = _context.Database.BeginTransaction(System.Data.IsolationLevel.Serializable);
+                    var result = CheckAvailabilityInternal(condotelId, checkIn, checkOut, today);
+                    transaction.Commit();
+                    return result;
+                }
+                else
+                {
+                    return CheckAvailabilityInternal(condotelId, checkIn, checkOut, today);
+                }
             }
             catch
             {
-                transaction.Rollback();
+                if (currentTransaction == null)
+                {
+                    // Chỉ rollback nếu transaction được tạo trong method này
+                    currentTransaction?.Rollback();
+                }
+                throw;
+            }
+        }
+
+        private bool CheckAvailabilityInternal(int condotelId, DateOnly checkIn, DateOnly checkOut, DateOnly today)
+        {
+            // SQL Server sử dụng WITH (UPDLOCK, ROWLOCK) thay vì FOR UPDATE
+            var sql = @"
+        SELECT * FROM Booking WITH (UPDLOCK, ROWLOCK)
+        WHERE CondotelId = @condotelId 
+        AND Status IN ('Confirmed', 'Completed', 'Pending')
+        AND Status != 'Cancelled'
+        AND EndDate >= @today";
+
+            var bookings = _context.Bookings
+                .FromSqlRaw(sql,
+                    new SqlParameter("@condotelId", condotelId),
+                    new SqlParameter("@today", today))
+                .AsEnumerable()
+                .ToList();
+
+            // Kiểm tra overlap chính xác
+            return !bookings.Any(b =>
+                !(checkOut <= b.StartDate || checkIn >= b.EndDate)
+            );
+        }
+
+
+        public async Task<ServiceResultDTO> CreateBookingAsync(CreateBookingDTO dto, int customerId)
+        {
+            // Validate input
+            if (dto == null)
+                return ServiceResultDTO.Fail("Dữ liệu đặt phòng không hợp lệ.");
+
+            if (dto.CondotelId <= 0)
+                return ServiceResultDTO.Fail("CondotelId không được để trống.");
+
+            if (dto.StartDate == default)
+                return ServiceResultDTO.Fail("Ngày bắt đầu không được để trống.");
+
+            if (dto.EndDate == default)
+                return ServiceResultDTO.Fail("Ngày kết thúc không được để trống.");
+
+            // Kiểm tra ngày hợp lệ
+            var today = DateOnly.FromDateTime(DateTime.Now);
+
+            if (dto.StartDate < today)
+                return ServiceResultDTO.Fail("Ngày bắt đầu không được ở trong quá khứ.");
+
+            if (dto.EndDate <= dto.StartDate)
+                return ServiceResultDTO.Fail("Ngày kết thúc phải sau ngày bắt đầu.");
+
+            int days = (dto.EndDate.ToDateTime(TimeOnly.MinValue)
+                       - dto.StartDate.ToDateTime(TimeOnly.MinValue)).Days;
+
+            if (days > 30)
+                return ServiceResultDTO.Fail("Bạn không thể đặt phòng quá 30 ngày.");
+
+            if ((dto.StartDate.ToDateTime(TimeOnly.MinValue)
+                - today.ToDateTime(TimeOnly.MinValue)).Days > 365)
+            {
+                return ServiceResultDTO.Fail("Bạn không thể đặt phòng trước quá 1 năm.");
+            }
+           
+
+            // Bắt đầu transaction ở đây, không ở trong CheckAvailability
+            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            try
+            {
+
+                // Kiểm tra trống
+                if (!CheckAvailability(dto.CondotelId, dto.StartDate, dto.EndDate))
+                    return ServiceResultDTO.Fail("Condotel không có sẵn trong thời gian này.");
+
+                // Kiểm tra condotel tồn tại và hoạt động
+                var condotel = _condotelRepo.GetCondotelById(dto.CondotelId);
+                if (condotel == null)
+                    return ServiceResultDTO.Fail("Không tìm thấy condotel.");
+                if (condotel.Status == "Không hoạt động")
+                    return ServiceResultDTO.Fail("Condotel này hiện không hoạt động.");
+
+
+                // Kiểm tra host không được đặt căn hộ của chính mình
+                var host = _context.Hosts
+                    .Include(h => h.User)
+                    .FirstOrDefault(h => h.HostId == condotel.HostId);
+
+                if (host != null && host.UserId == customerId)
+                {
+                    return ServiceResultDTO.Fail("Chủ căn hộ không thể tự đặt của chính mình.");
+                }
+
+
+
+                // Tính giá cơ bản
+                decimal price = condotel.PricePerNight * days;
+
+                int? appliedPromotionId = null;
+
+                if (dto.PromotionId < 0)
+                {
+                    return ServiceResultDTO.Fail("Khuyến mãi không hợp lệ.");
+                }
+
+                // Áp dụng Promotion nếu có
+                if (dto.PromotionId.HasValue && dto.PromotionId.Value > 0)
+                {
+                    var promo = _condotelRepo.GetPromotionById(dto.PromotionId.Value);
+
+                    if (promo != null)
+                    {
+                        // Validate promotion thuộc về condotel này
+                        if (promo.CondotelId != dto.CondotelId)
+                        {
+                            return ServiceResultDTO.Fail("Khuyến mãi không thuộc về căn hộ này.");
+                        }
+
+                        // Validate promotion đang active
+                        if (promo.Status != "Active")
+                        {
+                            return ServiceResultDTO.Fail("Khuyến mãi không còn giá trị.");
+                        }
+
+                        // Validate booking dates nằm trong khoảng promotion
+                        if (dto.StartDate < promo.StartDate || dto.EndDate > promo.EndDate)
+                        {
+                            return ServiceResultDTO.Fail($"Ngày đặt phòng phải nằm trong thời gian khuyến mãi({promo.StartDate:yyyy-MM-dd} to {promo.EndDate:yyyy-MM-dd}).");
+                        }
+
+                        // Áp dụng discount
+                        decimal discountAmount = price * (promo.DiscountPercentage / 100m);
+                        price -= discountAmount;
+                        appliedPromotionId = promo.PromotionId;
+                    }
+                    else
+                    {
+                        return ServiceResultDTO.Fail("Không tìm thấy khuyến mãi này.");
+                    }
+                }
+
+                // Nếu PromotionId = 0 hoặc null, không áp dụng promotion
+                dto.PromotionId = appliedPromotionId;
+
+                // Áp dụng Voucher nếu có (sau khi đã áp dụng promotion)
+                int? appliedVoucherId = null;
+                if (!string.IsNullOrWhiteSpace(dto.VoucherCode))
+                {
+                    var voucher = await _voucherService.ValidateVoucherByCodeAsync(
+                        dto.VoucherCode.Trim(),
+                        dto.CondotelId,
+                        customerId,
+                        dto.StartDate);
+
+                    if (voucher == null)
+                    {
+                        return ServiceResultDTO.Fail("Mã phiếu giảm giá không hợp lệ, đã hết hạn hoặc không áp dụng cho lần đặt chỗ này.");
+                    }
+
+                    // Áp dụng discount từ voucher
+                    if (voucher.DiscountAmount.HasValue && voucher.DiscountAmount.Value > 0)
+                    {
+                        // Giảm số tiền cố định
+                        price -= voucher.DiscountAmount.Value;
+                        if (price < 0) price = 0; // Đảm bảo giá không âm
+                    }
+                    else if (voucher.DiscountPercentage.HasValue && voucher.DiscountPercentage.Value > 0)
+                    {
+                        // Giảm theo phần trăm
+                        decimal discountAmount = price * (voucher.DiscountPercentage.Value / 100m);
+                        price -= discountAmount;
+                    }
+
+                    appliedVoucherId = voucher.VoucherId;
+                }
+
+                // Tính tiền Service Packages nếu có
+                decimal servicePackagesTotal = 0;
+                List<BookingDetail> bookingDetails = new List<BookingDetail>();
+
+
+                if (dto.ServicePackages != null && dto.ServicePackages.Any())
+                {
+                    foreach (var serviceSelection in dto.ServicePackages)
+                    {
+                        if (serviceSelection.Quantity <= 0) continue;
+
+                        var servicePackage = await _servicePackageService.GetByIdAsync(serviceSelection.ServiceId);
+                        if (servicePackage == null || servicePackage.Status != "Active")
+                        {
+                            return ServiceResultDTO.Fail($"Gói dịch vụ có ID{serviceSelection.ServiceId} không tìm thấy hoặc không hoạt động.");
+                        }
+
+                        // Validate service package thuộc về host của condotel này
+                        var condotelForValidation = _condotelRepo.GetCondotelById(dto.CondotelId);
+                        if (condotelForValidation == null)
+                        {
+                            return ServiceResultDTO.Fail("Không tìm thấy Condotel này.");
+                        }
+
+                        // Lấy service package từ DB để kiểm tra HostID
+                        var servicePackageEntity = await _context.ServicePackages.FindAsync(serviceSelection.ServiceId);
+                        if (servicePackageEntity == null || servicePackageEntity.HostID != condotelForValidation.HostId)
+                        {
+                            return ServiceResultDTO.Fail($"Gói dịch vụ không thuộc về chủ sở hữu căn hộ này.");
+                        }
+
+                        // Tính tiền: Price * Quantity
+                        decimal serviceTotal = servicePackage.Price * serviceSelection.Quantity;
+                        servicePackagesTotal += serviceTotal;
+
+                        // Tạo BookingDetail (sẽ lưu sau khi có BookingId)
+                        bookingDetails.Add(new BookingDetail
+                        {
+                            ServiceId = serviceSelection.ServiceId,
+                            Quantity = serviceSelection.Quantity,
+                            Price = servicePackage.Price
+                        });
+                    }
+                }
+
+                // Tổng tiền = giá phòng (đã áp dụng promotion + voucher) + tiền service packages
+                price += servicePackagesTotal;
+                var booking = new Booking
+                {
+                    CondotelId = dto.CondotelId,
+                    CustomerId = customerId,
+                    StartDate = dto.StartDate,
+                    EndDate = dto.EndDate,
+                    TotalPrice = price,
+                    Status = "Pending",
+                    PromotionId = appliedPromotionId,
+                    VoucherId = appliedVoucherId
+                };
+                var responseDto = new BookingDTO
+                {
+                    BookingId = booking.BookingId,
+                    CondotelId = booking.CondotelId,
+                    CondotelName = condotel.Name, // Lấy từ condotel đã query trước đó
+                    CustomerId = booking.CustomerId,
+                    StartDate = booking.StartDate,
+                    EndDate = booking.EndDate,
+                    TotalPrice = booking.TotalPrice,
+                    Status = booking.Status,
+                    PromotionId = booking.PromotionId,
+                    VoucherId = booking.VoucherId,
+                    VoucherCode = dto.VoucherCode,
+                    CreatedAt = booking.CreatedAt,
+                    CanReview = false,
+                    HasReviewed = false,
+                    CanRefund = true,
+                    RefundStatus = null
+                };
+                // Set fields
+                responseDto.TotalPrice = price;
+                responseDto.VoucherId = appliedVoucherId;
+                responseDto.Status = "Pending";
+                responseDto.CreatedAt = DateTime.Now;
+
+                var entity = ToEntity(responseDto);
+                _bookingRepo.AddBooking(entity);
+                _bookingRepo.SaveChanges();
+
+                // Lưu BookingDetails sau khi có BookingId
+                if (bookingDetails.Any())
+                {
+                    foreach (var detail in bookingDetails)
+                    {
+                        detail.BookingId = entity.BookingId;
+                        _context.BookingDetails.Add(detail);
+                    }
+                    await _context.SaveChangesAsync();
+                }
+
+                // KHÔNG tăng Voucher UsedCount ở đây
+                // Voucher sẽ được tăng UsedCount khi payment thành công (trong webhook)
+                // Điều này đảm bảo voucher chỉ bị dùng khi booking thực sự được thanh toán
+
+                responseDto.BookingId = entity.BookingId;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return ServiceResultDTO.Ok("Đặt phòng thành công.", responseDto);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
                 throw;
             }
         }
 
 
-        public async Task<ServiceResultDTO> CreateBookingAsync(BookingDTO dto)
-        {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
-
-            // Không được đặt ngày trong quá khứ
-            if (dto.StartDate < today)
-                return ServiceResultDTO.Fail("Start date cannot be in the past.");
-
-            if (dto.EndDate < today)
-                return ServiceResultDTO.Fail("End date cannot be in the past.");
-
-            // Kiểm tra date range hợp lệ
-            int days = (dto.EndDate.ToDateTime(TimeOnly.MinValue) - dto.StartDate.ToDateTime(TimeOnly.MinValue)).Days;
-            if (days <= 0)
-                return ServiceResultDTO.Fail("Invalid date range.");
-
-            // Kiểm tra trống
-            if (!CheckAvailability(dto.CondotelId, dto.StartDate, dto.EndDate))
-                return ServiceResultDTO.Fail("Condotel is not available in this period.");
-
-            // Lấy giá
-            var condotel = _condotelRepo.GetCondotelById(dto.CondotelId);
-            if (condotel == null)
-                return ServiceResultDTO.Fail("Không tìm thấy condotel.");
-
-            // Kiểm tra host không được đặt căn hộ của chính mình
-            var host = _context.Hosts
-                .Include(h => h.User)
-                .FirstOrDefault(h => h.HostId == condotel.HostId);
-            
-            if (host != null && host.UserId == dto.CustomerId)
-            {
-                return ServiceResultDTO.Fail("Host cannot book their own condotel.");
-            }
-
-            decimal price = condotel.PricePerNight * days;
-            int? appliedPromotionId = null;
-
-            // Áp dụng Promotion nếu có
-            if (dto.PromotionId.HasValue && dto.PromotionId.Value > 0)
-            {
-                var promo = _condotelRepo.GetPromotionById(dto.PromotionId.Value);
-                
-                if (promo != null)
-                {
-                    // Validate promotion thuộc về condotel này
-                    if (promo.CondotelId != dto.CondotelId)
-                    {
-                        return ServiceResultDTO.Fail("Promotion does not belong to this condotel.");
-                    }
-
-                    // Validate promotion đang active
-                    if (promo.Status != "Active")
-                    {
-                        return ServiceResultDTO.Fail("Promotion is not active.");
-                    }
-
-                    // Validate booking dates nằm trong khoảng promotion
-                    if (dto.StartDate < promo.StartDate || dto.EndDate > promo.EndDate)
-                    {
-                        return ServiceResultDTO.Fail($"Booking dates must be within promotion period ({promo.StartDate:yyyy-MM-dd} to {promo.EndDate:yyyy-MM-dd}).");
-                    }
-
-                    // Áp dụng discount
-                    decimal discountAmount = price * (promo.DiscountPercentage / 100m);
-                    price -= discountAmount;
-                    appliedPromotionId = promo.PromotionId;
-                }
-                else
-                {
-                    return ServiceResultDTO.Fail("Promotion not found.");
-                }
-            }
-
-            // Nếu PromotionId = 0 hoặc null, không áp dụng promotion
-            dto.PromotionId = appliedPromotionId;
-
-            // Áp dụng Voucher nếu có (sau khi đã áp dụng promotion)
-            int? appliedVoucherId = null;
-            if (!string.IsNullOrWhiteSpace(dto.VoucherCode))
-            {
-                var voucher = await _voucherService.ValidateVoucherByCodeAsync(
-                    dto.VoucherCode.Trim(), 
-                    dto.CondotelId, 
-                    dto.CustomerId, 
-                    dto.StartDate);
-
-                if (voucher == null)
-                {
-                    return ServiceResultDTO.Fail("Voucher code is invalid, expired, or not applicable to this booking.");
-                }
-
-                // Áp dụng discount từ voucher
-                if (voucher.DiscountAmount.HasValue && voucher.DiscountAmount.Value > 0)
-                {
-                    // Giảm số tiền cố định
-                    price -= voucher.DiscountAmount.Value;
-                    if (price < 0) price = 0; // Đảm bảo giá không âm
-                }
-                else if (voucher.DiscountPercentage.HasValue && voucher.DiscountPercentage.Value > 0)
-                {
-                    // Giảm theo phần trăm
-                    decimal discountAmount = price * (voucher.DiscountPercentage.Value / 100m);
-                    price -= discountAmount;
-                }
-
-                appliedVoucherId = voucher.VoucherId;
-            }
-
-            // Tính tiền Service Packages nếu có
-            decimal servicePackagesTotal = 0;
-            List<BookingDetail> bookingDetails = new List<BookingDetail>();
-            
-            if (dto.ServicePackages != null && dto.ServicePackages.Any())
-            {
-                foreach (var serviceSelection in dto.ServicePackages)
-                {
-                    if (serviceSelection.Quantity <= 0) continue;
-
-                    var servicePackage = await _servicePackageService.GetByIdAsync(serviceSelection.ServiceId);
-                    if (servicePackage == null || servicePackage.Status != "Active")
-                    {
-                        return ServiceResultDTO.Fail($"Service package with ID {serviceSelection.ServiceId} not found or inactive.");
-                    }
-
-                    // Validate service package thuộc về host của condotel này
-                    var condotelForValidation = _condotelRepo.GetCondotelById(dto.CondotelId);
-                    if (condotelForValidation == null)
-                    {
-                        return ServiceResultDTO.Fail("Condotel not found.");
-                    }
-
-                    // Lấy service package từ DB để kiểm tra HostID
-                    var servicePackageEntity = await _context.ServicePackages.FindAsync(serviceSelection.ServiceId);
-                    if (servicePackageEntity == null || servicePackageEntity.HostID != condotelForValidation.HostId)
-                    {
-                        return ServiceResultDTO.Fail($"Service package does not belong to this condotel's host.");
-                    }
-
-                    // Tính tiền: Price * Quantity
-                    decimal serviceTotal = servicePackage.Price * serviceSelection.Quantity;
-                    servicePackagesTotal += serviceTotal;
-
-                    // Tạo BookingDetail (sẽ lưu sau khi có BookingId)
-                    bookingDetails.Add(new BookingDetail
-                    {
-                        ServiceId = serviceSelection.ServiceId,
-                        Quantity = serviceSelection.Quantity,
-                        Price = servicePackage.Price
-                    });
-                }
-            }
-
-            // Tổng tiền = giá phòng (đã áp dụng promotion + voucher) + tiền service packages
-            price += servicePackagesTotal;
-
-            // Set fields
-            dto.TotalPrice = price;
-            dto.VoucherId = appliedVoucherId;
-            dto.Status = "Pending";
-            dto.CreatedAt = DateTime.UtcNow;
-
-            var entity = ToEntity(dto);
-            _bookingRepo.AddBooking(entity);
-            _bookingRepo.SaveChanges();
-
-            // Lưu BookingDetails sau khi có BookingId
-            if (bookingDetails.Any())
-            {
-                foreach (var detail in bookingDetails)
-                {
-                    detail.BookingId = entity.BookingId;
-                    _context.BookingDetails.Add(detail);
-                }
-                await _context.SaveChangesAsync();
-            }
-
-            // KHÔNG tăng Voucher UsedCount ở đây
-            // Voucher sẽ được tăng UsedCount khi payment thành công (trong webhook)
-            // Điều này đảm bảo voucher chỉ bị dùng khi booking thực sự được thanh toán
-
-            dto.BookingId = entity.BookingId;
-
-            return ServiceResultDTO.Ok("Booking created successfully.", dto);
-        }
-
 
 
         public BookingDTO UpdateBooking(BookingDTO dto)
         {
+            // 1. Validate booking
             var booking = _bookingRepo.GetBookingById(dto.BookingId);
-            if (booking == null) return null;
+            if (booking == null)
+                return null;
 
+            // 2. Không cho sửa CondotelId / CustomerId
+            if (dto.CustomerId != booking.CustomerId ||
+                dto.CondotelId != booking.CondotelId)
+                throw new InvalidOperationException("Không được thay đổi Condotel hoặc khách hàng của đơn đặt phòng.");
+
+            // 3. Validate status hiện tại
+            if (booking.Status == "Completed")
+                throw new InvalidOperationException("Không thể chỉnh sửa đặt phòng đã hoàn thành.");
+
+            if (booking.Status == "Cancelled")
+                throw new InvalidOperationException("Không thể chỉnh sửa đặt phòng đã bị hủy.");
+
+
+            // Không cho sửa nếu còn dưới 1 ngày tới StartDate
+            var today = DateTime.Now.Date;
+            var startDate = booking.StartDate; // kiểu DateOnly
+
+            var daysBeforeCheckIn = (startDate.ToDateTime(TimeOnly.MinValue) - today).TotalDays;
+
+            if (daysBeforeCheckIn < 1)
+                throw new InvalidOperationException("Phải chỉnh sửa đơn đặt phòng trước ngày bắt đầu ít nhất 1 ngày.");
+
+
+            // 5. Update field hợp lệ
             booking.StartDate = dto.StartDate;
             booking.EndDate = dto.EndDate;
-            booking.Status = dto.Status;
             booking.TotalPrice = dto.TotalPrice;
 
+            // Validate status chuyển đổi hợp lệ
+            if (dto.Status != booking.Status)
+            {
+                var validTransitions = new[] { "Pending", "Confirmed", "Cancelled" };
+
+                if (!validTransitions.Contains(dto.Status))
+                    throw new InvalidOperationException("Trạng thái không hợp lệ.");
+
+                booking.Status = dto.Status;
+            }
+
+            // 6. Lưu DB
             _bookingRepo.UpdateBooking(booking);
             _bookingRepo.SaveChanges();
 
             return ToDTO(booking);
         }
 
-      
-         public async Task<bool> CancelBooking(int bookingId, int customerId)
+
+        public async Task<bool> CancelBooking(int bookingId, int customerId)
         {
             var booking = _bookingRepo.GetBookingById(bookingId);
             if (booking == null || booking.CustomerId != customerId)
@@ -466,7 +606,7 @@ namespace CondotelManagement.Services
                 if (!refundResult.Success)
                 {
                     // Nếu refund thất bại, KHÔNG hủy booking để user có thể thử lại
-                    Console.WriteLine($"Refund failed when cancelling booking {bookingId}: {refundResult.Message}");
+                    Console.WriteLine($"Hoàn tiền không thành công khi hủy đặt phòng {bookingId}: {refundResult.Message}");
                     return false; // Không hủy booking nếu refund fail
                 }
                 // Refund request đã được tạo thành công, booking status sẽ được set thành "Cancelled" trong ProcessRefund
@@ -552,7 +692,7 @@ namespace CondotelManagement.Services
             // Nếu status là "Confirmed" hoặc "Completed" → có nút hoàn tiền
             if (booking.Status == "Confirmed" || booking.Status == "Completed")
             {
-                var now = DateTime.UtcNow;
+                var now = DateTime.Now;
                 
                 if (booking.Status == "Confirmed")
                 {
@@ -1094,6 +1234,7 @@ namespace CondotelManagement.Services
             PromotionId = b.PromotionId,
             CreatedAt = b.CreatedAt
         };
+
 
         private Booking ToEntity(BookingDTO dto) => new Booking
         {

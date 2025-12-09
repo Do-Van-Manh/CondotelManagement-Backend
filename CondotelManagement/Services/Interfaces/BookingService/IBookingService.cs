@@ -10,7 +10,7 @@ namespace CondotelManagement.Services.Interfaces.BookingService
         Task<BookingDTO?> GetBookingByIdAsync(int id);
         [Obsolete("Use GetBookingByIdAsync instead")]
         BookingDTO GetBookingById(int id);
-        Task<ServiceResultDTO> CreateBookingAsync(BookingDTO booking);
+        Task<ServiceResultDTO> CreateBookingAsync(CreateBookingDTO booking, int customerId);
 
         BookingDTO UpdateBooking(BookingDTO booking);
         Task<bool> CancelBooking(int bookingId, int customerId);
