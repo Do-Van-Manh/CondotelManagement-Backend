@@ -95,16 +95,28 @@ namespace CondotelManagement.Controllers.Host
                     .OrderByDescending(hp => hp.EndDate)
                     .FirstOrDefault();
 
-                int maxListings = 0;
-                if (activePackage != null)
-                {
-                    maxListings = _featureService.GetMaxListingCount(activePackage.PackageId);
-                }
+                var maxListings = activePackage != null
+    ? _featureService.GetMaxListingCount(activePackage.PackageId)
+    : 0;
 
                 // ĐẾM SỐ CONDOTEL HIỆN TẠI CỦA HOST
                 var currentCount = _context.Condotels
                     .Count(c => c.HostId == host.HostId && c.Status != "Deleted");
+                if (currentCount >= maxListings)
+                {
+                    string message = maxListings == 0
+                        ? "Bạn chưa có gói dịch vụ nào. Vui lòng mua gói để đăng tin."
+                        : $"Bạn đã đạt giới hạn đăng tin ({currentCount}/{maxListings}). Vui lòng nâng cấp gói để đăng thêm.";
 
+                    return StatusCode(403, new
+                    {
+                        success = false,
+                        message,
+                        currentCount,
+                        maxListings,
+                        upgradeRequired = true
+                    });
+                }
                 // KIỂM TRA GIỚI HẠN
                 if (currentCount >= maxListings)
                 {

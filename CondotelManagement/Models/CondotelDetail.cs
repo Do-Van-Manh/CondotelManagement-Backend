@@ -13,10 +13,6 @@ public partial class CondotelDetail
 
     public string? RoomNumber { get; set; }
 
-    public byte Beds { get; set; }
-
-    public byte Bathrooms { get; set; }
-
     public string? SafetyFeatures { get; set; }
 
     public string? HygieneStandards { get; set; }

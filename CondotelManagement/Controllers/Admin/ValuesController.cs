@@ -37,11 +37,46 @@ namespace CondotelManagement.Controllers.Admin
         [HttpPost("users")]
         public async Task<IActionResult> CreateUser([FromBody] AdminCreateUserDTO createUserDto)
         {
+            // 🚨 THÊM: Kiểm tra validation trước khi gọi service
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Dữ liệu không hợp lệ",
+                    errors = errors,
+                    statusCode = 400
+                });
+            }
+
+            // 🚨 THÊM: Kiểm tra nếu DTO null
+            if (createUserDto == null)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Dữ liệu không hợp lệ",
+                    statusCode = 400
+                });
+            }
+
+            // Gọi service
             var result = await _userService.AdminCreateUserAsync(createUserDto);
+
             if (!result.IsSuccess)
             {
                 // Trả về object cho nhất quán
-                return BadRequest(new { message = result.Message });
+                return BadRequest(new
+                {
+                    success = false,
+                    message = result.Message,
+                    statusCode = 400
+                });
             }
 
             // SỬA ĐỔI: Trả về 201 với thông báo và user object
@@ -50,8 +85,10 @@ namespace CondotelManagement.Controllers.Admin
                 new { userId = result.CreatedUser.UserId }, // Tham số cho hàm GetUserById
                 new
                 {
+                    success = true,
                     message = result.Message, // Thông báo: "Tạo user thành công. Mã OTP..."
-                    user = result.CreatedUser  // Đối tượng user vừa tạo (đang "Pending")
+                    data = result.CreatedUser, // Đối tượng user vừa tạo (đang "Pending")
+                    statusCode = 201
                 }
             );
         }
@@ -59,12 +96,44 @@ namespace CondotelManagement.Controllers.Admin
         [HttpPut("users/{userId}")]
         public async Task<IActionResult> UpdateUser(int userId, [FromBody] AdminUpdateUserDTO updateUserDto)
         {
+            // 1. VALIDATION: Kiểm tra ModelState trước
+            if (!ModelState.IsValid)
+            {
+                // Lấy tất cả error messages
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                // Trả về format chuẩn
+                return BadRequest(new
+                {
+                    message = "Dữ liệu không hợp lệ",
+                    errors = errors,
+                    status = 400
+                });
+            }
+
+            // 2. Gọi service
             var result = await _userService.AdminUpdateUserAsync(userId, updateUserDto);
+
             if (!result.IsSuccess)
             {
-                return BadRequest(result.Message);
+                // 3. Trả về object thay vì string
+                return BadRequest(new
+                {
+                    message = result.Message,
+                    status = 400
+                });
             }
-            return Ok(result.UpdatedUser);
+
+            // 4. Trả về success với format chuẩn
+            return Ok(new
+            {
+                message = "Cập nhật thành công",
+                data = result.UpdatedUser,
+                status = 200
+            });
         }
 
         [HttpPatch("users/{userId}/reset-password")]

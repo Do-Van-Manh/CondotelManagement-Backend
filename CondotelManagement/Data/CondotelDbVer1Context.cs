@@ -280,8 +280,6 @@ public partial class CondotelDbVer1Context : DbContext
             entity.HasKey(e => e.DetailId);
 
             entity.Property(e => e.DetailId).HasColumnName("DetailID");
-            entity.Property(e => e.Bathrooms).HasDefaultValue((byte)1);
-            entity.Property(e => e.Beds).HasDefaultValue((byte)1);
             entity.Property(e => e.BuildingName).HasMaxLength(150);
             entity.Property(e => e.CondotelId).HasColumnName("CondotelID");
             entity.Property(e => e.HygieneStandards).HasMaxLength(500);
@@ -712,13 +710,6 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.Category).HasMaxLength(50);
             entity.Property(e => e.Description).HasMaxLength(255);
             entity.Property(e => e.Name).HasMaxLength(100);
-			entity.Property(e => e.HostId)
-				.HasColumnName("HostID")
-				.IsRequired();
-			entity.HasOne(e => e.Host)
-				.WithMany(h => h.Utilities)
-				.HasForeignKey(e => e.HostId)
-				.OnDelete(DeleteBehavior.Restrict);
 		});
 
         modelBuilder.Entity<Voucher>(entity =>

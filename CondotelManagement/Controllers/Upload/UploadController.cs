@@ -121,8 +121,6 @@ namespace CondotelManagement.Controllers.Upload
                 CondotelId = condotelId,
                 BuildingName = request.BuildingName,
                 RoomNumber = request.RoomNumber,
-                Beds = request.Beds,
-                Bathrooms = request.Bathrooms,
                 SafetyFeatures = request.SafetyFeatures,
                 HygieneStandards = request.HygieneStandards,
                 Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status

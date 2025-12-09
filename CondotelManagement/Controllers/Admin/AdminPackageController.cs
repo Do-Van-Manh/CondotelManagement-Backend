@@ -288,11 +288,11 @@ namespace CondotelManagement.Controllers.Admin
         public async Task<IActionResult> DeleteCatalogPackage(int id)
         {
             var package = await _context.Packages.FindAsync(id);
-            if (package == null) return NotFound("Không tìm thấy gói dịch vụ");
+            if (package == null) return NotFound(new { message = "Không tìm thấy gói dịch vụ" });
 
             var isUsed = await _context.HostPackages.AnyAsync(hp => hp.PackageId == id);
             if (isUsed)
-                return BadRequest("Gói này đã có người mua, không thể xóa! Hãy chuyển trạng thái sang ngưng hoạt động.");
+                return BadRequest(new { message = "Gói này đã có người mua, không thể xóa! Hãy chuyển trạng thái sang ngưng hoạt động." });
 
             _context.Packages.Remove(package);
             await _context.SaveChangesAsync();

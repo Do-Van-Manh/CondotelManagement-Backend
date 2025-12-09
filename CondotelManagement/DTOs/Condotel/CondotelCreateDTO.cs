@@ -67,8 +67,8 @@ namespace CondotelManagement.DTOs
 		public decimal BasePrice { get; set; }
 
 		[Required(ErrorMessage = "PriceType không được để trống.")]
-		[RegularExpression("Seasonal|Holiday|Weekend|Default",
-			ErrorMessage = "PriceType phải là Seasonal, Holiday, Weekend hoặc Default.")]
+		[RegularExpression("Thường|Cuối tuần|Ngày lễ|Cao điểm",
+			ErrorMessage = "PriceType phải là Thường, Cuối tuần, Ngày lễ hoặc Cao điểm.")]
 		public string PriceType { get; set; }
 
 		[MaxLength(255, ErrorMessage = "Description không được vượt quá 255 ký tự.")]
@@ -82,12 +82,6 @@ namespace CondotelManagement.DTOs
 
 		[MaxLength(50, ErrorMessage = "RoomNumber không được vượt quá 50 ký tự.")]
 		public string? RoomNumber { get; set; }
-
-		[Range(0, 20, ErrorMessage = "Beds phải từ 0 đến 20.")]
-		public byte Beds { get; set; }
-
-		[Range(0, 20, ErrorMessage = "Bathrooms phải từ 0 đến 20.")]
-		public byte Bathrooms { get; set; }
 
 		[MaxLength(500, ErrorMessage = "SafetyFeatures không được vượt quá 500 ký tự.")]
 		public string? SafetyFeatures { get; set; }

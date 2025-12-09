@@ -33,10 +33,6 @@ public class CondotelService : ICondotelService
         if (!_condotelRepo.UtilitiesExist(dto.UtilityIds))
             throw new InvalidOperationException("Utility IDs không tồn tại");
 
-        // Validate Utilities belong to the host
-        if (!_condotelRepo.UtilitiesBelongToHost(dto.UtilityIds, dto.HostId))
-            throw new InvalidOperationException("Utilities không thuộc host này");
-
         // Tạo Condotel chính trước
         var condotel = new Condotel
         {
@@ -47,7 +43,7 @@ public class CondotelService : ICondotelService
             PricePerNight = dto.PricePerNight,
             Beds = dto.Beds,
             Bathrooms = dto.Bathrooms,
-            Status = dto.Status
+            Status = "Hoạt động"
         };
 
         // Add Condotel trước để có thể lấy CondotelId
@@ -83,10 +79,10 @@ public class CondotelService : ICondotelService
                 StartDate = p.StartDate,
                 EndDate = p.EndDate,
                 BasePrice = p.BasePrice,
-                PriceType = p.PriceType?.Trim() ?? "Normal",
+                PriceType = p.PriceType?.Trim() ?? "Thường",
                 Description = p.Description?.Trim(),
-                Status = "Active"
-            }).ToList();
+                Status = "Hoạt động"
+			}).ToList();
             _condotelRepo.AddCondotelPrices(prices);
         }
 
@@ -98,12 +94,10 @@ public class CondotelService : ICondotelService
                 CondotelId = condotelId,
                 BuildingName = d.BuildingName?.Trim(),
                 RoomNumber = d.RoomNumber?.Trim(),
-                Beds = d.Beds,
-                Bathrooms = d.Bathrooms,
                 SafetyFeatures = d.SafetyFeatures?.Trim(),
                 HygieneStandards = d.HygieneStandards?.Trim(),
-                Status = "Active"
-            }).ToList();
+                Status = "Hoạt động"
+			}).ToList();
             _condotelRepo.AddCondotelDetails(details);
         }
 
@@ -115,8 +109,8 @@ public class CondotelService : ICondotelService
                 CondotelId = condotelId,
                 AmenityId = aid,
                 DateAdded = DateOnly.FromDateTime(DateTime.UtcNow),
-                Status = "Active"
-            }).ToList();
+                Status = "Hoạt động"
+			}).ToList();
             _condotelRepo.AddCondotelAmenities(amenities);
         }
 
@@ -128,8 +122,8 @@ public class CondotelService : ICondotelService
                 CondotelId = condotelId,
                 UtilityId = uid,
                 DateAdded = DateOnly.FromDateTime(DateTime.UtcNow),
-                Status = "Active"
-            }).ToList();
+                Status = "Hoạt động"
+			}).ToList();
             _condotelRepo.AddCondotelUtilities(utilities);
         }
 
@@ -189,8 +183,6 @@ public class CondotelService : ICondotelService
             {
                 BuildingName = d.BuildingName,
                 RoomNumber = d.RoomNumber,
-                Beds = d.Beds,
-                Bathrooms = d.Bathrooms,
                 SafetyFeatures = d.SafetyFeatures,
                 HygieneStandards = d.HygieneStandards
             }).ToList(),
@@ -244,8 +236,6 @@ public class CondotelService : ICondotelService
             {
                 BuildingName = d.BuildingName,
                 RoomNumber = d.RoomNumber,
-                Beds = d.Beds,
-                Bathrooms = d.Bathrooms,
                 SafetyFeatures = d.SafetyFeatures,
                 HygieneStandards = d.HygieneStandards
             }).ToList(),
@@ -268,43 +258,6 @@ public class CondotelService : ICondotelService
 				DiscountPercentage = p.DiscountPercentage
 			}).ToList()
         };
-    }
-
-    public IEnumerable<CondotelDTO> GetCondotels()
-    {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var condotels = _condotelRepo.GetCondtels().ToList();
-        
-        return condotels.Select(c => new CondotelDTO
-        {
-            CondotelId = c.CondotelId,
-            Name = c.Name,
-            PricePerNight = c.PricePerNight,
-            Beds = c.Beds,
-            Bathrooms = c.Bathrooms,
-            Status = c.Status,
-            ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
-            ResortName = c.Resort?.Name,
-            HostName = c.Host?.CompanyName,
-            // Lấy promotion đang active (Status = "Active" và trong khoảng thời gian hiện tại)
-            ActivePromotion = c.Promotions
-                .Where(p => p.Status == "Active" 
-                    && p.StartDate <= today 
-                    && p.EndDate >= today)
-                .OrderByDescending(p => p.DiscountPercentage) // Ưu tiên promotion có discount cao nhất
-                .Select(p => new PromotionDTO
-                {
-                    PromotionId = p.PromotionId,
-                    Name = p.Name,
-                    StartDate = p.StartDate,
-                    EndDate = p.EndDate,
-                    DiscountPercentage = p.DiscountPercentage,
-                    TargetAudience = p.TargetAudience,
-                    Status = p.Status,
-                    CondotelId = p.CondotelId
-                })
-                .FirstOrDefault()
-        });
     }
 
     public IEnumerable<CondotelDTO> GetCondtelsByHost(int hostId)
@@ -340,8 +293,23 @@ public class CondotelService : ICondotelService
                     Status = p.Status,
                     CondotelId = p.CondotelId
                 })
-                .FirstOrDefault()
-        });
+                .FirstOrDefault(),
+			ActivePrice = c.CondotelPrices
+	            .Where(p => p.Status == "Hoạt động"
+					&& p.StartDate <= today
+		            && p.EndDate >= today)
+	            .OrderByDescending(p => p.BasePrice) // ưu tiên giá cao nhất nếu có nhiều mức
+	            .Select(p => new CondotelPriceDTO
+	            {
+		            PriceId = p.PriceId,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate,
+		            PriceType = p.PriceType,
+					BasePrice = p.BasePrice,
+		            Description = p.Description
+	            })
+	            .FirstOrDefault()
+		});
     }
 
 	public IEnumerable<CondotelDTO> GetCondotelsByFilters(
@@ -385,6 +353,21 @@ public class CondotelService : ICondotelService
 					TargetAudience = p.TargetAudience,
 					Status = p.Status,
 					CondotelId = p.CondotelId
+				})
+				.FirstOrDefault(),
+			ActivePrice = c.CondotelPrices
+				.Where(p => p.Status == "Hoạt động"
+					&& p.StartDate <= today
+					&& p.EndDate >= today)
+				.OrderByDescending(p => p.BasePrice) // ưu tiên giá cao nhất nếu có nhiều mức
+				.Select(p => new CondotelPriceDTO
+				{
+					PriceId = p.PriceId,
+					StartDate = p.StartDate,
+					EndDate = p.EndDate,
+					PriceType = p.PriceType,
+					BasePrice = p.BasePrice,
+					Description = p.Description
 				})
 				.FirstOrDefault()
 		});
@@ -440,35 +423,33 @@ public class CondotelService : ICondotelService
                 StartDate = p.StartDate,
                 EndDate = p.EndDate,
                 BasePrice = p.BasePrice,
-                PriceType = p.PriceType?.Trim() ?? "Normal",
+                PriceType = p.PriceType?.Trim() ?? "Thường",
                 Description = p.Description?.Trim(),
-                Status = "Active"
+                Status = "Hoạt động"
             }).ToList(),
             CondotelDetails = dto.Details?.Select(d => new CondotelDetail
             {
                 CondotelId = dto.CondotelId,
                 BuildingName = d.BuildingName?.Trim(),
                 RoomNumber = d.RoomNumber?.Trim(),
-                Beds = d.Beds,
-                Bathrooms = d.Bathrooms,
                 SafetyFeatures = d.SafetyFeatures?.Trim(),
                 HygieneStandards = d.HygieneStandards?.Trim(),
-                Status = "Active"
-            }).ToList(),
+                Status = "Hoạt động"
+			}).ToList(),
             CondotelAmenities = dto.AmenityIds?.Select(aid => new CondotelAmenity
             {
                 CondotelId = dto.CondotelId,
                 AmenityId = aid,
                 DateAdded = DateOnly.FromDateTime(DateTime.UtcNow),
-                Status = "Active"
-            }).ToList(),
+                Status = "Hoạt động"
+			}).ToList(),
             CondotelUtilities = dto.UtilityIds?.Select(uid => new CondotelUtility
             {
                 CondotelId = dto.CondotelId,
                 UtilityId = uid,
                 DateAdded = DateOnly.FromDateTime(DateTime.UtcNow),
-                Status = "Active"
-            }).ToList()
+                Status = "Hoạt động"
+			}).ToList()
         };
 
         // Update condotel
@@ -513,8 +494,6 @@ public class CondotelService : ICondotelService
             {
                 BuildingName = d.BuildingName,
                 RoomNumber = d.RoomNumber,
-                Beds = d.Beds,
-                Bathrooms = d.Bathrooms,
                 SafetyFeatures = d.SafetyFeatures,
                 HygieneStandards = d.HygieneStandards
             }).ToList(),
