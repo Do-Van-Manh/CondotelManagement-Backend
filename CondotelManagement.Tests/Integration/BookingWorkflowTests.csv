@@ -1,0 +1,609 @@
+﻿Workflow,Booking Workflow Tests - Complete UI-Based Test Cases,,,,
+Test requirement,"Test all possible scenarios for booking workflow of Condotel Management system end-to-end on Front-end UI, including all user interactions, form submissions, navigation flows, and complete user journeys",,,,
+Number of TCs,48,,,,
+,,,,,
+Testing Round Summary,,,,,
+,Passed,Failed,Pending,N/A,
+Round 1,0,0,48,0,
+Round 2,0,0,48,0,
+Round 3,0,0,48,0,
+,,,,,
+TestcaseID,Function Name,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions
+,,,,,
+Scenario A: Check Availability (4 test cases),,,,,
+WF-BOOKING-001,CheckAvailability,Check Availability - Condotel Available,"1. Open browser and navigate to application URL
+2. Login the system with Tenant role (enter email and password, click ""Đăng nhập"" button)
+3. Navigate to ""Danh sách  or ""Listing Stay"" page by clicking on menu item (/listing-stay)
+4. Click on a condotel card to view details
+5. On condotel detail page (/listing-stay-detail/:id), click on date picker for check-in date
+6. Select check-in date: [10 days from today] from calendar
+7. Click on date picker for check-out date
+8. Select check-out date: [12 days from today] from calendar
+9. Click ""Đặt ngay"" button (system automatically checks availability before redirecting)","1. System automatically checks availability when clicking ""Đặt ngay""
+2. If available, system redirects to checkout page (/checkout)
+3. Booking form section is displayed on checkout page
+4. User can proceed to booking
+5. No error message is shown",User must be logged in as Tenant role. Condotel exists and no overlapping bookings
+WF-BOOKING-002,CheckAvailability,Check Availability - Condotel Not Available,"1. Create existing booking with overlapping dates in system (via admin or previous booking)
+2. Open browser and login the system with Tenant role
+3. Navigate to ""Listing Stay"" page (/listing-stay)
+4. Click on the same condotel that has existing booking
+5. On condotel detail page, select check-in date: [overlapping with existing booking] from date picker
+6. Select check-out date: [overlapping with existing booking] from date picker
+7. Click ""Đặt ngay"" button","1. System checks availability automatically
+2. If not available, system displays error message: ""Căn hộ không khả dụng trong khoảng thời gian đã chọn. Vui lòng chọn ngày khác.""
+3. User cannot proceed to checkout page
+4. Error message is shown in red or warning color
+5. User must select different dates","Existing booking with overlapping dates exists in system. Booking status is not """"Cancelled"""""
+WF-BOOKING-003,CheckAvailability,Check Availability - Past Dates,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Listing Stay"" page
+3. Click on a condotel card
+4. On condotel detail page, try to select check-in date from date picker
+5. Try to select yesterday's date or any past date
+6. If date picker allows selection, click ""Đặt ngay"" button","1. Date picker prevents selecting past dates (past dates are grayed out or disabled)
+2. Or if selected, system displays error message: ""Start date cannot be in the past."" or ""End date cannot be in the past.""
+3. ""Đặt ngay"" button may be disabled or booking cannot be created
+4. User cannot proceed with past date",User must be logged in as Tenant role
+WF-BOOKING-004,CheckAvailability,Check Availability - Invalid Date Range,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Listing Stay"" page
+3. Click on a condotel card
+4. On condotel detail page, select check-in date: [10 days from today] from date picker
+5. Select check-out date: [same as or before check-in date] from date picker
+6. Click ""Đặt ngay"" button","1. System displays alert: ""Ngày check-out phải sau ngày check-in""
+2. Or system displays error message: ""Invalid date range.""
+3. Booking cannot be created
+4. Error message is shown clearly
+5. User must correct dates to proceed",User must be logged in as Tenant role
+,,,,,
+Scenario B: Create Booking (18 test cases),,,,,
+WF-BOOKING-005,CreateBooking,Create Booking - Valid,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Listing Stay"" page (/listing-stay)
+3. Click on a condotel card
+4. On condotel detail page (/listing-stay-detail/:id), select check-in date: [10 days from today] from date picker
+5. Select check-out date: [12 days from today] from date picker
+6. Click ""Đặt ngay"" button (system automatically checks availability)
+7. System redirects to checkout page (/checkout)
+8. Review booking summary on checkout page
+9. Click ""Xác nhận và thanh toán"" button on checkout page","1. System redirects to checkout page (/checkout)
+2. Booking summary is displayed correctly:
+   - Condotel name and image
+   - Check-in and check-out dates
+   - Number of nights (calculated automatically)
+   - Price per night
+   - Subtotal (nights * price per night)
+   - Total price
+3. After clicking ""Xác nhận và thanh toán"", system creates booking and redirects to PayOS payment page
+4. Backend returns message: ""Booking created successfully.""
+5. Booking ID is displayed on payment page
+6. Booking status shows as ""Pending"" (""Chờ thanh toán"") on booking detail page
+7. Total price is calculated correctly (PricePerNight * number of nights)
+8. User is redirected to PayOS payment page",User must be logged in as Tenant role. Condotel is available for selected dates
+WF-BOOKING-006,CreateBooking,Create Booking - Past Start Date,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Listing Stay"" page
+3. Click on a condotel card
+4. On condotel detail page, try to select check-in date from date picker
+5. Try to select yesterday's date or any past date
+6. If date picker allows selection, click ""Đặt ngay"" button
+7. If reaches checkout page, click ""Xác nhận và thanh toán"" button","1. Date picker prevents selecting past dates (past dates are grayed out or disabled)
+2. Or if selected and booking is attempted, system displays error message: ""Start date cannot be in the past.""
+3. ""Đặt ngay"" button may be disabled or booking cannot be created
+4. User cannot proceed with past date
+5. Error message is displayed clearly",User must be logged in as Tenant role
+WF-BOOKING-007,CreateBooking,Create Booking - Past End Date,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Listing Stay"" page
+3. Click on a condotel card
+4. On condotel detail page, select check-in date: [today] from date picker
+5. Try to select check-out date: [yesterday] from date picker
+6. If date picker allows, click ""Đặt ngay"" button","1. Date picker prevents selecting end date before start date
+2. Or system displays error message: ""End date cannot be in the past."" or ""Invalid date range.""
+3. Booking cannot be created
+4. Error message is displayed clearly
+5. User must correct dates",User must be logged in as Tenant role
+WF-BOOKING-008,CreateBooking,Create Booking - Invalid Date Range,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Listing Stay"" page
+3. Click on a condotel card
+4. On condotel detail page, select check-in date: [10 days from today] from date picker
+5. Select check-out date: [same as or before check-in date] from date picker
+6. Click ""Đặt ngay"" button
+7. If reaches checkout page, click ""Xác nhận và thanh toán"" button","1. System displays alert: ""Ngày check-out phải sau ngày check-in""
+2. Or system displays error message: ""Invalid date range.""
+3. Booking cannot be created
+4. Error message is shown in red or warning color
+5. User must correct dates to proceed",User must be logged in as Tenant role
+WF-BOOKING-009,CreateBooking,Create Booking - Condotel Not Available,"1. Create existing booking with overlapping dates in system
+2. Open browser and login the system with Tenant role
+3. Navigate to ""Listing Stay"" page
+4. Click on the same condotel name
+5. On condotel detail page, select check-in date: [overlapping with existing booking] from date picker
+6. Select check-out date: [overlapping with existing booking] from date picker
+7. Click ""Đặt ngay"" button
+8. If reaches checkout page, click ""Xác nhận và thanh toán"" button","1. System checks availability automatically when clicking ""Đặt ngay""
+2. If not available, system displays error message: ""Căn hộ không khả dụng trong khoảng thời gian đã chọn. Vui lòng chọn ngày khác.""
+3. Or if reaches checkout and tries to create booking, backend returns: ""Condotel is not available in this period.""
+4. Booking cannot be created
+5. Error message suggests alternative dates
+6. User must select different dates","Existing booking with overlapping dates exists in system. Booking status is not """"Cancelled"""""
+WF-BOOKING-010,CreateBooking,Create Booking - Condotel Not Found,"1. Open browser and login the system with Tenant role
+2. Try to navigate to condotel detail page with invalid condotel ID (e.g., type URL: /listing-stay-detail/99999)
+3. Or click on a condotel that was deleted
+4. Try to select dates and click ""Đặt ngay"" button","1. System displays 404 error page
+2. Shows message: ""Không tìm thấy condotel"" or ""Condotel không tồn tại""
+3. Page shows error with link to go back to listing page
+4. User is redirected to error page or listing page
+5. Booking cannot be created",User must be logged in as Tenant role. CondotelId does not exist
+WF-BOOKING-011,CreateBooking,Create Booking - Host Booking Own Condotel,"1. Open browser and login the system with Host role (who owns a condotel)
+2. Navigate to ""Listing Stay"" page
+3. Click on own condotel card
+4. Try to select dates and click ""Đặt ngay"" button
+5. If reaches checkout page, click ""Xác nhận và thanh toán"" button","1. System allows navigation to checkout page (Front-end may not prevent this)
+2. When trying to create booking, system displays error message: ""Host cannot book their own condotel.""
+3. Booking cannot be created
+4. Error message is displayed clearly
+5. User is informed that hosts cannot book their own condotels",User must be logged in as Host role. Host owns the condotel
+WF-BOOKING-012,CreateBooking,Create Booking - With Valid Promotion,"1. Create active promotion for condotel in system
+2. Open browser and login the system with Tenant role
+3. Navigate to ""Listing Stay"" page
+4. Click on condotel with active promotion
+5. On condotel detail page, view available promotions section (promotion badge displayed)
+6. Select check-in date: [within promotion period] from date picker
+7. Select check-out date: [within promotion period] from date picker
+8. View promotion details and discount information on sidebar
+9. Click ""Đặt ngay"" button
+10. System redirects to checkout page
+11. On checkout page, verify promotion is pre-selected in ""Khuyến mãi"" section
+12. Review booking summary with discounted price
+13. Click ""Xác nhận và thanh toán"" button on checkout page","1. System shows promotion badge or label on condotel detail page (e.g., ""-20%"" red badge)
+2. Promotion discount is displayed in price calculation (e.g., ""Giảm giá (20%)"")
+3. On checkout page, promotion is pre-selected in ""Khuyến mãi"" section (radio button checked)
+4. Original price and discounted price are shown in booking summary
+5. Total price includes promotion discount
+6. After clicking ""Xác nhận và thanh toán"", system creates booking and redirects to PayOS payment page
+7. Backend returns message: ""Booking created successfully.""
+8. Booking is created with promotion applied
+9. Discount amount is clearly shown in price breakdown","Active promotion exists for condotel. Booking dates are within promotion period. Promotion status is """"Active"""""
+WF-BOOKING-013,CreateBooking,Create Booking - Promotion Not Found,"1. Open browser and login the system with Tenant role
+2. Navigate to checkout page with invalid promotion ID (if UI allows manual input or selection)
+3. Try to create booking with invalid promotion ID","1. System may not show invalid promotion in list
+2. Or if selected, system displays error message: ""Promotion not found.""
+3. Promotion cannot be applied
+4. Error message is shown in red or warning color
+5. User must select valid promotion or proceed without promotion",User must be logged in as Tenant role. PromotionId does not exist
+WF-BOOKING-014,CreateBooking,Create Booking - Promotion Not Active,"1. Create inactive promotion for condotel in system
+2. Open browser and login the system with Tenant role
+3. Navigate to condotel detail page
+4. Try to view or select inactive promotion (if shown in list)","1. Inactive promotion is not shown or grayed out on condotel detail page
+2. Or if selected on checkout page, system displays error message: ""Promotion is not active.""
+3. Promotion cannot be applied
+4. Only active promotions are selectable
+5. Error message explains that promotion is not active","Inactive promotion exists in system (status != """"Active"""")"
+WF-BOOKING-015,CreateBooking,Create Booking - Promotion Not Belong to Condotel,"1. Create promotion for different condotel in system
+2. Open browser and login the system with Tenant role
+3. Navigate to condotel detail page
+4. Try to apply promotion from different condotel (if promotion list shows all promotions)","1. System displays error message: ""Promotion does not belong to this condotel.""
+2. Promotion cannot be applied
+3. Error message is displayed clearly
+4. Only promotions for current condotel are applicable
+5. User must select correct promotion",Promotion exists for different condotel in system
+WF-BOOKING-016,CreateBooking,Create Booking - Dates Outside Promotion Period,"1. Create active promotion with specific date range in system
+2. Open browser and login the system with Tenant role
+3. Navigate to condotel detail page
+4. Select check-in date: [outside promotion period] from date picker
+5. Select check-out date: [outside promotion period] from date picker
+6. View promotion section (promotion may not be available for selected dates)
+7. Click ""Đặt ngay"" button
+8. If reaches checkout page, try to select promotion
+9. Click ""Xác nhận và thanh toán"" button","1. System may not show promotion as available for selected dates
+2. Or if promotion is selected, system displays error message: ""Booking dates must be within promotion period ([start date] to [end date]).""
+3. Promotion cannot be applied or booking fails
+4. User must select dates within promotion period
+5. Error message shows promotion period dates",Active promotion exists. Booking dates are outside promotion period
+WF-BOOKING-017,CreateBooking,Create Booking - With Valid Voucher,"1. Create active voucher for condotel in system
+2. Open browser and login the system with Tenant role
+3. Navigate to ""Listing Stay"" page
+4. Click on condotel with available voucher
+5. Select dates and click ""Đặt ngay"" button
+6. System redirects to checkout page (/checkout)
+7. On checkout page, scroll to ""Voucher"" section
+8. Enter valid voucher code in ""Nhập mã voucher"" input field
+9. Click ""Áp dụng"" button next to input field
+10. Verify voucher is applied
+11. Review updated total price in summary section
+12. Click ""Xác nhận và thanh toán"" button","1. System redirects to checkout page
+2. Voucher section is visible with input field and ""Áp dụng"" button
+3. System validates voucher code (shows loading spinner)
+4. Voucher discount is applied to total price
+5. System displays success message or voucher code is shown with ""X"" to remove (green message)
+6. Total price in summary section is recalculated with discount
+7. Discount amount is shown separately (e.g., ""Giảm giá voucher (10%): -100,000 VNĐ"")
+8. Final total reflects voucher discount
+9. After clicking ""Xác nhận và thanh toán"", booking is created with voucher applied
+10. Backend returns message: ""Booking created successfully.""",Valid voucher exists in database. Voucher is active and not expired. Voucher belongs to condotel. User is on checkout page
+WF-BOOKING-018,CreateBooking,Create Booking - Invalid Voucher Code,"1. Navigate to checkout page with booking data
+2. Find ""Voucher"" section
+3. Enter invalid voucher code (e.g., ""INVALID123"") in ""Nhập mã voucher"" input field
+4. Click ""Áp dụng"" button
+5. View error message","1. System displays error message: ""Mã voucher không hợp lệ hoặc không áp dụng cho condotel này"" (red message)
+2. Voucher discount is not applied
+3. Total price remains unchanged
+4. Error message appears below input field or as toast notification
+5. Input field may be highlighted in red
+6. User can try again with different code",User is on checkout page
+WF-BOOKING-019,CreateBooking,Create Booking - With Service Packages,"1. Create active service packages for condotel in system
+2. Navigate to checkout page with booking data
+3. Scroll to ""Dịch vụ bổ sung"" or ""Service Packages"" section
+4. View list of available service packages
+5. Click checkbox or select button for a service package
+6. If quantity selector appears, set quantity (e.g., 2) using +/- buttons
+7. Review updated total price in summary section
+8. Click ""Xác nhận và thanh toán"" button","1. System displays available service packages with:
+   - Package name
+   - Description
+   - Price per package
+   - Quantity selector with +/- buttons
+2. User can select packages and set quantity
+3. Total price in summary section is updated to include service package costs
+4. Service package details are shown in summary (name, price, quantity)
+5. Updated total is calculated correctly (subtotal + service packages)
+6. Selected packages are highlighted or checked
+7. After clicking ""Xác nhận và thanh toán"", booking is created with service packages
+8. Backend returns message: ""Booking created successfully.""",Service packages exist in database. Service packages are active. User is on checkout page
+WF-BOOKING-020,CreateBooking,Create Booking - With Reward Points,"1. Ensure user has reward points in account
+2. Navigate to checkout page
+3. Scroll to ""Điểm thưởng"" or ""Reward Points"" section (if available)
+4. View available reward points balance
+5. Check ""Sử dụng điểm thưởng"" checkbox (if available)
+6. Verify points are applied to discount
+7. Review updated total price
+8. Click ""Xác nhận và thanh toán"" button","1. System shows available reward points (e.g., ""Bạn có 5,000 điểm"")
+2. User can toggle ""Sử dụng điểm thưởng"" checkbox (if feature is implemented)
+3. When checked, points are converted to discount amount (e.g., 5000 points = 50,000 VNĐ)
+4. Total price in summary is reduced by discount amount
+5. Discount from points is shown separately
+6. Remaining points balance is shown after discount
+7. Final total reflects points discount
+8. After clicking ""Xác nhận và thanh toán"", booking is created with reward points applied
+9. Backend returns message: ""Booking created successfully.""",User has reward points in account. User is on checkout page. Reward points feature is implemented
+WF-BOOKING-021,CreateBooking,Create Booking - Without Login,"1. Open browser and navigate to application URL (not logged in)
+2. Navigate to ""Listing Stay"" page
+3. Click on a condotel card
+4. On condotel detail page, select dates
+5. Click ""Đặt ngay"" button","1. System displays alert: ""Vui lòng đăng nhập để đặt phòng""
+2. System redirects to login page (/login)
+3. User cannot proceed to checkout without logging in
+4. After login, user can continue booking process",User is not logged in
+WF-BOOKING-022,CreateBooking,Create Booking - Missing Condotel Selection,"1. Open browser and login the system with Tenant role
+2. Try to navigate directly to checkout page (/checkout) without selecting condotel
+3. Or navigate to checkout page with missing condotel data","1. System displays alert: ""Vui lòng chọn căn hộ để đặt phòng""
+2. Or checkout page shows error: ""Vui lòng chọn căn hộ để đặt phòng""
+3. User cannot proceed without selecting condotel
+4. User is redirected to listing page or error is shown",User is logged in but no condotel is selected
+,,,,,
+Scenario C: Get My Bookings (3 test cases),,,,,
+WF-BOOKING-023,GetMyBookings,Get My Bookings - Has Bookings,"1. Open browser and login the system with Tenant role
+2. Click on ""Đặt phòng của tôi"" or ""My Bookings"" or ""Lịch sử đặt phòng"" in navigation menu (or navigate to /my-bookings or /booking-history)
+3. View bookings list page","1. System displays list of all bookings for logged-in tenant in table format
+2. Bookings are ordered by EndDate descending (newest first)
+3. Table shows columns:
+   - STT (sequence number)
+   - Ảnh (condotel image)
+   - Tên căn hộ (condotel name)
+   - Ngày đặt phòng (booking date)
+   - Trạng thái (status badge with color: Pending=blue, Confirmed=green, Cancelled=red, Completed=gray)
+   - Tổng tiền (total price formatted as currency)
+4. Each row is clickable to view booking details
+5. Status badges show Vietnamese text: ""Đang xử lý"", ""Đã xác nhận"", ""Đã hủy"", ""Hoàn thành""
+6. Pagination or scroll works if there are many bookings",User must be logged in as Tenant role. Multiple bookings exist for tenant
+WF-BOOKING-024,GetMyBookings,Get My Bookings - No Bookings,"1. Open browser and login the system with Tenant role (new user with no bookings)
+2. Click on ""Lịch sử đặt phòng"" or ""My Bookings"" in navigation menu
+3. View bookings list page","1. System displays empty state message: ""Bạn chưa có đặt phòng nào.""
+2. Empty state is centered and clearly displayed
+3. No booking rows are shown in table
+4. User is encouraged to browse condotels and make a booking
+5. Link to listing page may be provided",User must be logged in as Tenant role. No bookings exist for tenant
+WF-BOOKING-025,GetMyBookings,Get My Bookings - Sort by Date,"1. Navigate to ""Lịch sử đặt phòng"" page
+2. View sort dropdown (if available)
+3. Select different sort option (e.g., ""Ngày cũ nhất"")
+4. View sorted results","1. System displays bookings sorted by selected option
+2. Sort dropdown shows current selection
+3. Bookings are reordered according to sort option
+4. Default sort is by newest first (EndDate descending)",Multiple bookings exist for tenant. Sort feature is implemented
+,,,,,
+Scenario D: Get Booking By ID (3 test cases),,,,,
+WF-BOOKING-026,GetBookingById,Get Booking By ID - Found,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" or ""My Bookings"" page (/my-bookings or /booking-history)
+3. Click on a booking row from the table
+4. View booking detail page (/booking-history/:id)","1. System displays booking detail page with complete information:
+   - Booking ID (prominent, e.g., ""#123"")
+   - Condotel information (name, image, address, beds, bathrooms, price per night)
+   - Check-in and check-out dates (clearly displayed)
+   - Number of nights (calculated)
+   - Status badge (color-coded: ""Đang xử lý"", ""Đã xác nhận"", ""Đã hủy"", ""Hoàn thành"")
+   - Total price (formatted as currency)
+   - Booking date (createdAt)
+   - Payment details
+2. Action buttons are available based on status:
+   - ""❌ Hủy đặt phòng"" (if status is Pending or Confirmed)
+   - ""💰 Yêu cầu hoàn tiền"" (if status is Cancelled and within 2 days)
+   - ""Viết đánh giá"" (if status is Completed)
+3. User can navigate back to bookings list
+4. Booking information is accurate and matches selected booking",Booking exists and belongs to logged-in tenant
+WF-BOOKING-027,GetBookingById,Get Booking By ID - Not Found,"1. Open browser and login the system with Tenant role
+2. Try to navigate to booking detail page with invalid booking ID (e.g., type URL: /booking-history/99999)","1. System displays 404 error page
+2. Shows message: ""Không tìm thấy đặt phòng"" or ""Booking không tồn tại""
+3. Error page has link to go back to bookings list (""Quay lại danh sách"")
+4. User is redirected to error page
+5. Booking detail cannot be viewed",BookingId does not exist
+WF-BOOKING-028,GetBookingById,Get Booking By ID - Wrong Customer,"1. Create booking for different customer in system
+2. Open browser and login the system with Tenant role
+3. Try to navigate to other customer's booking detail page (e.g., type URL: /booking-history/{otherCustomerBookingId})","1. System displays 404 error page or 403 Forbidden
+2. Shows message: ""Không tìm thấy đặt phòng"" or ""Bạn không có quyền truy cập booking này""
+3. Access is denied
+4. User cannot view other customer's booking details",Booking belongs to different customer
+,,,,,
+Scenario E: Cancel Booking (6 test cases),,,,,
+WF-BOOKING-029,CancelBooking,Cancel Booking - Pending Status,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" or ""My Bookings"" page
+3. Click on pending booking from table
+4. On booking detail page (/booking-history/:id), view booking information
+5. Click ""❌ Hủy đặt phòng"" button
+6. Confirm cancellation in popup dialog (click ""OK"" in confirmation dialog)","1. Confirmation dialog appears asking: ""Bạn có chắc chắn muốn hủy đặt phòng này? Nếu hủy trong vòng 2 ngày, bạn có thể yêu cầu hoàn tiền.""
+2. After confirmation, system displays alert: ""Đã hủy đặt phòng thành công. Nếu hủy trong vòng 2 ngày, bạn có thể yêu cầu hoàn tiền.""
+3. Booking status changes to ""Cancelled"" (""Đã hủy"") on booking detail page
+4. Booking disappears from active bookings list or shows as cancelled with red badge
+5. ""❌ Hủy đặt phòng"" button is replaced with ""Đã hủy"" status badge
+6. If cancelled within 2 days, system may show additional dialog: ""Đã hủy đặt phòng thành công! Bạn có muốn điền thông tin để yêu cầu hoàn tiền ngay bây giờ không?""
+7. Booking is updated in database with status ""Cancelled""",Pending booking exists and belongs to logged-in tenant
+WF-BOOKING-030,CancelBooking,Cancel Booking - Confirmed Status (Auto Refund),"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" page
+3. Click on confirmed booking from table
+4. On booking detail page, click ""❌ Hủy đặt phòng"" button
+5. Confirm cancellation in popup dialog (click ""OK"")
+6. If booking was created within 2 days, system may prompt to request refund
+7. If prompted, choose to request refund or skip","1. System displays confirmation dialog
+2. After confirmation, system automatically creates refund request (backend logic)
+3. System displays alert: ""Đã hủy đặt phòng thành công. Nếu hủy trong vòng 2 ngày, bạn có thể yêu cầu hoàn tiền.""
+4. If cancelled within 2 days, system may show dialog: ""Đã hủy đặt phòng thành công! Bạn có muốn điền thông tin để yêu cầu hoàn tiền ngay bây giờ không?""
+5. Booking status changes to ""Cancelled"" (""Đã hủy"")
+6. Refund request is created with status ""Pending"" (""Đang chờ xử lý"")
+7. User can see refund request in ""Yêu cầu hoàn tiền"" section or notification
+8. If user chooses to request refund, system navigates to refund request page",Confirmed booking exists with startDate >= 2 days later. Booking belongs to logged-in tenant. Booking was created within 2 days
+WF-BOOKING-031,CancelBooking,Cancel Booking - Completed Status (Auto Refund),"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" page
+3. Click on completed booking from table
+4. On booking detail page, try to find ""❌ Hủy đặt phòng"" button (if available)","1. ""❌ Hủy đặt phòng"" button may not be shown for completed bookings
+2. Or if shown and clicked, system may allow cancellation with auto refund
+3. System displays confirmation dialog
+4. After confirmation, system automatically creates refund request
+5. Booking status changes to ""Cancelled""
+6. Refund request is created with status ""Pending""
+7. User is informed about refund process",Completed booking exists. Booking belongs to logged-in tenant. Backend allows cancelling completed bookings
+WF-BOOKING-032,CancelBooking,Cancel Booking - Not Found,"1. Open browser and login the system with Tenant role
+2. Try to cancel booking with invalid booking ID (e.g., type URL: /booking-history/99999 and try to cancel)","1. System displays 404 error page
+2. Shows message: ""Không tìm thấy đặt phòng""
+3. Cancel button is not available or error is shown
+4. User cannot cancel non-existent booking
+5. Error page has link to go back",BookingId does not exist
+WF-BOOKING-033,CancelBooking,Cancel Booking - Wrong Customer,"1. Create booking for different customer in system
+2. Open browser and login the system with Tenant role
+3. Try to navigate to other customer's booking detail page (e.g., type URL: /booking-history/{otherCustomerBookingId})
+4. Try to click ""❌ Hủy đặt phòng"" button if page is accessible","1. System displays 404 error page or 403 Forbidden
+2. Shows message: ""Bạn không có quyền truy cập booking này"" or ""Không tìm thấy đặt phòng""
+3. Cancel button is not available
+4. Access is denied
+5. User cannot cancel other customer's booking",Booking belongs to different customer
+WF-BOOKING-034,CancelBooking,Cancel Booking - Already Cancelled,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" page
+3. Click on cancelled booking from table
+4. On booking detail page, view booking status
+5. Try to find ""❌ Hủy đặt phòng"" button (if exists)","1. ""❌ Hủy đặt phòng"" button is not shown for cancelled bookings
+2. Status badge shows ""Đã hủy"" (red badge)
+3. Booking cannot be cancelled again
+4. User may see ""💰 Yêu cầu hoàn tiền"" button if eligible (within 2 days)",Cancelled booking exists and belongs to logged-in tenant
+,,,,,
+Scenario F: Request Refund (8 test cases),,,,,
+WF-BOOKING-035,RefundBooking,Request Refund - Valid (>= 2 Days Before Check-in),"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" or ""My Bookings"" page
+3. Click on a confirmed or cancelled booking (with startDate >= 2 days later)
+4. On booking detail page, click ""💰 Yêu cầu hoàn tiền"" button (if status is Cancelled and within 2 days)
+5. Or navigate directly to refund request page (/request-refund/:id)
+6. System navigates to refund request page
+7. View booking information on refund page
+8. Fill in refund request form:
+   - Select bank from dropdown: ""Vietcombank (VCB)""
+   - Enter account number in input field: 1234567890
+   - Enter account holder name in input field: [Tenant name in UPPERCASE, no accents]
+9. Review form
+10. Click ""Gửi yêu cầu hoàn tiền"" button","1. System displays booking information on refund page:
+   - Booking ID (prominent)
+   - Condotel name and image
+   - Check-in and check-out dates (clearly displayed)
+   - Total price (large, bold)
+   - Booking status badge
+   - Refund amount (calculated, e.g., ""Số tiền hoàn: 1,000,000 VNĐ"")
+2. Bank information form is visible with:
+   - Bank dropdown (shows Vietnamese banks: VCB, MB, TCB, ACB, BIDV, etc.)
+   - Account number input field (numbers only)
+   - Account holder name input field (auto-converts to UPPERCASE)
+3. Form validation works (required fields marked with asterisk *)
+4. After submitting, system displays message: ""Yêu cầu hoàn tiền đã được gửi thành công. Admin sẽ xử lý trong vòng 1-3 ngày làm việc."" (green, with checkmark)
+5. Refund request is created with status ""Pending"" (""Đang chờ xử lý"")
+6. User can see refund request in ""Yêu cầu hoàn tiền"" section or notification
+7. Success message is displayed clearly
+8. User is automatically redirected to booking history page after 2 seconds",Confirmed or Cancelled booking exists with startDate >= 2 days later. Booking belongs to logged-in tenant. Booking has not been refunded yet
+WF-BOOKING-036,RefundBooking,Request Refund - Less Than 2 Days,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" page
+3. Click on confirmed or cancelled booking (with startDate = 1 day later or same day)
+4. On booking detail page, try to find ""💰 Yêu cầu hoàn tiền"" button
+5. Or try to navigate to refund request page (/request-refund/:id)","1. ""💰 Yêu cầu hoàn tiền"" button is disabled or not shown
+2. Or if page is accessible, system displays error message: ""Refund is only available when cancelling at least 2 days before check-in.""
+3. Refund request cannot be created
+4. Error message explains the 2-day requirement
+5. Message is shown in red or warning color
+6. User is informed that refund is not available for bookings less than 2 days before check-in",Confirmed or Cancelled booking exists with startDate < 2 days later. Booking belongs to logged-in tenant
+WF-BOOKING-037,RefundBooking,Request Refund - Booking Not Found,"1. Open browser and login the system with Tenant role
+2. Try to navigate to refund request page with invalid booking ID (e.g., type URL: /request-refund/99999)","1. System displays 404 error page
+2. Shows message: ""Không tìm thấy booking cho tenant này"" or ""Booking not found for this tenant.""
+3. Refund request cannot be created
+4. Error page has link to go back to bookings list
+5. User cannot proceed",BookingId does not exist
+WF-BOOKING-038,RefundBooking,Request Refund - Wrong Customer,"1. Create booking for different customer in system
+2. Open browser and login the system with Tenant role
+3. Try to navigate to other customer's booking refund page (e.g., type URL: /request-refund/{otherCustomerBookingId})
+4. Try to create refund request if page is accessible","1. System displays 404 error page or 403 Forbidden
+2. Shows message: ""Không tìm thấy booking cho tenant này"" or ""Booking not found for this tenant.""
+3. Refund request cannot be created
+4. Access is denied
+5. Error message is displayed clearly",Booking belongs to different customer
+WF-BOOKING-039,RefundBooking,Request Refund - Booking Not Refundable Status,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" page
+3. Click on pending booking
+4. On booking detail page, try to find ""💰 Yêu cầu hoàn tiền"" button (if button exists)
+5. Or try to navigate to refund request page (/request-refund/:id)","1. ""💰 Yêu cầu hoàn tiền"" button is not shown or is disabled for pending bookings
+2. Or if page is accessible, system displays error message: ""Only cancelled, confirmed, or completed bookings can be refunded.""
+3. Error message explains which statuses are refundable
+4. Message is shown in red or warning color
+5. User cannot request refund for pending bookings",Pending booking exists and belongs to logged-in tenant
+WF-BOOKING-040,RefundBooking,Request Refund - Already Refunded,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" page
+3. Click on confirmed or cancelled booking that already has completed refund
+4. On booking detail page, try to click ""💰 Yêu cầu hoàn tiền"" button again
+5. Or try to navigate to refund request page","1. ""💰 Yêu cầu hoàn tiền"" button is disabled or shows ""Đã hoàn tiền"" status
+2. Or system displays error message: ""Booking has already been refunded.""
+3. New refund request cannot be created
+4. Status badge may show ""Đã hoàn tiền"" (green)
+5. Refund information may be displayed (amount, date, status)
+6. User is informed that refund has already been processed",RefundRequest with status = Completed or Refunded exists for booking
+WF-BOOKING-041,RefundBooking,Request Refund - Without Bank Info (Use Wallet),"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" page
+3. Click on confirmed or cancelled booking
+4. On booking detail page, click ""💰 Yêu cầu hoàn tiền"" button
+5. Navigate to refund request page (/request-refund/:id)
+6. View bank information form
+7. Leave bank information fields empty (or skip if system auto-fills from wallet)
+8. Click ""Gửi yêu cầu hoàn tiền"" button","1. System checks if user has wallet with bank information
+2. If wallet exists, bank info is auto-filled from wallet
+3. Or system displays message: ""Sử dụng thông tin ngân hàng từ ví""
+4. After submitting, system displays message: ""Yêu cầu hoàn tiền đã được gửi thành công. Admin sẽ xử lý trong vòng 1-3 ngày làm việc.""
+5. Refund request is created with bank info from Wallet
+6. Wallet bank info is shown in confirmation
+7. User is redirected to booking history page",Customer has wallet in system with bank information. Confirmed or Cancelled booking exists. Booking is eligible for refund
+WF-BOOKING-042,RefundBooking,Request Refund - With Bank Info,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" page
+3. Click on confirmed or cancelled booking
+4. On booking detail page, click ""💰 Yêu cầu hoàn tiền"" button
+5. Navigate to refund request page (/request-refund/:id)
+6. Fill in refund request form:
+   - Select bank from dropdown: ""Vietcombank (VCB)""
+   - Enter account number: 1234567890
+   - Enter account holder name: [Tenant name in UPPERCASE, no accents]
+7. Review form
+8. Click ""Gửi yêu cầu hoàn tiền"" button","1. System displays refund request form with all fields
+2. Bank dropdown shows list of Vietnamese banks (VCB, MB, TCB, ACB, BIDV, VietinBank, etc.)
+3. All fields are filled correctly
+4. Form validation works (required fields highlighted if empty)
+5. Account holder name is auto-converted to UPPERCASE
+6. After submitting, system displays message: ""Yêu cầu hoàn tiền đã được gửi thành công. Admin sẽ xử lý trong vòng 1-3 ngày làm việc.""
+7. Refund request is created with provided bank information
+8. Bank info (VCB, account number, account holder) is saved and shown in confirmation
+9. User is redirected to booking history page",Confirmed or Cancelled booking exists and belongs to logged-in tenant. Booking is eligible for refund
+,,,,,
+Scenario G: Browse and Search Condotels (3 test cases),,,,,
+WF-BOOKING-043,BrowseCondotels,Browse Condotels - View List,"1. Open browser and navigate to application URL
+2. Navigate to ""Danh sách Condotel"" or ""Listing Stay"" page by clicking menu item (/listing-stay)
+3. View condotel list page","1. System displays list of condotels with images, names, prices
+2. Each condotel card shows:
+   - Image (thumbnail)
+   - Name (condotel name)
+   - Price per night (formatted as currency, e.g., ""500,000 đ/đêm"")
+   - Location (if available)
+   - Rating (stars, if available)
+3. User can scroll through the list
+4. Pagination or infinite scroll works correctly
+5. Loading indicator is shown while loading
+6. Condotel cards are displayed in grid or list layout
+7. Each card is clickable to view condotel detail",Application is running. Condotels exist in database
+WF-BOOKING-044,FilterCondotels,Filter Condotels - By Price Range,"1. Navigate to ""Listing Stay"" page (/listing-stay)
+2. Click on ""Bộ lọc"" or ""Filter"" button (opens filter panel)
+3. In filter panel, find ""Giá"" or ""Price"" section
+4. Set minimum price: 200000 VND using slider or input field
+5. Set maximum price: 1000000 VND using slider or input field
+6. Click ""Áp dụng"" or ""Apply"" button
+7. View filtered results","1. System displays only condotels within price range (200000 - 1000000 VND)
+2. Filter is applied correctly
+3. Condotel list updates to show filtered results
+4. Filter count shows number of results
+5. User can clear filter to show all condotels
+6. Price range is displayed in filter panel
+7. Selected filter is highlighted",Condotels with different prices exist in database. Filter feature is implemented
+WF-BOOKING-045,SearchCondotels,Search Condotels - By Name,"1. Navigate to ""Listing Stay"" page
+2. Find search box in header or on listing page
+3. Enter condotel name in search box (e.g., ""Luxury Apartment"")
+4. Press Enter or click search icon/magnifying glass icon
+5. View search results","1. System displays condotels matching search term
+2. Search results are relevant and accurate
+3. Search is case-insensitive
+4. Search highlights matching text in results (if implemented)
+5. ""X"" button appears to clear search
+6. Search results count is displayed
+7. If no results, shows ""Không tìm thấy condotel nào"" or empty state message
+8. User can clear search to show all condotels",Condotels with different names exist in database. Search feature is implemented
+,,,,,
+Scenario H: View Condotel Detail and Checkout (3 test cases),,,,,
+WF-BOOKING-046,ViewCondotelDetail,View Condotel Detail - Complete Information,"1. Navigate to ""Listing Stay"" page
+2. Click on a condotel card (image or name)
+3. System navigates to condotel detail page (/listing-stay-detail/:id)
+4. View all sections of detail page","1. System displays complete condotel information:
+   - Images gallery with multiple photos (user can click to view larger)
+   - Name and description
+   - Price per night (large, prominent)
+   - Location and full address
+   - Amenities list with icons
+   - Reviews and ratings section
+   - Host information card
+   - Beds and bathrooms count
+2. Date picker is available and functional (shows ""Chọn ngày check-in / check-out"" or selected dates)
+3. Guest selector is available (shows number of guests)
+4. Price calculation section shows:
+   - Base price (price per night x nights)
+   - Promotion discount (if available)
+   - Total price
+5. ""Đặt ngay"" button is visible and enabled
+6. ""Xem thêm chỗ ở"" button is available
+7. Map view may be available (if implemented)
+8. Share button may be available",Condotel exists in database with complete information
+WF-BOOKING-047,CheckoutPage,Checkout Page - Review Booking Summary,"1. Complete booking flow: select condotel, dates, click ""Đặt ngay""
+2. System redirects to checkout page (/checkout)
+3. View checkout page with booking details","1. System displays booking summary section in sidebar:
+   - Condotel name and image (large)
+   - Check-in and check-out dates (clearly displayed)
+   - Number of nights (calculated automatically)
+   - Price per night
+   - Subtotal (nights * price per night)
+   - Service fees (if any, shows ""0 đ"")
+   - Total price (large, bold)
+2. Main content shows:
+   - ""Confirm and payment"" heading
+   - ""Your trip"" section with booking details
+   - ""Khuyến mãi"" section (if promotions available) with radio buttons
+   - ""Voucher"" section with input field and ""Áp dụng"" button
+   - ""Dịch vụ bổ sung"" section (if service packages available) with checkboxes and quantity selectors
+   - Date and guest selectors (editable)
+   - ""Thanh toán"" section with payment information
+3. ""Xác nhận và thanh toán"" button is at bottom
+4. All information is accurate and matches selected condotel and dates",User is logged in as Tenant. Booking data is passed to checkout page via navigation state
+WF-BOOKING-048,CheckoutPage,Checkout Page - Apply Voucher Code,"1. Navigate to checkout page with booking data
+2. Find ""Voucher"" section
+3. Enter valid voucher code (e.g., ""SUMMER2024"") in ""Nhập mã voucher"" input field
+4. Click ""Áp dụng"" button next to input field
+5. Wait for validation
+6. Verify voucher is applied","1. System validates voucher code (shows loading spinner)
+2. Voucher discount is applied to total price
+3. System displays success message or voucher code is shown with ""X"" to remove (green message)
+4. Total price in summary section is recalculated with discount
+5. Discount amount is shown separately in summary (e.g., ""Giảm giá voucher (10%): -100,000 VNĐ"")
+6. Voucher code is displayed in green box with ""X"" button to remove
+7. Final total reflects discount
+8. User can remove voucher by clicking ""X"" button",Valid voucher exists in database. Voucher is active and not expired. Voucher belongs to condotel. User is on checkout page
+,,,,,
+Scenario I: Update Booking (if implemented) (0 test cases),,,,,
+Note: UpdateBooking function exists in backend but may not have UI implementation. Test cases can be added if UI is implemented.,,,,,

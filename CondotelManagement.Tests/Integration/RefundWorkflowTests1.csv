@@ -1,0 +1,307 @@
+﻿Workflow,Refund Workflow Tests - Complete UI-Based Test Cases,,,,
+Test requirement,"Test all possible scenarios for refund workflow of Condotel Management system end-to-end on Front-end UI, including user interactions, button clicks, form submissions, navigation flows, error messages display, and complete refund journeys visible on screen",,,,
+Number of TCs,32,,,,
+,,,,
+Testing Round Summary,,,,
+,Passed,Failed,Pending,N/A,
+Round 1,0,0,32,0,
+Round 2,0,0,32,0,
+Round 3,0,0,32,0,
+,,,,
+TestcaseID,Function Name,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions
+,,,,
+Scenario A: Tenant Request Refund from Booking Detail (6 test cases),,,,
+WF-REFUND-001,RequestRefund,Cancel Booking and Request Refund - Valid Cancelled Booking,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" page (/my-bookings) by clicking on menu item
+3. Click on a booking card with status ""Pending"" or ""Confirmed""
+4. Observe booking detail page appears
+5. Scroll to find ""❌ Hủy đặt phòng"" button
+6. Click ""❌ Hủy đặt phòng"" button
+7. Observe confirmation dialog appears
+8. Click ""OK"" in confirmation dialog
+9. Observe page behavior after cancellation
+10. If booking was cancelled within 2 days, observe confirmation dialog appears
+11. Click ""OK"" to navigate to refund request page
+12. Observe page navigation","1. Booking detail page displays booking information
+2. ""❌ Hủy đặt phòng"" button is visible and enabled for bookings with status ""Pending"" or ""Confirmed""
+3. Confirmation dialog appears with message: ""Bạn có chắc chắn muốn hủy đặt phòng này? Nếu hủy trong vòng 2 ngày, bạn có thể yêu cầu hoàn tiền.""
+4. After clicking ""OK"", button text changes to ""Đang hủy...""
+5. If booking was cancelled within 2 days, second confirmation dialog appears: ""Đã hủy đặt phòng thành công! Bạn có muốn điền thông tin để yêu cầu hoàn tiền ngay bây giờ không?""
+6. After clicking ""OK"", user is redirected to refund request page (/request-refund/{bookingId})
+7. Booking status badge changes to ""Đã hủy"" (red badge)",Booking exists with status ""Pending"" or ""Confirmed"", booking was created within 2 days
+WF-REFUND-002,RequestRefund,Request Refund Directly - Cancelled Booking,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" page (/my-bookings)
+3. Click on a booking card with status ""Cancelled"" that was cancelled within 2 days
+4. Observe booking detail page appears
+5. Scroll to find ""💰 Yêu cầu hoàn tiền"" button
+6. Click ""💰 Yêu cầu hoàn tiền"" button
+7. Observe page navigation","1. Booking detail page displays booking information with status badge ""Đã hủy"" (red badge)
+2. ""💰 Yêu cầu hoàn tiền"" button is visible and enabled
+3. After clicking button, user is redirected to refund request page (/request-refund/{bookingId})
+4. Refund request page displays booking information",Booking exists with status ""Cancelled"", booking was cancelled within 2 days from creation date
+WF-REFUND-003,RequestRefund,Submit Refund Request - Valid Bank Information,"1. On refund request page (/request-refund/{bookingId}), observe page content
+2. Review ""Thông tin Booking"" card showing booking details
+3. Scroll to ""Thông tin Tài khoản Ngân hàng"" form section
+4. Review blue info box with text: ""Vui lòng cung cấp thông tin tài khoản ngân hàng để Admin chuyển khoản hoàn tiền cho bạn. Thời gian xử lý: 1-3 ngày làm việc.""
+5. Select bank name from dropdown (e.g., ""Vietcombank (VCB)"")
+6. Enter account number in ""Số tài khoản"" field
+7. Enter account holder name in ""Tên chủ tài khoản"" field (uppercase, no accents)
+8. Click ""Gửi yêu cầu hoàn tiền"" button
+9. Observe button state and page behavior","1. Refund request page displays heading ""Yêu cầu Hoàn tiền""
+2. ""Thông tin Booking"" card shows: Condotel name, booking date, check-in/check-out dates, refund amount (red, bold)
+3. Form displays three required fields: Bank name (dropdown), Account number, Account holder name
+4. Account holder name field automatically converts to uppercase
+5. When clicking ""Gửi yêu cầu hoàn tiền"", button text changes to ""Đang xử lý..."" with spinner icon
+6. Button becomes disabled during processing
+7. After successful submission, green success message appears: ""Yêu cầu hoàn tiền đã được gửi thành công. Admin sẽ xử lý trong vòng 1-3 ngày làm việc.""
+8. Message shows: ""Đang chuyển đến trang danh sách booking...""
+9. After 2 seconds, user is automatically redirected to /my-bookings page",Booking exists with status ""Cancelled"", ""Confirmed"", ""Completed"", or ""Refunded""
+WF-REFUND-004,RequestRefund,Submit Refund Request - Missing Bank Information,"1. On refund request page (/request-refund/{bookingId}), observe form
+2. Leave all fields empty
+3. Click ""Gửi yêu cầu hoàn tiền"" button
+4. Observe error message","1. Alert dialog appears with message: ""Vui lòng điền đầy đủ thông tin ngân hàng""
+2. Form remains on page, no navigation occurs
+3. All form fields remain empty",Booking exists with status ""Cancelled""
+WF-REFUND-005,RequestRefund,Submit Refund Request - Booking Already Refunded,"1. On refund request page (/request-refund/{bookingId}), fill in bank information
+2. Select bank name, enter account number and account holder name
+3. Click ""Gửi yêu cầu hoàn tiền"" button
+4. Observe error message","1. Red error message appears in error box
+2. Error message displays: ""Booking has already been refunded.""
+3. Form remains on page, no navigation occurs
+4. User can click ""Quay lại danh sách booking"" link to navigate back",Booking exists with status ""Refunded"" and has completed refund request
+WF-REFUND-006,RequestRefund,View Refund Request Page - Invalid Booking ID,"1. Navigate directly to refund request page with invalid booking ID (/request-refund/99999)
+2. Observe page content","1. Page displays error message: ""Không tìm thấy thông tin booking""
+2. Link ""Quay lại danh sách booking"" is visible
+3. Clicking link navigates to /my-bookings page",User is logged in as Tenant
+,,,,
+Scenario B: Tenant Cancel Booking (3 test cases),,,,
+WF-REFUND-007,CancelBooking,Cancel Booking - Pending Status,"1. Navigate to booking detail page for booking with status ""Pending""
+2. Observe ""❌ Hủy đặt phòng"" button is visible
+3. Click ""❌ Hủy đặt phòng"" button
+4. Click ""OK"" in confirmation dialog
+5. Observe booking status update","1. ""❌ Hủy đặt phòng"" button is visible and enabled
+2. Confirmation dialog appears
+3. After confirmation, button text changes to ""Đang hủy...""
+4. Button becomes disabled during processing
+5. After successful cancellation, booking status badge changes to ""Đã hủy"" (red badge)
+6. ""❌ Hủy đặt phòng"" button disappears
+7. If cancelled within 2 days, ""💰 Yêu cầu hoàn tiền"" button appears",Booking exists with status ""Pending""
+WF-REFUND-008,CancelBooking,Cancel Booking - Confirmed Status,"1. Navigate to booking detail page for booking with status ""Confirmed""
+2. Observe ""❌ Hủy đặt phòng"" button is visible
+3. Click ""❌ Hủy đặt phòng"" button
+4. Click ""OK"" in confirmation dialog
+5. Observe booking status update","1. ""❌ Hủy đặt phòng"" button is visible and enabled
+2. Confirmation dialog appears
+3. After confirmation, booking status badge changes to ""Đã hủy"" (red badge)
+4. ""❌ Hủy đặt phòng"" button disappears
+5. If cancelled within 2 days, ""💰 Yêu cầu hoàn tiền"" button appears",Booking exists with status ""Confirmed""
+WF-REFUND-009,CancelBooking,Cancel Booking - Already Cancelled,"1. Navigate to booking detail page for booking with status ""Cancelled""
+2. Observe button visibility","1. ""❌ Hủy đặt phòng"" button is NOT visible
+2. If cancelled within 2 days, ""💰 Yêu cầu hoàn tiền"" button is visible
+3. Booking status badge shows ""Đã hủy"" (red badge)",Booking exists with status ""Cancelled""
+,,,,
+Scenario C: Admin View and Manage Refund Requests (8 test cases),,,,
+WF-REFUND-010,AdminRefundManagement,View Refund Requests List - All Statuses,"1. Open browser and login the system with Admin role
+2. Navigate to ""Quản lý Yêu cầu Hoàn tiền"" page (/admin/refunds) by clicking on admin menu
+3. Observe page content
+4. Review table headers
+5. Observe refund requests displayed in table","1. Page displays heading ""Quản lý Yêu cầu Hoàn tiền""
+2. Subheading shows: ""Quản lý các yêu cầu hủy phòng và hoàn tiền từ khách hàng""
+3. Search and filter toolbar is visible at top
+4. Table displays with columns: ""Mã Đơn"", ""Khách hàng"", ""Số tiền hoàn"", ""Thông tin nhận tiền"", ""Quét mã hoàn tiền"", ""Trạng thái"", ""Hành động""
+5. Refund requests are displayed in table rows
+6. Each row shows booking ID (format: BOOK-001), customer name, email, refund amount (red, bold), bank info, QR code (if pending), status badge, action buttons",User is logged in as Admin, at least one refund request exists in system
+WF-REFUND-011,AdminRefundManagement,Filter Refund Requests - By Status,"1. On refund management page, locate ""Trạng thái"" dropdown filter
+2. Click dropdown to see options
+3. Select ""⏳ Chưa hoàn tiền"" option
+4. Observe table updates
+5. Select ""✅ Đã hoàn tiền"" option
+6. Observe table updates
+7. Select ""Tất cả"" option
+8. Observe table updates","1. Status dropdown shows options: ""Tất cả"", ""⏳ Chưa hoàn tiền"", ""✅ Đã hoàn tiền""
+2. When selecting ""⏳ Chưa hoàn tiền"", table shows only requests with status ""Pending""
+3. Status badges show ""⏳ Chưa hoàn tiền"" (yellow badge)
+4. When selecting ""✅ Đã hoàn tiền"", table shows only requests with status ""Completed"" or ""Refunded""
+5. Status badges show ""✅ Đã hoàn tiền"" (green badge)
+6. When selecting ""Tất cả"", table shows all refund requests
+7. Table updates automatically after selection",User is logged in as Admin
+WF-REFUND-012,AdminRefundManagement,Search Refund Requests - By Booking ID,"1. On refund management page, locate search input field
+2. Enter booking ID (e.g., ""BOOK-001"" or ""1"") in search field
+3. Observe table updates
+4. Clear search field
+5. Observe table updates","1. Search input field is visible with placeholder: ""Mã đơn, tên khách hàng, email...""
+2. After entering search term, table filters to show matching requests
+3. Matching is done on booking ID, customer name, or email
+4. After clearing search, table shows all requests again
+5. Search has debounce (500ms delay)",User is logged in as Admin
+WF-REFUND-013,AdminRefundManagement,View QR Code - Compact Size,"1. On refund management page, locate a refund request with status ""Pending"" and bank info
+2. Observe QR code thumbnail in ""Quét mã hoàn tiền"" column
+3. Click on QR code thumbnail
+4. Observe modal appears","1. QR code thumbnail (compact size) is visible in table cell
+2. Thumbnail shows ""🔍 Phóng to"" text below QR code
+3. When clicking thumbnail, modal appears with larger QR code
+4. Modal displays: Title (customer name), QR code image (print size), refund amount, content text
+5. ""Đóng"" button is visible at bottom of modal
+6. Clicking ""Đóng"" closes modal",User is logged in as Admin, refund request exists with status ""Pending"" and bank info
+WF-REFUND-014,AdminRefundManagement,Process Auto Refund - Valid Request,"1. On refund management page, locate a refund request with status ""Pending""
+2. Click ""💰 Hoàn tự động"" button
+3. Observe modal appears
+4. Review modal content
+5. Optionally enter reason in textarea
+6. Click ""Hoàn tiền tự động"" button in modal
+7. Observe button state and page behavior","1. ""💰 Hoàn tự động"" button is visible and enabled for pending requests
+2. Modal appears with title: ""Hoàn tiền tự động?""
+3. Modal shows description: ""Bạn có muốn hoàn tiền tự động cho khách hàng qua Cas Transfer API? Hệ thống sẽ tự động chuyển tiền vào tài khoản ngân hàng của khách hàng.""
+4. Textarea for reason is visible with placeholder: ""Nhập lý do hoàn tiền...""
+5. ""Hủy bỏ"" and ""Hoàn tiền tự động"" buttons are visible
+6. When clicking ""Hoàn tiền tự động"", button text changes to ""Đang xử lý...""
+7. Button becomes disabled during processing
+8. After successful processing, alert appears: ""Hoàn tiền tự động thành công!""
+9. Modal closes automatically
+10. Table refreshes to show updated status",User is logged in as Admin, refund request exists with status ""Pending""
+WF-REFUND-015,AdminRefundManagement,Process Manual Refund - Valid Request,"1. On refund management page, locate a refund request with status ""Pending"" and bank info
+2. Click ""✅ Xác nhận thủ công"" button
+3. Observe modal appears
+4. Review modal content including QR code
+5. Review bank information displayed
+6. Click ""Xác nhận ngay"" button in modal
+7. Observe button state and page behavior","1. ""✅ Xác nhận thủ công"" button is visible and enabled for pending requests
+2. Modal appears with title: ""Xác nhận đã chuyển khoản?""
+3. Modal shows description: ""Bạn xác nhận rằng đã chuyển tiền thành công cho khách hàng này qua ngân hàng? Hành động này sẽ cập nhật trạng thái đơn hàng thành \""Đã hoàn tiền\"".""
+4. QR code section displays: Customer name, refund amount (green, bold), bank name, account number, account holder name
+5. Large QR code image (print size) is visible with text: ""Quét mã QR để chuyển khoản""
+6. If QR code is loading, spinner appears with text: ""Đang tạo QR code...""
+7. ""Hủy bỏ"" and ""Xác nhận ngay"" buttons are visible
+8. When clicking ""Xác nhận ngay"", button text changes to ""Đang xử lý...""
+9. Button becomes disabled during processing
+10. After successful processing, alert appears: ""Đã xác nhận chuyển tiền thủ công thành công!""
+11. Modal closes automatically
+12. Table refreshes to show status changed to ""✅ Đã hoàn tiền""",User is logged in as Admin, refund request exists with status ""Pending"" and bank info
+WF-REFUND-016,AdminRefundManagement,View Refund Request - Already Processed,"1. On refund management page, locate a refund request with status ""Completed"" or ""Refunded""
+2. Observe action column content","1. Status badge shows ""✅ Đã hoàn tiền"" (green badge)
+2. ""💰 Hoàn tự động"" and ""✅ Xác nhận thủ công"" buttons are NOT visible
+3. Text ""Đã xử lý xong"" is displayed in action column (gray, italic)
+4. QR code column shows ""--"" (gray, italic) instead of QR code",User is logged in as Admin, refund request exists with status ""Completed"" or ""Refunded""
+WF-REFUND-017,AdminRefundManagement,Filter Refund Requests - By Date Range,"1. On refund management page, locate ""Từ ngày"" date picker
+2. Select a start date
+3. Locate ""Đến ngày"" date picker
+4. Select an end date
+5. Observe table updates
+6. Click ""Xóa bộ lọc"" button
+7. Observe table updates","1. ""Từ ngày"" and ""Đến ngày"" date pickers are visible
+2. After selecting dates, table filters to show requests within date range
+3. Table updates automatically
+4. ""Xóa bộ lọc"" button is visible
+5. After clicking ""Xóa bộ lọc"", all filters reset (search, status, dates)
+6. Table shows all requests again",User is logged in as Admin
+,,,,
+Scenario D: Refund Request Validation and Error Handling (6 test cases),,,,
+WF-REFUND-018,RefundValidation,Request Refund - Booking Not Paid to Host,"1. Navigate to refund request page for booking that has NOT been paid to host
+2. Fill in bank information
+3. Submit refund request
+4. Observe success message","1. Form accepts bank information
+2. After submission, success message appears
+3. Refund request is created successfully",Booking exists with status ""Cancelled"", ""Confirmed"", or ""Completed"", booking.IsPaidToHost = false
+WF-REFUND-019,RefundValidation,Request Refund - Booking Already Paid to Host,"1. Navigate to refund request page for booking that has been paid to host
+2. Fill in bank information
+3. Submit refund request
+4. Observe error message","1. Red error message appears
+2. Error message displays: ""Cannot refund booking that has already been paid to host.""
+3. Form remains on page, no navigation occurs",Booking exists with IsPaidToHost = true
+WF-REFUND-020,RefundValidation,Request Refund - Confirmed Booking Too Close to Check-in,"1. Navigate to refund request page for booking with status ""Confirmed""
+2. Booking check-in date is less than 2 days away
+3. Fill in bank information
+4. Submit refund request
+5. Observe error message","1. Red error message appears
+2. Error message displays: ""Refund is only available when cancelling at least 2 days before check-in.""
+3. Form remains on page, no navigation occurs",Booking exists with status ""Confirmed"", check-in date is less than 2 days away
+WF-REFUND-021,RefundValidation,Request Refund - Completed Booking Too Long After Check-out,"1. Navigate to refund request page for booking with status ""Completed""
+2. Booking check-out date is more than 7 days ago
+3. Fill in bank information
+4. Submit refund request
+5. Observe error message","1. Red error message appears
+2. Error message displays: ""Refund is only available within 7 days after check-out date.""
+3. Form remains on page, no navigation occurs",Booking exists with status ""Completed"", check-out date is more than 7 days ago
+WF-REFUND-022,RefundValidation,Request Refund - Completed Booking Before Check-out,"1. Navigate to refund request page for booking with status ""Completed""
+2. Booking check-out date is in the future
+3. Fill in bank information
+4. Submit refund request
+5. Observe error message","1. Red error message appears
+2. Error message displays: ""Cannot refund booking that has not completed yet.""
+3. Form remains on page, no navigation occurs",Booking exists with status ""Completed"", but check-out date is in the future
+WF-REFUND-023,RefundValidation,Request Refund - Booking Cancelled Before Payment,"1. Navigate to refund request page for booking with status ""Cancelled"" and TotalPrice = 0 or null
+2. Fill in bank information
+3. Submit refund request
+4. Observe error message","1. Red error message appears
+2. Error message displays: ""Cannot refund booking that was cancelled before payment. This booking was not paid.""
+3. Form remains on page, no navigation occurs",Booking exists with status ""Cancelled"", TotalPrice = 0 or null
+,,,,
+Scenario E: Refund Request Page UI Elements (4 test cases),,,,
+WF-REFUND-024,RefundUI,View Refund Request Page - Booking Information Display,"1. Navigate to refund request page (/request-refund/{bookingId})
+2. Observe ""Thông tin Booking"" card
+3. Review all displayed information","1. Card heading shows ""Thông tin Booking""
+2. Card displays: Condotel name (or ""Condotel #{bookingId}""), Booking date (formatted as DD/MM/YYYY), Check-in / Check-out dates (formatted as DD/MM/YYYY - DD/MM/YYYY), Refund amount (large, red, bold, formatted as currency VND)
+3. All information is clearly visible and formatted correctly",Booking exists with valid data
+WF-REFUND-025,RefundUI,View Refund Request Page - Bank Information Form,"1. Navigate to refund request page
+2. Observe ""Thông tin Tài khoản Ngân hàng"" form section
+3. Review form fields and labels","1. Form heading shows ""Thông tin Tài khoản Ngân hàng""
+2. Blue info box displays: ""Vui lòng cung cấp thông tin tài khoản ngân hàng để Admin chuyển khoản hoàn tiền cho bạn. Thời gian xử lý: 1-3 ngày làm việc.""
+3. Bank name field: Dropdown with label ""Tên Ngân hàng *"", shows list of banks (Vietcombank, MBBank, Techcombank, etc.), helper text: ""Nếu ngân hàng của bạn không có trong danh sách, vui lòng nhập mã ngân hàng (VD: VCB, MB, TCB...)""
+4. Account number field: Text input with label ""Số tài khoản *"", placeholder: ""Nhập số tài khoản..."", only accepts numbers
+5. Account holder field: Text input with label ""Tên chủ tài khoản *"", placeholder: ""VIET HOA KHONG DAU (VD: NGUYEN VAN A)"", automatically converts to uppercase, helper text: ""Vui lòng nhập tên chủ tài khoản bằng chữ in hoa, không dấu""
+6. All fields are marked as required with red asterisk (*)",User is on refund request page
+WF-REFUND-026,RefundUI,View Refund Request Page - Action Buttons,"1. Navigate to refund request page
+2. Observe action buttons at bottom of form
+3. Review button states","1. Two buttons are visible: ""Hủy"" (secondary style) and ""Gửi yêu cầu hoàn tiền"" (primary style)
+2. ""Hủy"" button is on the left, ""Gửi yêu cầu hoàn tiền"" is on the right
+3. Both buttons are full width (flex-1)
+4. ""Gửi yêu cầu hoàn tiền"" button is enabled when form is valid
+5. Button becomes disabled when submitting or after success
+6. ""Hủy"" button navigates to /my-bookings when clicked",User is on refund request page
+WF-REFUND-027,RefundUI,View Refund Request Page - Policy Information,"1. Navigate to refund request page
+2. Scroll to bottom of page
+3. Observe policy information section","1. Gray info box is visible at bottom
+2. Text displays: ""Lưu ý: Vui lòng kiểm tra kỹ thông tin tài khoản trước khi gửi yêu cầu. Nếu thông tin sai, việc hoàn tiền có thể bị trì hoãn hoặc thất bại.""
+3. Text is styled in gray (text-gray-600)",User is on refund request page
+,,,,
+Scenario F: Admin Refund Management UI Elements (5 test cases),,,,
+WF-REFUND-028,AdminRefundUI,View Admin Refund Page - Table Structure,"1. Navigate to admin refund management page (/admin/refunds)
+2. Observe table structure
+3. Review column headers and content","1. Table has 7 columns: ""Mã Đơn"", ""Khách hàng"", ""Số tiền hoàn"", ""Thông tin nhận tiền"", ""Quét mã hoàn tiền"", ""Trạng thái"", ""Hành động""
+2. ""Mã Đơn"" column shows formatted booking ID (BOOK-001, BOOK-002, etc.)
+3. ""Khách hàng"" column shows customer name (bold), email (smaller), cancel date if available
+4. ""Số tiền hoàn"" column shows refund amount in red, bold, formatted as VND currency
+5. ""Thông tin nhận tiền"" column shows bank name, account number, account holder (or ""Chưa có thông tin"" if missing)
+6. ""Quét mã hoàn tiền"" column shows QR code thumbnail for pending requests (or ""--"" for completed)
+7. ""Trạng thái"" column shows status badge (yellow for pending, green for completed)
+8. ""Hành động"" column shows action buttons for pending requests (or ""Đã xử lý xong"" for completed)",User is logged in as Admin
+WF-REFUND-029,AdminRefundUI,View Admin Refund Page - Empty State,"1. Navigate to admin refund management page
+2. Apply filters that result in no matches
+3. Observe empty state","1. Table shows empty state message
+2. Empty state displays: Large search icon (🔍), Heading ""Không tìm thấy kết quả phù hợp"", Subheading ""Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm""
+3. Empty state is centered in table",User is logged in as Admin, no refund requests match current filters
+WF-REFUND-030,AdminRefundUI,View Admin Refund Page - QR Code Modal,"1. Click on QR code thumbnail in table
+2. Observe modal appears
+3. Review modal content","1. Modal appears with dark overlay (black, 70% opacity)
+2. Modal content is centered on screen
+3. Modal shows: Title (customer name), QR code image (large, print size), Refund amount (green, bold, formatted as VND), Content text (booking ID format: ""Hoan tien BOOK-001""), ""Đóng"" button at bottom
+4. Clicking outside modal or on ""Đóng"" button closes modal
+5. Modal has smooth animation (fadeIn)",User is logged in as Admin, refund request exists with QR code
+WF-REFUND-031,AdminRefundUI,View Admin Refund Page - Manual Refund Modal,"1. Click ""✅ Xác nhận thủ công"" button
+2. Observe modal appears
+3. Review modal content including QR code section","1. Modal appears with title: ""Xác nhận đã chuyển khoản?""
+2. Modal shows description text
+3. QR code section displays: Section heading ""📱 QR Code chuyển khoản"", Customer name, Refund amount (green, bold), Bank name, Account number, Account holder name, Large QR code image (print size, 264x264px), Helper text: ""Quét mã QR để chuyển khoản""
+4. If QR code is loading, spinner appears with text: ""Đang tạo QR code...""
+5. ""Hủy bỏ"" and ""Xác nhận ngay"" buttons are visible at bottom
+6. Modal is scrollable if content is too long (max-height: 90vh)",User is logged in as Admin, refund request exists with bank info
+WF-REFUND-032,AdminRefundUI,View Admin Refund Page - Auto Refund Modal,"1. Click ""💰 Hoàn tự động"" button
+2. Observe modal appears
+3. Review modal content","1. Modal appears with title: ""Hoàn tiền tự động?""
+2. Modal shows description: ""Bạn có muốn hoàn tiền tự động cho khách hàng qua Cas Transfer API? Hệ thống sẽ tự động chuyển tiền vào tài khoản ngân hàng của khách hàng.""
+3. Textarea for reason is visible with label ""Lý do hoàn tiền (tùy chọn)"" and placeholder ""Nhập lý do hoàn tiền...""
+4. ""Hủy bỏ"" and ""Hoàn tiền tự động"" buttons are visible at bottom
+5. Modal does NOT show QR code section
+6. Modal is scrollable if content is too long",User is logged in as Admin, refund request exists with status ""Pending""
+
+

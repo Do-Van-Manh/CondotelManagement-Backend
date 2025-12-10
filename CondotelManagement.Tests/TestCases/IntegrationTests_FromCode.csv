@@ -1,0 +1,750 @@
+﻿Test Case ID,Function Name,Sheet Name,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions
+TC-AUTH-002,Register,AccountManagement,Register with existing email,"1. Create a request in Postman with POST method to https://localhost:5000/api/auth/register
+2. Set request body as raw JSON:
+{
+  ""email"": ""tenant@test.com"",
+  ""password"": ""Password123!"",
+  ""fullName"": ""Existing User"",
+  ""phone"": ""0123456789""
+}
+3. Click Send","Message contains ""đã tồn tại""
+Status = 400
+Success = false",User with email tenant@test.com already exists and is activated
+TC-AUTH-003,Register,AccountManagement,Register with invalid email format,"1. Create a request in Postman with POST method to https://localhost:5000/api/auth/register
+2. Set request body as raw JSON:
+{
+  ""email"": ""invalid-email"",
+  ""password"": ""Password123!"",
+  ""fullName"": ""Test User"",
+  ""phone"": ""0123456789""
+}
+3. Click Send","Status = 400
+Success = false",User does not have an account
+TC-AUTH-005,Verify OTP / Verify Email,AccountManagement,Verify email with invalid OTP,"1. Create a request in Postman with POST method to https://localhost:5000/api/auth/verify-email
+2. Set request body as raw JSON:
+{
+  ""email"": ""pending2@test.com"",
+  ""otp"": ""999999""
+}
+3. Click Send","Message contains ""không hợp lệ"" or ""sai"" or ""hết hạn""
+Status = 400
+Success = false",User has registered and received OTP via email
+TC-AUTH-007,Login,AccountManagement,Login with invalid password,"1. Create a request in Postman with POST method to https://localhost:5000/api/auth/login
+2. Set request body as raw JSON:
+{
+  ""email"": ""tenant@test.com"",
+  ""password"": ""WrongPassword""
+}
+3. Click Send","Message contains ""không đúng"" or ""chưa được kích hoạt""
+Status = 401
+Success = false",User exists and is active
+TC-AUTH-008,Login,AccountManagement,Login with non-existent email,"1. Create a request in Postman with POST method to https://localhost:5000/api/auth/login
+2. Set request body as raw JSON:
+{
+  ""email"": ""notexist@test.com"",
+  ""password"": ""Password123!""
+}
+3. Click Send","Status = 401
+Success = false",User does not exist in system
+TC-AUTH-009,Get Current User,AccountManagement,Get current user profile,"1. Create a request in Postman with GET method to https://localhost:5000/api/auth/me
+2. Set Authorization header: Bearer {token}
+3. Click Send","Response contains user profile:
+- userId, email, fullName, etc.
+Status = 200
+Success = true",User is logged in and has valid JWT token
+TC-AUTH-010,Get Current User,AccountManagement,Get current user without token,"1. Create a request in Postman with GET method to https://localhost:5000/api/auth/me
+2. Do not set Authorization header
+3. Click Send","Status = 401
+Success = false",No authentication token
+TC-AUTH-011,Reset Password with OTP,AccountManagement,Send OTP for password reset,"1. Create a request in Postman with POST method to https://localhost:5000/api/auth/send-otp
+2. Set request body as raw JSON:
+{
+  ""email"": ""tenant@test.com""
+}
+3. Click Send","Status = 200
+Success = true",User exists and is active
+TC-AUTH-013,Reset Password with OTP,AccountManagement,Reset password with invalid OTP,"1. Create a request in Postman with POST method to https://localhost:5000/api/auth/reset-password-with-otp
+2. Set request body as raw JSON:
+{
+  ""email"": ""tenant@test.com"",
+  ""otp"": ""999999"",
+  ""newPassword"": ""NewPassword123!""
+}
+3. Click Send","Message contains ""thất bại"" or ""không hợp lệ"" or ""sai"" or ""hết hạn""
+Status = 400
+Success = false",User has received OTP via email
+TC-AUTH-016,Logout,AccountManagement,Logout user,"1. Create a request in Postman with POST method to https://localhost:5000/api/auth/logout
+2. Set Authorization header: Bearer {token}
+3. Click Send","Message contains ""thành công""
+Status = 200
+Success = true",User is logged in
+TC-AUTH-018,Authorization / Admin Check,AccountManagement,Check admin access,"1. Create a request in Postman with GET method to https://localhost:5000/api/auth/admin-check
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Message contains ""Admin"" or ""Chào mừng""
+Status = 200
+Success = true",Admin is logged in
+TC-AUTH-019,Register,AccountManagement,Register with missing required fields,"1. Create a request in Postman with POST method to https://localhost:5000/api/auth/register
+2. Set request body as raw JSON:
+{
+  ""email"": ""test@test.com""
+}
+3. Click Send","Status = 400
+Success = false",User does not have an account
+TC-AUTH-020,Register,AccountManagement,Register with weak password,"1. Create a request in Postman with POST method to https://localhost:5000/api/auth/register
+2. Set request body as raw JSON:
+{
+  ""email"": ""newuser2@test.com"",
+  ""password"": ""12345"",
+  ""fullName"": ""New User"",
+  ""phone"": ""0123456789""
+}
+3. Click Send","Status = 400
+Success = false",User does not have an account
+TC-AUTH-022,Login,AccountManagement,Login with unverified account,"1. Create a request in Postman with POST method to https://localhost:5000/api/auth/login
+2. Set request body as raw JSON:
+{
+  ""email"": ""pending3@test.com"",
+  ""password"": ""Password123!""
+}
+3. Click Send","Status = 401
+Success = false",User exists but Status = Pending (not verified)
+TC-ADMIN-002,Get All Users,AccountManagement,Get All Users,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/users
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Response contains array of UserViewDTO:
+- List of all users with user details
+Status = 200
+Success = true",Admin is logged in
+TC-ADMIN-003,Get User by ID,AccountManagement,Get User by ID,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/users/1
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Response contains UserViewDTO with full user details
+Status = 200
+Success = true",Admin is logged in
+User ID = 1 exists,,,,,,
+TC-ADMIN-004,Create User,AccountManagement,Create User,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/users
+2. Set Authorization header: Bearer {admin-token}
+3. Set request body as raw JSON:
+{
+  ""fullName"": ""Admin Created User"",
+  ""email"": ""admincreated@test.com"",
+  ""password"": ""Password123!"",
+  ""roleId"": 3,
+  ""phone"": ""0123456789""
+}
+4. Click Send","Response contains:
+- message: User created message
+- data: UserViewDTO
+Status = 201
+Success = true",Admin is logged in
+TC-ADMIN-005,Update User Status,AccountManagement,Update User Status,"1. Create a request in Postman with PUT method to https://localhost:5000/api/admin/users/1/status
+2. Set Authorization header: Bearer {admin-token}
+3. Set request body as raw JSON:
+{
+  ""userId"": 1,
+  ""status"": ""Inactive""
+}
+4. Click Send","Response contains:
+- message: Status updated message
+Status = 200
+Success = true
+User status updated to ""Inactive"" in database",Admin is logged in
+User ID = 1 exists,,,,,,
+TC-ADMIN-015,Get User by ID,AccountManagement,Admin get non-existent user,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/users/999
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Message contains ""Không tìm thấy""
+Status = 404
+Success = false",Admin is logged in
+TC-ADMIN-016,Create User,AccountManagement,Admin create user with invalid data,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/users
+2. Set Authorization header: Bearer {admin-token}
+3. Set request body as raw JSON:
+{
+  ""fullName"": """",
+  ""email"": ""invalid-email"",
+  ""password"": ""123"",
+  ""roleId"": 0
+}
+4. Click Send","Status = 400
+Success = false",Admin is logged in
+TC-ADMIN-017,Create User,AccountManagement,Admin create user with existing email,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/users
+2. Set Authorization header: Bearer {admin-token}
+3. Set request body as raw JSON:
+{
+  ""fullName"": ""New User"",
+  ""email"": ""tenant@test.com"",
+  ""password"": ""Password123!"",
+  ""roleId"": 3
+}
+4. Click Send","Status = 400
+Success = false",Admin is logged in
+User with email tenant@test.com already exists,,,,,,
+TC-BOOKING-011,Update Booking,BookingManagement,Update booking details,"1. Create a request in Postman with PUT method to https://localhost:5000/api/booking/1
+2. Set Authorization header: Bearer {token}
+3. Set request body as raw JSON:
+{
+  ""bookingId"": 1,
+  ""condotelId"": 1,
+  ""startDate"": ""2025-12-02"",
+  ""endDate"": ""2025-12-04""
+}
+4. Click Send","Response contains updated BookingDTO
+Status = 200
+Success = true",User is logged in (Tenant role)
+Booking ID = 1 exists and belongs to current user,,,,,,
+TC-BOOKING-012,Get Bookings by Host,BookingManagement,Host get all bookings for their condotels,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/booking
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains array of HostBookingDTO:
+- Only bookings for condotels belonging to current host
+Status = 200
+Success = true",Host is logged in
+Host has condotels with bookings,,,,,,
+TC-BOOKING-014,Get Booking by ID,BookingManagement,Get non-existent booking,"1. Create a request in Postman with GET method to https://localhost:5000/api/booking/999
+2. Set Authorization header: Bearer {token}
+3. Click Send","Status = 404
+Success = false",User is logged in (Tenant role)
+TC-BOOKING-016,Update Booking,BookingManagement,Update booking with invalid date range,"1. Create a request in Postman with PUT method to https://localhost:5000/api/booking/1
+2. Set Authorization header: Bearer {token}
+3. Set request body as raw JSON:
+{
+  ""bookingId"": 1,
+  ""condotelId"": 1,
+  ""startDate"": ""2025-12-05"",
+  ""endDate"": ""2025-12-03""
+}
+4. Click Send","Status = 400
+Success = false",User is logged in (Tenant role)
+Booking ID = 1 exists and belongs to current user,,,,,,
+TC-REVIEW-005,Get Review by ID,CommunicationManagement,Get Review by ID,"1. Create a request in Postman with GET method to https://localhost:5000/api/tenant/reviews/1
+2. Set Authorization header: Bearer {token}
+3. Click Send","Response contains:
+- success: true
+- data: ReviewDTO with full review details
+Status = 200
+Success = true",User is logged in (Tenant role)
+Review ID = 1 exists and belongs to current user,,,,,,
+TC-REVIEW-006,Update Review,CommunicationManagement,Update review within 7 days,"1. Create a request in Postman with PUT method to https://localhost:5000/api/tenant/reviews/1
+2. Set Authorization header: Bearer {token}
+3. Set request body as raw JSON:
+{
+  ""reviewId"": 1,
+  ""rating"": 4,
+  ""comment"": ""Updated review comment""
+}
+4. Click Send","Response contains:
+- success: true
+- message: ""Review updated successfully""
+- data: Updated ReviewDTO
+Status = 200
+Success = true",User is logged in (Tenant role)
+Review ID = 1 exists, belongs to current user, and created within 7 days,,,,
+TC-REVIEW-007,Delete Review,CommunicationManagement,Delete review within 7 days,"1. Create a request in Postman with DELETE method to https://localhost:5000/api/tenant/reviews/1
+2. Set Authorization header: Bearer {token}
+3. Click Send","Response contains:
+- success: true
+- message: ""Review deleted successfully""
+Status = 200
+Success = true",User is logged in (Tenant role)
+Review ID = 1 exists, belongs to current user, and created within 7 days,,,,
+TC-REVIEW-008,Get My Reviews,CommunicationManagement,Host get all reviews for their condotels,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/review
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains array of ReviewDTO:
+- Only reviews for condotels belonging to current host
+Status = 200
+Success = true",Host is logged in
+Host has condotels with reviews,,,,,,
+TC-REVIEW-009,Host Report Review,CommunicationManagement,Host report inappropriate review,"1. Create a request in Postman with PUT method to https://localhost:5000/api/host/review/1/report
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Message contains ""Đã report review"" or ""thành công""
+Status = 200
+Success = true
+Review status updated to ""Reported"" in database",Host is logged in
+Review ID = 1 exists for host's condotel,,,,,,
+TC-REVIEW-010,Host Reply to Review,CommunicationManagement,Host reply to non-existent review,"1. Create a request in Postman with PUT method to https://localhost:5000/api/host/review/999/reply
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""reply"": ""Thank you for your feedback!""
+}
+4. Click Send","Status = 404
+Success = false",Host is logged in
+TC-REVIEW-017,Create Review,CommunicationManagement,Create review with invalid rating,"1. Create a request in Postman with POST method to https://localhost:5000/api/tenant/reviews
+2. Set Authorization header: Bearer {token}
+3. Set request body as raw JSON:
+{
+  ""bookingId"": 1,
+  ""rating"": 10,
+  ""comment"": ""Great stay!""
+}
+4. Click Send","Status = 400
+Success = false",User is logged in (Tenant role)
+Booking ID = 1 exists and is completed,,,,,,
+TC-HOST-004,Register as Host,AccountManagement,Register user as host,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/register-as-host
+2. Set Authorization header: Bearer {token}
+3. Set request body as raw JSON:
+{
+  ""phoneContact"": ""0123456789"",
+  ""address"": ""Host Address""
+}
+4. Click Send","Response contains:
+- message contains ""thành công""
+- hostId: Host ID
+Status = 200
+Success = true",User is logged in
+User does not have host account,,,,,,
+TC-HOST-005,Get Condotel Details,CondotelManagement,Host get condotel by ID,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/condotel/1
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains CondotelDetailDTO with full condotel details
+Status = 200
+Success = true",Host is logged in
+Condotel ID = 1 exists and belongs to host,,,,,,
+TC-HOST-006,Get Condotel Details,CondotelManagement,Host get non-existent condotel,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/condotel/999
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Message contains ""not found"" or ""Không tìm thấy""
+Status = 404
+Success = false",Host is logged in
+TC-HOST-007,Update Condotel,CondotelManagement,Host delete condotel,"1. Create a request in Postman with DELETE method to https://localhost:5000/api/host/condotel/1
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Message contains ""deleted successfully"" or ""thành công""
+Status = 200
+Success = true
+Condotel deleted from database",Host is logged in
+Condotel ID = 1 exists and belongs to host,,,,,,
+TC-HOST-009,Create Condotel,CondotelManagement,Host create condotel with invalid data,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/condotel
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""name"": """",
+  ""description"": """",
+  ""resortId"": 0,
+  ""pricePerNight"": -100
+}
+4. Click Send","Status = 400
+Success = false",Host is logged in
+TC-VOUCHER-003,View Condotel Vouchers,MarketingManagement,Tenant view condotel vouchers,"1. Create a request in Postman with GET method to https://localhost:5000/api/tenant/voucher/condotel/1
+2. Click Send (no authentication required)","Response contains array of VoucherDTO:
+- Only valid vouchers (not expired, not max uses reached)
+Status = 200
+Success = true",Condotel ID = 1 has vouchers
+TC-VOUCHER-004,Get Vouchers by Host,MarketingManagement,Host get all their vouchers,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/voucher
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains array of VoucherDTO:
+- Only vouchers belonging to current host
+Status = 200
+Success = true",Host is logged in
+Host has vouchers,,,,,,
+TC-VOUCHER-005,Update Voucher,MarketingManagement,Host update voucher,"1. Create a request in Postman with PUT method to https://localhost:5000/api/host/voucher/1
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""code"": ""UPDATED2024"",
+  ""discountPercentage"": 15,
+  ""maxUses"": 200,
+  ""expiryDate"": ""2025-12-31T00:00:00Z""
+}
+4. Click Send","Response contains updated VoucherDTO
+Status = 200
+Success = true",Host is logged in
+Voucher ID = 1 exists and belongs to host,,,,,,
+TC-VOUCHER-006,Delete Voucher,MarketingManagement,Host delete voucher,"1. Create a request in Postman with DELETE method to https://localhost:5000/api/host/voucher/1
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Status = 204 or 200
+Success = true
+Voucher deleted from database",Host is logged in
+Voucher ID = 1 exists and belongs to host,,,,,,
+TC-VOUCHER-009,Create Voucher,MarketingManagement,Host create voucher with invalid data,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/voucher
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""code"": """",
+  ""condotelId"": 0,
+  ""discountPercentage"": -10,
+  ""maxUses"": -1
+}
+4. Click Send","Status = 400
+Success = false",Host is logged in
+TC-PAYMENT-001,Create Payment Link,BookingManagement,Create payment link for booking,"1. Create a request in Postman with POST method to https://localhost:5000/api/payment/payos/create
+2. Set Authorization header: Bearer {token}
+3. Set request body as raw JSON:
+{
+  ""bookingId"": 1
+}
+4. Click Send","Response contains:
+- success: true
+- data: {
+    checkoutUrl: PayOS checkout URL
+    paymentLinkId: Payment link ID
+    qrCode: QR code string
+    amount: Booking total price
+    orderCode: Order code
+    bookingId: 1
+  }
+Status = 200
+Success = true",User is logged in (Tenant role)
+"Booking ID = 1 exists with Status = """"Pending""""",,,,,,
+Booking.TotalPrice >= 10000 VND,,,,,,
+TC-PAYMENT-002,Create Payment Link,BookingManagement,Create payment with non-existent booking,"1. Create a request in Postman with POST method to https://localhost:5000/api/payment/payos/create
+2. Set Authorization header: Bearer {token}
+3. Set request body as raw JSON:
+{
+  ""bookingId"": 99999
+}
+4. Click Send","Response contains:
+- success: false
+- message: ""Booking not found""
+Status = 404
+Success = false",User is logged in (Tenant role)
+TC-PAYMENT-003,Create Payment Link,BookingManagement,Create payment for other user's booking,"1. Create a request in Postman with POST method to https://localhost:5000/api/payment/payos/create
+2. Set Authorization header: Bearer {token}
+3. Set request body as raw JSON:
+{
+  ""bookingId"": 1
+}
+4. Click Send","Response contains:
+- success: false
+- message: ""Access denied""
+Status = 403 or 404
+Success = false",User is logged in (Tenant role)
+Booking ID = 1 belongs to different user,,,,,,
+TC-PAYMENT-004,Create Payment Link,BookingManagement,Create payment for already paid booking,"1. Create a request in Postman with POST method to https://localhost:5000/api/payment/payos/create
+2. Set Authorization header: Bearer {token}
+3. Set request body as raw JSON:
+{
+  ""bookingId"": 1
+}
+4. Click Send","Response contains:
+- success: false
+- message contains ""not in a payable state"" or ""không thể thanh toán""
+Status = 400
+Success = false",User is logged in (Tenant role)
+"Booking ID = 1 has Status = """"Confirmed""""",,,,,,
+TC-TENANT-005,Filter Condotel by Location,CondotelManagement,Filter condotels by location,"1. Create a request in Postman with GET method to https://localhost:5000/api/tenant/condotels?locationId=1
+2. Click Send (no authentication required)","Response contains array of CondotelDTO:
+- All condotels have location matching locationId
+Status = 200
+Success = true",Condotels with locationId = 1 exist
+TC-TENANT-006,Filter Condotel by Date Range,CondotelManagement,Filter condotels by available date range,"1. Create a request in Postman with GET method to https://localhost:5000/api/tenant/condotels?fromDate=2025-12-01&toDate=2025-12-05
+2. Click Send (no authentication required)","Response contains array of CondotelDTO:
+- All condotels are available in date range
+Status = 200
+Success = true",Condotels available in date range exist
+TC-TENANT-007,Filter Condotel by Beds and Bathrooms,CondotelManagement,Filter condotels by number of beds and bathrooms,"1. Create a request in Postman with GET method to https://localhost:5000/api/tenant/condotels?beds=3&bathrooms=2
+2. Click Send (no authentication required)","Response contains array of CondotelDTO:
+- All condotels have beds = 3 and bathrooms = 2
+Status = 200
+Success = true",Condotels with beds=3 and bathrooms=2 exist
+TC-LOCATION-001,Get All Locations,MasterDataManagement,Get All Locations,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/location
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains array of LocationDTO:
+- List of all locations
+Status = 200
+Success = true",Host is logged in
+TC-LOCATION-002,Create Location,MasterDataManagement,Host create location,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/location
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""name"": ""New Location"",
+  ""description"": ""New Location Description""
+}
+4. Click Send","Response contains LocationDTO with locationId
+Status = 201
+Success = true",Host is logged in
+TC-LOCATION-003,Get Location by ID,MasterDataManagement,Get Location by ID,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/location/1
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains LocationDTO with full location details
+Status = 200
+Success = true",Host is logged in
+Location ID = 1 exists,,,,,,
+TC-LOCATION-004,Update Location,MasterDataManagement,Host update location,"1. Create a request in Postman with PUT method to https://localhost:5000/api/host/location/1
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""name"": ""Updated Location"",
+  ""description"": ""Updated Description""
+}
+4. Click Send","Message contains ""thành công""
+Status = 200
+Success = true",Host is logged in
+Location ID = 1 exists,,,,,,
+TC-LOCATION-005,Delete Location,MasterDataManagement,Host delete location,"1. Create a request in Postman with DELETE method to https://localhost:5000/api/host/location/1
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Message contains ""thành công""
+Status = 200
+Success = true",Host is logged in
+Location ID = 1 exists,,,,,,
+TC-LOCATION-006,Get Location by ID,MasterDataManagement,Host get non-existent location,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/location/999
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Status = 404
+Success = false",Host is logged in
+TC-LOCATION-007,Create Location,MasterDataManagement,Host create location with invalid data,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/location
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""name"": """",
+  ""description"": """"
+}
+4. Click Send","Status = 400
+Success = false",Host is logged in
+TC-RESORT-001,Get All Resorts,MasterDataManagement,Host get resorts,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/resorts
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains array of ResortDTO:
+- List of all resorts
+Status = 200
+Success = true",Host is logged in
+TC-RESORT-002,Create Resort,MasterDataManagement,Host create resort,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/resort
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""locationId"": 1,
+  ""name"": ""New Resort"",
+  ""description"": ""New Resort Description""
+}
+4. Click Send","Response contains ResortDTO with resortId
+Status = 201
+Success = true",Host is logged in
+TC-RESORT-003,Get Resort by ID,MasterDataManagement,Get Resort by ID,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/resorts/1
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains ResortDTO with full resort details
+Status = 200
+Success = true",Host is logged in
+Resort ID = 1 exists,,,,,,
+TC-RESORT-004,Get Resort by ID,MasterDataManagement,Get resorts by location ID,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/resorts/location/1
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains array of ResortDTO:
+- Only resorts in location ID = 1
+Status = 200
+Success = true",Host is logged in
+Location ID = 1 has resorts,,,,,,
+TC-RESORT-005,Get Resort by ID,MasterDataManagement,Host get non-existent resort,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/resorts/999
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Message contains ""not found"" or ""Không tìm thấy""
+Status = 404
+Success = false",Host is logged in
+TC-RESORT-007,Create Resort,MasterDataManagement,Host create resort with invalid data,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/resort
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""name"": """",
+  ""locationId"": 0
+}
+4. Click Send","Status = 400
+Success = false",Host is logged in
+TC-UTILITY-001,Get Utilities,MasterDataManagement,Host get utilities,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/utility
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains array of UtilityDTO:
+- Only utilities of current host
+Status = 200
+Success = true",Host is logged in
+Host has utilities,,,,,,
+TC-UTILITY-002,Create Utility,MasterDataManagement,Host create utility,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/utility
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""hostId"": 1,
+  ""name"": ""New Utility"",
+  ""category"": ""New Category"",
+  ""description"": ""New Description""
+}
+4. Click Send","Response contains UtilityDTO
+Status = 200
+Success = true",Host is logged in
+TC-UTILITY-003,Get Utility by ID,MasterDataManagement,Get Utility by ID,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/utility/1
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains UtilityDTO with full utility details
+Status = 200
+Success = true",Host is logged in
+Utility ID = 1 exists and belongs to host,,,,,,
+TC-UTILITY-004,Update Utility,MasterDataManagement,Host update utility,"1. Create a request in Postman with PUT method to https://localhost:5000/api/host/utility/1
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""name"": ""Updated Utility"",
+  ""category"": ""Updated Category"",
+  ""description"": ""Updated Description""
+}
+4. Click Send","Message contains ""thành công"" or ""success""
+Status = 200
+Success = true",Host is logged in
+Utility ID = 1 exists and belongs to host,,,,,,
+TC-UTILITY-005,Delete Utility,MasterDataManagement,Host delete utility,"1. Create a request in Postman with DELETE method to https://localhost:5000/api/host/utility/1
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Message contains ""thành công"" or ""success""
+Status = 200
+Success = true",Host is logged in
+Utility ID = 1 exists and belongs to host,,,,,,
+TC-UTILITY-006,Get Utility by ID,MasterDataManagement,Host get non-existent utility,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/utility/999
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Message contains ""does not exist"" or ""Không tìm thấy""
+Status = 404
+Success = false",Host is logged in
+TC-UTILITY-007,Create Utility,MasterDataManagement,Host create utility with invalid data,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/utility
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""name"": """",
+  ""category"": """",
+  ""description"": """"
+}
+4. Click Send","Status = 400
+Success = false",Host is logged in
+TC-BLOG-001,Get Published Blog Posts,MarketingManagement,Get Published Blog Posts,"1. Create a request in Postman with GET method to https://localhost:5000/api/blog/posts
+2. Click Send (no authentication required)","Response contains array of BlogPostSummaryDto:
+- Only posts with Status = ""Published""
+Status = 200
+Success = true","Blog posts with Status = """"Published"""" exist"
+TC-BLOG-002,Get Blog Post by ID,MarketingManagement,Get Blog Post by ID,"1. Create a request in Postman with GET method to https://localhost:5000/api/blog/posts/test-post
+2. Click Send (no authentication required)","Response contains BlogPostDetailDto:
+- Full post details with content, author, category
+Status = 200
+Success = true","Blog post with slug """"test-post"""" exists and is published"
+TC-BLOG-003,Get Blog Categories,MarketingManagement,Get all blog categories,"1. Create a request in Postman with GET method to https://localhost:5000/api/blog/categories
+2. Click Send (no authentication required)","Response contains array of BlogCategoryDto
+Status = 200
+Success = true",Blog categories exist
+TC-PROMO-001,Get All Promotions,MarketingManagement,Get All Promotions,"1. Create a request in Postman with GET method to https://localhost:5000/api/promotions
+2. Click Send (no authentication required)","Response contains array of PromotionDTO:
+- List of all active promotions
+Status = 200
+Success = true",Promotions exist in system
+TC-PROMO-002,Create Promotion,MarketingManagement,Host create promotion,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/promotion
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""condotelId"": 1,
+  ""name"": ""New Promotion"",
+  ""discountPercentage"": 25,
+  ""startDate"": ""2025-12-01"",
+  ""endDate"": ""2025-12-31"",
+  ""status"": ""Active""
+}
+4. Click Send","Response contains:
+- success: true
+- data: PromotionDTO with promotionId
+Status = 201
+Success = true",Host is logged in
+TC-PROMO-003,Get Promotion by ID,MarketingManagement,Get Promotion by ID,"1. Create a request in Postman with GET method to https://localhost:5000/api/promotion/1
+2. Click Send (no authentication required)","Response contains PromotionDTO with full details
+Status = 200
+Success = true",Promotion ID = 1 exists
+TC-PROMO-004,Get Promotions by Condotel / by Host,MarketingManagement,Get promotions by condotel ID,"1. Create a request in Postman with GET method to https://localhost:5000/api/promotions/condotel/1
+2. Click Send (no authentication required)","Response contains array of PromotionDTO:
+- Only promotions for condotel ID = 1
+Status = 200
+Success = true",Condotel ID = 1 has promotions
+TC-PROMO-005,Get Promotions by Condotel / by Host,MarketingManagement,Host get all their promotions,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/promotions
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains array of PromotionDTO:
+- Only promotions belonging to current host
+Status = 200
+Success = true",Host is logged in
+Host has promotions,,,,,,
+TC-PROMO-006,Update Promotion,MarketingManagement,Host update promotion,"1. Create a request in Postman with PUT method to https://localhost:5000/api/host/promotion/1
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""condotelId"": 1,
+  ""name"": ""Updated Promotion"",
+  ""discountPercentage"": 30,
+  ""startDate"": ""2025-12-01"",
+  ""endDate"": ""2025-12-31"",
+  ""status"": ""Active""
+}
+4. Click Send","Message contains ""thành công""
+Status = 200
+Success = true",Host is logged in
+Promotion ID = 1 exists and belongs to host,,,,,,
+TC-PROMO-007,Delete Promotion,MarketingManagement,Host delete promotion,"1. Create a request in Postman with DELETE method to https://localhost:5000/api/host/promotion/1
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Message contains ""thành công""
+Status = 200
+Success = true",Host is logged in
+Promotion ID = 1 exists and belongs to host,,,,,,
+TC-PROMO-010,Create Promotion,MarketingManagement,Host create promotion with invalid data,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/promotion
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""condotelId"": 0,
+  ""name"": """",
+  ""discountPercentage"": -10,
+  ""startDate"": ""2025-12-31"",
+  ""endDate"": ""2025-12-01""
+}
+4. Click Send","Status = 400
+Success = false",Host is logged in
+TC-SERVICEPKG-001,Get Service Packages,ServiceManagement,Host get service packages,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/service-packages
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains array of ServicePackageDTO:
+- Only service packages of current host
+Status = 200
+Success = true",Host is logged in
+Host has service packages,,,,,,
+TC-SERVICEPKG-002,Create Service Package,ServiceManagement,Host create service package,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/service-packages
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""hostId"": 1,
+  ""name"": ""New Service Package"",
+  ""description"": ""New Description"",
+  ""price"": 150000,
+  ""status"": ""Active""
+}
+4. Click Send","Response contains ServicePackageDTO
+Status = 200
+Success = true",Host is logged in
+TC-SERVICEPKG-003,Get Service Package by ID,ServiceManagement,Get Service Package by ID,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/service-packages/1
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains ServicePackageDTO with full details
+Status = 200 or 404
+Success = true or false",Host is logged in
+Service Package ID = 1 may or may not exist,,,,,,
+TC-PACKAGE-001,Get Available Packages,Host Package Management,Get Available Packages,"1. Create a request in Postman with GET method to https://localhost:5000/api/package
+2. Click Send (no authentication required)","Response contains array of PackageDto:
+- List of available packages
+Status = 200
+Success = true",Packages exist in system
+TC-PROFILE-001,Get Current User,AccountManagement,Get Current User,"1. Create a request in Postman with GET method to https://localhost:5000/api/profile
+2. Set Authorization header: Bearer {token}
+3. Click Send","Response contains UserProfileDto:
+- Full user profile information
+Status = 200
+Success = true",User is logged in
+TC-PROFILE-002,Update Profile,AccountManagement,Update Profile,"1. Create a request in Postman with PUT method to https://localhost:5000/api/profile
+2. Set Authorization header: Bearer {token}
+3. Set request body as raw JSON:
+{
+  ""fullName"": ""Updated Name"",
+  ""phone"": ""0987654321"",
+  ""address"": ""Updated Address""
+}
+4. Click Send","Response contains updated UserProfileDto
+Status = 200
+Success = true
+User profile updated in database",User is logged in
+TC-HOSTPROFILE-001,Get Host Profile,AccountManagement,Host get profile,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/profile
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Response contains HostProfileDTO with full host profile details
+Status = 200
+Success = true",Host is logged in
+TC-HOSTPROFILE-002,Get Current User,AccountManagement,Host get profile when not registered as host,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/profile
+2. Set Authorization header: Bearer {token}
+3. Click Send","Message contains ""not found"" or ""Không tìm thấy""
+Status = 404
+Success = false",User is logged in but not registered as Host
+TC-HOSTPROFILE-003,Update Profile,AccountManagement,Host update profile,"1. Create a request in Postman with PUT method to https://localhost:5000/api/host/profile
+2. Set Authorization header: Bearer {host-token}
+3. Set request body as raw JSON:
+{
+  ""phoneContact"": ""0987654321"",
+  ""address"": ""Updated Address""
+}
+4. Click Send","Message contains ""thành công""
+Status = 200
+Success = true",Host is logged in
+TC-ADMIN-001,Get Dashboard Overview,Admin Dashboard Management,Get Dashboard Overview,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/dashboard/overview
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Response contains DashboardOverviewDto:
+- totalUsers, totalBookings, totalRevenue, etc.
+Status = 200
+Success = true",Admin is logged in
+
+
+
+
+

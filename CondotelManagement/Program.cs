@@ -8,6 +8,7 @@ using CondotelManagement.Services.CloudinaryService;
 using CondotelManagement.Services.Interfaces.Cloudinary;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,7 +16,9 @@ builder.Services.AddSignalR();
 
 // ====================== DB ======================
 builder.Services.AddDbContext<CondotelDbVer1Context>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("MyCnn")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("MyCnn"))
+        .LogTo(Console.WriteLine, LogLevel.Information) // Enable SQL logging
+        .EnableSensitiveDataLogging()); // Show parameter values
 
 // ====================== Controllers + JSON Fix ======================
 builder.Services.AddControllers()

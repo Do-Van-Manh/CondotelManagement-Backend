@@ -212,19 +212,6 @@ namespace CondotelManagement.Services
         public bool CheckAvailability(int condotelId, DateOnly checkIn, DateOnly checkOut)
         {
             var today = DateOnly.FromDateTime(DateTime.Now);
-
-         
-            if (checkIn < today) return false;
-
-            if (checkOut <= checkIn) return false;
-
-            var condotelExists = _context.Condotels
-                .Any(c => c.CondotelId == condotelId && c.Status == "Active");
-
-            if (!condotelExists)
-            {
-                return false; 
-            }
             var currentTransaction = _context.Database.CurrentTransaction;
             try
             {

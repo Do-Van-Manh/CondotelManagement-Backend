@@ -1,0 +1,1124 @@
+﻿TestcaseID,Function Name,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions
+,,,,,
+Scenario A: Booking Workflow (31 test cases),,,,,
+WF-BOOKING-022,BrowseCondotels,Browse Condotels - View List,"1. Open browser and navigate to application URL
+2. Navigate to ""Danh sách Condotel"" or ""Listing Stay"" page by clicking menu item (/listing-stay)
+3. View condotel list page","1. System displays list of condotels with images, names, prices
+2. Each condotel card shows: image, name, price per night, location, rating (stars)
+3. User can scroll through the list
+4. Pagination or infinite scroll works correctly
+5. Loading indicator is shown while loading
+6. Condotel cards are displayed in grid or list layout",Application is running. Condotels exist in database
+WF-BOOKING-018,CancelBooking,Cancel Booking - Pending Status,"1. Open browser and login the system with Tenant role
+2. Navigate to ""My Bookings"" page
+3. Click on pending booking from list
+4. On booking detail page, click ""Hủy đặt phòng"" or ""Cancel Booking"" button
+5. Confirm cancellation in popup dialog (click ""Xác nhận"" or ""Confirm"" button)","1. Confirmation dialog appears asking: ""Bạn có chắc chắn muốn hủy đặt phòng?""
+2. After confirmation, system displays message: ""Đã hủy đặt phòng thành công""
+3. Booking status changes to ""Đã hủy"" on booking detail page
+4. Booking disappears from active bookings list or shows as cancelled with red badge
+5. ""Hủy đặt phòng"" button is replaced with ""Đã hủy"" status",Pending booking exists and belongs to logged-in tenant
+WF-BOOKING-019,CancelBooking,Cancel Booking - Confirmed Status (Auto Refund),"1. Open browser and login the system with Tenant role
+2. Navigate to ""My Bookings"" page
+3. Click on confirmed booking from list
+4. On booking detail page, click ""Hủy đặt phòng"" button
+5. If bank information form appears, fill in:
+   - Select bank from dropdown: VCB
+   - Enter account number: 1234567890
+   - Enter account holder name: [Tenant name]
+6. Click ""Xác nhận"" in confirmation dialog","1. System displays confirmation dialog
+2. If startDate >= 2 days later, bank information form may appear
+3. After confirmation, system displays message: ""Đã hủy đặt phòng. Yêu cầu hoàn tiền đã được tạo""
+4. Booking status changes to ""Đã hủy""
+5. Refund request is created with status ""Đang chờ xử lý""
+6. User can see refund request in ""Yêu cầu hoàn tiền"" section or notification
+7. Success message is displayed",Confirmed booking exists with startDate >= 2 days later. Booking belongs to logged-in tenant
+WF-BOOKING-020,CancelBooking,Cancel Booking - Not Found,"1. Open browser and login the system with Tenant role
+2. Try to cancel booking with invalid booking ID (e.g., type URL: /booking-history/99999 and try to cancel)","1. System displays 404 error page
+2. Shows message: ""Không tìm thấy booking""
+3. Cancel button is not available or error is shown
+4. User cannot cancel non-existent booking",BookingId does not exist
+WF-BOOKING-021,CancelBooking,Cancel Booking - Wrong Customer,"1. Create booking for different customer in system
+2. Open browser and login the system with Tenant role
+3. Try to navigate to other customer's booking detail page (e.g., type URL: /booking-history/{otherCustomerBookingId})
+4. Try to click ""Hủy đặt phòng"" button if page is accessible","1. System displays 404 error page or 403 Forbidden
+2. Shows message: ""Bạn không có quyền truy cập booking này"" or ""Không tìm thấy booking""
+3. Cancel button is not available
+4. Access is denied",Booking belongs to different customer
+WF-BOOKING-001,CheckAvailability,Check Availability - Condotel Available,"1. Open browser and navigate to application URL
+2. Login the system with Tenant role (enter email and password, click ""Đăng nhập"" button)
+3. Navigate to ""Danh sách Condotel"" or ""Listing Stay"" page by clicking on menu item
+4. Click on a condotel card to view details
+5. On condotel detail page, click on date picker for check-in date
+6. Select check-in date: [10 days from today] from calendar
+7. Click on date picker for check-out date
+8. Select check-out date: [12 days from today] from calendar
+9. Click ""Kiểm tra tình trạng"" button","1. System displays message: ""Condotel có sẵn trong khoảng thời gian này""
+2. ""Đặt phòng"" button becomes enabled and visible
+3. Booking form section is displayed
+4. User can proceed to booking",User must be logged in as Tenant role. Condotel exists and no overlapping bookings
+WF-BOOKING-002,CheckAvailability,Check Availability - Condotel Not Available,"1. Create existing booking with overlapping dates in system (via admin or previous booking)
+2. Open browser and login the system with Tenant role
+3. Navigate to ""Listing Stay"" page
+4. Click on the same condotel that has existing booking
+5. On condotel detail page, select check-in date: [overlapping with existing booking] from date picker
+6. Select check-out date: [overlapping with existing booking] from date picker
+7. Click ""Kiểm tra tình trạng"" button","1. System displays message: ""Condotel không có sẵn trong khoảng thời gian này""
+2. ""Đặt phòng"" button is disabled or shows ""Không có sẵn"" status
+3. User cannot proceed to booking
+4. Alternative dates suggestion may be shown",Existing booking with overlapping dates exists in system
+WF-BOOKING-027,CheckoutPage,Checkout Page - Review Booking Summary,"1. Complete booking flow: select condotel, dates, click ""Đặt phòng""
+2. System redirects to checkout page (/checkout)
+3. View checkout page with booking details","1. System displays booking summary section:
+   - Condotel name and image (large)
+   - Check-in and check-out dates (clearly displayed)
+   - Number of nights (calculated automatically)
+   - Price per night
+   - Subtotal (nights * price per night)
+   - Service fees (if any)
+   - Total price (large, bold)
+2. Promotion section is visible (if available) with discount amount
+3. Voucher input field is visible with ""Áp dụng"" button
+4. Service packages section is visible (if available) with checkboxes
+5. Reward points option is visible with checkbox
+6. ""Xác nhận đặt phòng"" button is at bottom",User is logged in as Tenant. Booking data is passed to checkout page
+WF-BOOKING-028,CheckoutPage,Checkout Page - Apply Voucher Code,"1. Navigate to checkout page with booking data
+2. Find ""Mã voucher"" or ""Voucher Code"" input field
+3. Enter valid voucher code (e.g., ""SUMMER2024"") in input field
+4. Click ""Áp dụng"" or ""Apply"" button next to input field
+5. Wait for validation
+6. Verify voucher is applied","1. System validates voucher code (shows loading spinner)
+2. Voucher discount is applied to total price
+3. System displays success message: ""Voucher đã được áp dụng"" (green message)
+4. Total price is recalculated with discount
+5. Discount amount is shown separately (e.g., ""Giảm: 100,000 VNĐ"")
+6. Voucher code is displayed with ""X"" to remove
+7. Final total reflects discount",Valid voucher exists in database. Voucher is active and not expired. User is on checkout page
+WF-BOOKING-029,CheckoutPage,Checkout Page - Invalid Voucher Code,"1. Navigate to checkout page
+2. Find ""Mã voucher"" input field
+3. Enter invalid voucher code (e.g., ""INVALID123"")
+4. Click ""Áp dụng"" button
+5. View error message","1. System displays error message: ""Mã voucher không hợp lệ"" or ""Voucher không tồn tại"" (red message)
+2. Voucher discount is not applied
+3. Total price remains unchanged
+4. Error message appears below input field or as toast notification
+5. Input field may be highlighted in red
+6. User can try again with different code",User is on checkout page
+WF-BOOKING-030,CheckoutPage,Checkout Page - Select Service Packages,"1. Navigate to checkout page
+2. Scroll to ""Gói dịch vụ"" or ""Service Packages"" section
+3. View list of available service packages
+4. Click checkbox or select button for a service package
+5. If quantity selector appears, set quantity (e.g., 2) using +/- buttons
+6. Review updated total price in summary section","1. System displays available service packages with:
+   - Package name
+   - Description
+   - Price per package
+   - Checkbox or select button
+2. User can select packages and set quantity
+3. Total price in summary section is updated to include service package costs
+4. Service package details are shown in summary (name, price, quantity)
+5. Updated total is calculated correctly (subtotal + service packages)
+6. Selected packages are highlighted or checked",Service packages exist in database. User is on checkout page
+WF-BOOKING-031,CheckoutPage,Checkout Page - Use Reward Points,"1. Navigate to checkout page
+2. Scroll to ""Điểm thưởng"" or ""Reward Points"" section
+3. View available reward points balance
+4. Check ""Sử dụng điểm thưởng"" checkbox
+5. Verify points are applied to discount
+6. Review updated total price","1. System shows available reward points (e.g., ""Bạn có 5,000 điểm"")
+2. User can toggle ""Sử dụng điểm thưởng"" checkbox
+3. When checked, points are converted to discount amount (e.g., 5000 points = 50,000 VNĐ)
+4. Total price in summary is reduced by discount amount
+5. Discount from points is shown separately
+6. Remaining points balance is shown after discount
+7. Final total reflects points discount",User has reward points in account. User is on checkout page
+WF-BOOKING-003,CreateBooking,Create Booking - Valid,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Listing Stay"" page
+3. Click on a condotel card
+4. On condotel detail page, select check-in date: [10 days from today] from date picker
+5. Select check-out date: [12 days from today] from date picker
+6. Click ""Kiểm tra tình trạng"" button
+7. Verify condotel is available (message shows available)
+8. Click ""Đặt phòng"" button
+9. System redirects to checkout page (/checkout)
+10. Review booking summary on checkout page
+11. Click ""Xác nhận đặt phòng"" or ""Confirm Booking"" button","1. System redirects to checkout page
+2. Booking summary is displayed correctly
+3. After clicking confirm, system displays message: ""Đặt phòng thành công""
+4. Booking ID is displayed on confirmation page
+5. Booking status shows as ""Chờ thanh toán"" on booking detail page
+6. Total price is calculated correctly (PricePerNight * number of nights)
+7. User is redirected to booking history or payment page",User must be logged in as Tenant role. Condotel is available for selected dates
+WF-BOOKING-004,CreateBooking,Create Booking - Past Start Date,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Listing Stay"" page
+3. Click on a condotel card
+4. On condotel detail page, try to select check-in date from date picker
+5. Try to select yesterday's date or any past date
+6. If date picker allows selection, click ""Đặt phòng"" button","1. Date picker prevents selecting past dates (past dates are grayed out or disabled)
+2. Or if selected, system displays error message: ""Ngày bắt đầu không được là ngày trong quá khứ""
+3. ""Đặt phòng"" button is disabled or booking cannot be created
+4. User cannot proceed with past date",User must be logged in as Tenant role
+WF-BOOKING-005,CreateBooking,Create Booking - Past End Date,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Listing Stay"" page
+3. Click on a condotel card
+4. On condotel detail page, select check-in date: [today] from date picker
+5. Try to select check-out date: [yesterday] from date picker
+6. If date picker allows, click ""Đặt phòng"" button","1. Date picker prevents selecting end date before start date
+2. Or system displays error message: ""Ngày kết thúc không được là ngày trong quá khứ""
+3. Booking cannot be created
+4. Error message is displayed clearly",User must be logged in as Tenant role
+WF-BOOKING-006,CreateBooking,Create Booking - Invalid Date Range,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Listing Stay"" page
+3. Click on a condotel card
+4. On condotel detail page, select check-in date: [10 days from today] from date picker
+5. Select check-out date: [same as or before check-in date] from date picker
+6. Click ""Đặt phòng"" button","1. System displays error message: ""Khoảng thời gian không hợp lệ"" or ""Ngày check-out phải sau ngày check-in""
+2. Booking cannot be created
+3. Error message is shown in red or warning color
+4. User must correct dates to proceed",User must be logged in as Tenant role
+WF-BOOKING-007,CreateBooking,Create Booking - Condotel Not Available,"1. Create existing booking with overlapping dates in system
+2. Open browser and login the system with Tenant role
+3. Navigate to ""Listing Stay"" page
+4. Click on the same condotel name
+5. On condotel detail page, select check-in date: [overlapping with existing booking] from date picker
+6. Select check-out date: [overlapping with existing booking] from date picker
+7. Click ""Đặt phòng"" button","1. System displays error message: ""Condotel không có sẵn trong khoảng thời gian này""
+2. Booking cannot be created
+3. Error message suggests alternative dates
+4. ""Đặt phòng"" button may be disabled",Existing booking with overlapping dates exists in system
+WF-BOOKING-008,CreateBooking,Create Booking - Condotel Not Found,"1. Open browser and login the system with Tenant role
+2. Try to navigate to condotel detail page with invalid condotel ID (e.g., type URL: /listing-stay-detail/99999)
+3. Or click on a condotel that was deleted","1. System displays 404 error page
+2. Shows message: ""Không tìm thấy condotel"" or ""Condotel không tồn tại""
+3. Page shows error with link to go back to listing page
+4. User is redirected to error page or listing page",User must be logged in as Tenant role. CondotelId does not exist
+WF-BOOKING-009,CreateBooking,Create Booking - Host Booking Own Condotel,"1. Open browser and login the system with Host role (who owns a condotel)
+2. Navigate to ""Listing Stay"" page
+3. Click on own condotel card
+4. Try to select dates and click ""Đặt phòng"" button","1. System displays error message: ""Host không thể đặt căn hộ của chính mình""
+2. Booking cannot be created
+3. ""Đặt phòng"" button is disabled or not shown
+4. Error message is displayed clearly",User must be logged in as Host role. Host owns the condotel
+WF-BOOKING-010,CreateBooking,Create Booking - With Valid Promotion,"1. Create active promotion for condotel in system
+2. Open browser and login the system with Tenant role
+3. Navigate to ""Listing Stay"" page
+4. Click on condotel with active promotion
+5. On condotel detail page, view available promotions section
+6. Select check-in date: [within promotion period] from date picker
+7. Select check-out date: [within promotion period] from date picker
+8. View promotion details and discount information
+9. Click ""Đặt phòng"" button
+10. On checkout page, verify promotion is applied
+11. Review booking summary with discounted price
+12. Click ""Xác nhận đặt phòng"" button","1. System shows promotion badge or label on condotel detail page
+2. Promotion discount is displayed (e.g., ""Giảm 20%"")
+3. On checkout page, original price and discounted price are shown
+4. Total price includes promotion discount
+5. After confirmation, system displays message: ""Đặt phòng thành công""
+6. Booking is created with promotion applied
+7. Discount amount is clearly shown",Active promotion exists for condotel. Booking dates are within promotion period
+WF-BOOKING-011,CreateBooking,Create Booking - Promotion Not Found,"1. Open browser and login the system with Tenant role
+2. Navigate to booking/checkout page
+3. Try to apply promotion with invalid promotion ID (if UI allows manual input or selection)","1. System displays error message: ""Không tìm thấy khuyến mãi""
+2. Promotion cannot be applied
+3. Error message is shown in red or warning color
+4. User must select valid promotion",User must be logged in as Tenant role. PromotionId does not exist
+WF-BOOKING-012,CreateBooking,Create Booking - Promotion Not Active,"1. Create inactive promotion for condotel in system
+2. Open browser and login the system with Tenant role
+3. Navigate to condotel detail page
+4. Try to view or select inactive promotion (if shown in list)","1. Inactive promotion is not shown or grayed out
+2. Or system displays error message: ""Khuyến mãi không đang hoạt động""
+3. Promotion cannot be applied
+4. Only active promotions are selectable",Inactive promotion exists in system
+WF-BOOKING-013,CreateBooking,Create Booking - Promotion Not Belong to Condotel,"1. Create promotion for different condotel in system
+2. Open browser and login the system with Tenant role
+3. Navigate to condotel detail page
+4. Try to apply promotion from different condotel (if promotion list shows all promotions)","1. System displays error message: ""Khuyến mãi không thuộc về condotel này""
+2. Promotion cannot be applied
+3. Error message is displayed clearly
+4. Only promotions for current condotel are applicable",Promotion exists for different condotel in system
+WF-BOOKING-014,CreateBooking,Create Booking - Dates Outside Promotion Period,"1. Create active promotion with specific date range in system
+2. Open browser and login the system with Tenant role
+3. Navigate to condotel detail page
+4. Select check-in date: [outside promotion period] from date picker
+5. Select check-out date: [outside promotion period] from date picker
+6. Try to view or apply promotion
+7. Click ""Đặt phòng"" button","1. System displays error message containing promotion period dates in Vietnamese
+2. Message shows: ""Khuyến mãi chỉ áp dụng từ [start date] đến [end date]""
+3. Promotion cannot be applied or booking fails
+4. User must select dates within promotion period",Active promotion exists. Booking dates are outside promotion period
+WF-BOOKING-023,FilterCondotels,Filter Condotels - By Price Range,"1. Navigate to ""Listing Stay"" page
+2. Click on ""Bộ lọc"" or ""Filter"" button (opens filter panel)
+3. In filter panel, find ""Giá"" or ""Price"" section
+4. Set minimum price: 200000 VND using slider or input field
+5. Set maximum price: 1000000 VND using slider or input field
+6. Click ""Áp dụng"" or ""Apply"" button
+7. View filtered results","1. System displays only condotels within price range (200000 - 1000000 VND)
+2. Filter is applied correctly
+3. Condotel list updates to show filtered results
+4. Filter count shows number of results
+5. User can clear filter to show all condotels
+6. Price range is displayed in filter panel",Condotels with different prices exist in database
+WF-BOOKING-024,FilterCondotels,Filter Condotels - By Location,"1. Navigate to ""Listing Stay"" page
+2. Click on ""Bộ lọc"" button
+3. In filter panel, find ""Địa điểm"" or ""Location"" dropdown
+4. Select location from dropdown (e.g., ""Hà Nội"")
+5. Click ""Áp dụng"" button
+6. View filtered results","1. System displays only condotels in selected location
+2. Filter is applied correctly
+3. Location filter works as expected
+4. Condotel list updates immediately
+5. Selected location is highlighted in filter panel
+6. User can select multiple locations (if supported)",Condotels in different locations exist in database
+WF-BOOKING-016,GetBookingById,Get Booking By ID - Found,"1. Open browser and login the system with Tenant role
+2. Navigate to ""My Bookings"" page
+3. Click on a booking card/row from the list
+4. View booking detail page","1. System displays booking detail page
+2. Shows all booking information: booking ID, condotel details (name, image, address), dates, status, total price
+3. bookingId matches the selected booking
+4. Action buttons are available: ""Thanh toán"", ""Hủy đặt phòng"", ""Yêu cầu hoàn tiền"" (depending on status)
+5. User can navigate back to bookings list",Booking exists and belongs to logged-in tenant
+WF-BOOKING-017,GetBookingById,Get Booking By ID - Not Found,"1. Open browser and login the system with Tenant role
+2. Try to navigate to booking detail page with invalid booking ID (e.g., type URL: /booking-history/99999)","1. System displays 404 error page
+2. Shows message: ""Không tìm thấy booking"" or ""Booking không tồn tại""
+3. Error page has link to go back to bookings list
+4. User is redirected to error page",BookingId does not exist
+WF-BOOKING-015,GetMyBookings,Get My Bookings,"1. Open browser and login the system with Tenant role
+2. Click on ""Đặt phòng của tôi"" or ""My Bookings"" in navigation menu (top menu or sidebar)
+3. View bookings list page (/my-bookings or /booking-history)","1. System displays list of all bookings for logged-in tenant
+2. Bookings are ordered by EndDate descending (newest first)
+3. Each booking card/row shows: booking ID, condotel name and image, dates, status badge, total price
+4. User can click on each booking to view details
+5. Status is displayed with color coding (Pending=blue, Confirmed=green, Cancelled=red, Completed=gray)
+6. Pagination works if there are many bookings",User must be logged in as Tenant role. Multiple bookings exist for tenant
+WF-BOOKING-025,SearchCondotels,Search Condotels - By Name,"1. Navigate to ""Listing Stay"" page
+2. Find search box in header or on listing page
+3. Enter condotel name in search box (e.g., ""Luxury Apartment"")
+4. Press Enter or click search icon/magnifying glass icon
+5. View search results","1. System displays condotels matching search term
+2. Search results are relevant and accurate
+3. Search is case-insensitive
+4. Search highlights matching text in results
+5. ""X"" button appears to clear search
+6. Search results count is displayed
+7. If no results, shows ""Không tìm thấy condotel nào""",Condotels with different names exist in database
+WF-BOOKING-026,ViewCondotelDetail,View Condotel Detail - Complete Information,"1. Navigate to ""Listing Stay"" page
+2. Click on a condotel card (image or name)
+3. System navigates to condotel detail page (/listing-stay-detail/:id)
+4. View all sections of detail page","1. System displays complete condotel information:
+   - Images gallery with multiple photos (user can click to view larger)
+   - Name and description
+   - Price per night (large, prominent)
+   - Location and full address
+   - Amenities list with icons
+   - Reviews and ratings section
+   - Host information card
+2. Date picker is available and functional
+3. ""Đặt phòng"" button is visible and enabled
+4. Map view may be available (if implemented)
+5. Share button may be available",Condotel exists in database with complete information
+,,,,,
+Scenario B: Payment Workflow (17 test cases),,,,,
+WF-PAYMENT-001,CreatePaymentLink,Create Payment Link - Valid,"1. Create pending booking through UI (complete booking flow)
+2. After booking creation, system redirects to payment page or booking detail
+3. Navigate to ""My Bookings"" page
+4. Click on pending booking
+5. On booking detail page, click ""Thanh toán"" or ""Pay Now"" button
+6. View payment page with payment options
+7. Review payment summary (amount, booking details)
+8. Click ""Xác nhận thanh toán"" or ""Confirm Payment"" button","1. System redirects to payment page (/pay-done) or displays payment information
+2. Payment link or QR code is displayed
+3. Payment amount is shown correctly
+4. Order code is displayed
+5. ""Thanh toán ngay"" button redirects to PayOS payment page
+6. User can copy payment link
+7. Booking status remains ""Chờ thanh toán"" until payment is confirmed",Pending booking exists with TotalPrice >= 10000 VND. Booking belongs to logged-in tenant
+WF-PAYMENT-002,CreatePaymentLink,Create Payment Link - Booking Not Found,"1. Open browser and login the system with Tenant role
+2. Try to navigate to payment page with invalid booking ID (e.g., type URL: /pay-done?bookingId=99999)","1. System displays 404 error page
+2. Shows message: ""Không tìm thấy booking""
+3. Payment cannot be initiated
+4. Error page has link to go back",BookingId does not exist
+WF-PAYMENT-003,CreatePaymentLink,Create Payment Link - Wrong Customer,"1. Create booking for different customer in system
+2. Open browser and login the system with Tenant role
+3. Try to navigate to other customer's booking payment page (e.g., type URL with other customer's booking ID)
+4. Try to click ""Thanh toán"" button if page is accessible","1. System displays 403 Forbidden error page
+2. Shows message: ""Truy cập bị từ chối"" or ""Bạn không có quyền truy cập booking này""
+3. Payment button is not available
+4. Access is denied",Booking belongs to different customer
+WF-PAYMENT-004,CreatePaymentLink,Create Payment Link - Booking Not Pending,"1. Create confirmed booking in system
+2. Open browser and login the system with Tenant role
+3. Navigate to ""My Bookings"" page
+4. Click on confirmed booking
+5. View booking detail page
+6. Try to find and click ""Thanh toán"" button (if button exists)","1. ""Thanh toán"" button is not shown or is disabled
+2. Or system displays error message: ""Booking không ở trạng thái có thể thanh toán. Trạng thái hiện tại: Đã xác nhận""
+3. Payment cannot be initiated
+4. Status badge shows ""Đã xác nhận"" (green)",Confirmed booking exists and belongs to logged-in tenant
+WF-PAYMENT-005,CreatePaymentLink,Create Payment Link - TotalPrice Null or Zero,"1. Create booking with TotalPrice = null or 0 in system (if possible via UI)
+2. Open browser and login the system with Tenant role
+3. Navigate to booking detail page
+4. Try to click ""Thanh toán"" button","1. System displays error message: ""Số tiền booking không hợp lệ""
+2. Payment cannot be initiated
+3. Error message is shown in red
+4. ""Thanh toán"" button may be disabled",Booking with TotalPrice = null or 0 exists
+WF-PAYMENT-006,CreatePaymentLink,Create Payment Link - Amount Less Than 10000 VND,"1. Create booking with TotalPrice < 10000 in system
+2. Open browser and login the system with Tenant role
+3. Navigate to booking detail page
+4. Try to click ""Thanh toán"" button","1. System displays error message: ""Số tiền phải ít nhất 10,000 VNĐ""
+2. Payment cannot be initiated
+3. ""Thanh toán"" button is disabled
+4. Error message explains minimum amount requirement",Booking with TotalPrice < 10000 exists
+WF-PAYMENT-007,GetPaymentStatus,Get Payment Status - Valid,"1. Create payment link successfully through UI
+2. Navigate to ""My Bookings"" page
+3. Click on booking with payment link
+4. On booking detail page, find ""Kiểm tra trạng thái thanh toán"" button or payment status section
+5. Click button or view payment status","1. System displays payment status information in modal or section
+2. Shows: payment status (Pending/Paid/Cancelled), amount, orderCode, payment date (if paid)
+3. Status is updated in real-time
+4. Status badge shows color (Pending=blue, Paid=green, Cancelled=red)
+5. User can see payment history if available",Payment link exists for booking. User is logged in
+WF-PAYMENT-008,GetPaymentStatus,Get Payment Status - Invalid PaymentLinkId,"1. Open browser and login the system with Tenant role
+2. Try to check payment status with invalid paymentLinkId (if UI allows manual input)","1. System displays error message or 400/500 error page
+2. Payment status cannot be retrieved
+3. Error message is shown
+4. User cannot view invalid payment status",Invalid paymentLinkId
+WF-PAYMENT-009,PayOSReturnUrl,Payment Return URL - Success (PAID),"1. Complete payment on PayOS payment page (click ""Thanh toán"" on PayOS, enter payment method, confirm)
+2. PayOS processes payment and redirects back to system return URL
+3. System processes payment callback and redirects to success page
+4. View payment success page (/payment/success)","1. System redirects to payment success page
+2. Displays success message: ""Thanh toán thành công"" (green, with checkmark icon)
+3. Booking confirmation is shown with booking ID
+4. Booking ID is displayed prominently
+5. Booking status is updated to ""Đã xác nhận"" (can be verified in booking history)
+6. User receives confirmation notification (if email is configured)
+7. ""Xem đặt phòng"" or ""View Booking"" button is available
+8. User can navigate to booking history",Payment link exists. PayOS payment is completed successfully
+WF-PAYMENT-010,PayOSReturnUrl,Payment Return URL - Cancelled,"1. On PayOS payment page, click ""Hủy"" or ""Cancel"" button
+2. PayOS redirects back to system return URL with cancel status
+3. System processes payment callback and redirects to cancel page
+4. View payment cancel page (/payment/cancel)","1. System redirects to payment cancel page
+2. Displays message: ""Thanh toán đã bị hủy"" (orange or yellow, with warning icon)
+3. Booking status remains ""Chờ thanh toán"" (can be verified in booking history)
+4. ""Thử lại"" or ""Retry Payment"" button is available
+5. Link to booking detail page is provided
+6. User can retry payment from booking detail page",Payment link exists. User cancels payment on PayOS page
+WF-PAYMENT-011,PayOSReturnUrl,Payment Return URL - Pending,"1. Payment is still processing on PayOS (user initiated but not completed)
+2. PayOS redirects back to system return URL with pending status
+3. System processes payment callback and redirects to pending page
+4. View payment pending page","1. System redirects to payment pending page
+2. Displays message: ""Thanh toán đang được xử lý. Vui lòng chờ xác nhận"" (blue, with info icon)
+3. Booking status remains ""Chờ thanh toán""
+4. ""Kiểm tra trạng thái"" button is available
+5. User is advised to wait and check status later
+6. Auto-refresh may be implemented to check status",Payment link exists. Payment is still processing on PayOS
+WF-PAYMENT-012,PayOSReturnUrl,Payment Return URL - Missing OrderCode,"1. PayOS redirects back to system return URL without orderCode parameter (simulate error)
+2. System processes return URL
+3. View error page","1. System redirects to payment error page
+2. Displays message: ""Thiếu orderCode"" or ""Lỗi thanh toán"" (red, with error icon)
+3. User is redirected to booking detail page or error page
+4. Error message explains the issue
+5. Link to contact support may be provided
+6. User can navigate back to booking history",PayOS return URL is missing orderCode parameter
+WF-PAYMENT-013,PayPage,Payment Page - View Payment Link,"1. Complete booking creation through UI
+2. System redirects to payment page (/pay-done) or payment link is displayed
+3. View payment page with payment information","1. System displays payment page with:
+   - Payment link (clickable, can be copied)
+   - QR code (if available)
+   - Payment amount (large, bold)
+   - Order code
+   - Booking information summary
+2. ""Thanh toán ngay"" or ""Pay Now"" button redirects to PayOS
+3. ""Sao chép link"" or ""Copy Link"" button works
+4. Payment instructions are shown
+5. Countdown timer may be shown (if payment link expires)",Booking is created. Payment link is generated
+WF-PAYMENT-014,PayPage,Payment Page - QR Code Display,"1. Navigate to payment page (/pay-done)
+2. Scroll to QR code section
+3. View QR code
+4. Try to download or print QR code (if buttons available)","1. QR code is displayed clearly and is large enough to scan
+2. QR code is scannable with mobile payment apps
+3. QR code contains payment information
+4. ""Tải xuống"" or ""Download"" button works (if available)
+5. ""In"" or ""Print"" button works (if available)
+6. QR code is centered and well-formatted",Payment link is generated. QR code is available
+WF-PAYMENT-015,PaymentSuccess,Payment Success Page - After Successful Payment,"1. Complete payment on PayOS payment page (enter payment details, confirm)
+2. PayOS redirects back to payment success page (/payment/success)
+3. View success page","1. System displays success page with:
+   - Success message: ""Thanh toán thành công"" (large, green, with checkmark)
+   - Booking confirmation card
+   - Booking ID (prominent)
+   - Condotel name and image
+   - Check-in and check-out dates
+2. Booking status is updated to ""Đã xác nhận"" (can be verified)
+3. ""Xem đặt phòng"" or ""View Booking"" button navigates to booking detail
+4. ""Quay lại trang chủ"" or ""Back to Home"" button is available
+5. Confirmation email may be sent (if configured)",Payment is completed successfully on PayOS
+WF-PAYMENT-016,PaymentCancel,Payment Cancel Page - After Cancelled Payment,"1. On PayOS payment page, click ""Hủy"" or ""Cancel"" button
+2. PayOS redirects back to payment cancel page (/payment/cancel)
+3. View cancel page","1. System displays cancel page with:
+   - Message: ""Thanh toán đã bị hủy"" (orange/yellow, with warning icon)
+   - Booking information
+   - Reason for cancellation (if provided)
+2. Booking status remains ""Chờ thanh toán""
+3. ""Thử lại thanh toán"" or ""Retry Payment"" button is available
+4. ""Xem đặt phòng"" button navigates to booking detail
+5. Link to booking history is provided
+6. User can retry payment from booking detail page",User cancels payment on PayOS page
+WF-PAYMENT-017,PaymentStatus,Check Payment Status - From Booking History,"1. Navigate to ""Lịch sử đặt phòng"" or ""Booking History"" page (/booking-history)
+2. Click on a pending booking from list
+3. View booking detail page
+4. Find and click ""Kiểm tra trạng thái thanh toán"" button or view payment status section","1. System displays payment status information in modal or expanded section
+2. Shows: status (Pending/Paid/Cancelled), amount, orderCode, payment date (if paid)
+3. Status badge shows color (Pending=blue, Paid=green, Cancelled=red)
+4. Status is updated in real-time (may auto-refresh)
+5. Payment history timeline may be shown (if available)
+6. User can see all payment attempts",Booking with payment link exists. User is logged in
+,,,,,
+Scenario C: Refund Workflow (19 test cases),,,,,
+WF-REFUND-001,RefundBooking,Request Refund - Valid (>= 2 Days Before Check-in),"1. Open browser and login the system with Tenant role
+2. Navigate to ""My Bookings"" or ""Booking History"" page
+3. Click on a confirmed booking (with startDate >= 2 days later)
+4. On booking detail page, click ""Yêu cầu hoàn tiền"" or ""Request Refund"" button
+5. System navigates to refund request page (/request-refund/:id)
+6. View booking information on refund page
+7. Fill in refund request form:
+   - Select bank from dropdown: ""Vietcombank - VCB""
+   - Enter account number in input field: 1234567890
+   - Enter account holder name in input field: [Tenant name]
+8. Review form
+9. Click ""Gửi yêu cầu hoàn tiền"" or ""Submit Refund Request"" button","1. System displays booking information on refund page:
+   - Booking ID
+   - Condotel name
+   - Check-in and check-out dates
+   - Total price
+   - Booking status
+   - Refund amount (calculated)
+2. Bank information form is visible with dropdown and input fields
+3. After submitting, system displays message: ""Yêu cầu hoàn tiền đã được tạo thành công"" (green, with checkmark)
+4. Refund request is created with status ""Đang chờ xử lý""
+5. User can see refund request in ""Yêu cầu hoàn tiền"" section or notification
+6. Success message is displayed clearly
+7. User is redirected to booking history or refund confirmation page",Confirmed booking exists with startDate >= 2 days later. Booking belongs to logged-in tenant
+WF-REFUND-002,RefundBooking,Request Refund - Less Than 2 Days,"1. Open browser and login the system with Tenant role
+2. Navigate to ""My Bookings"" page
+3. Click on confirmed booking (with startDate = 1 day later)
+4. On booking detail page, try to click ""Yêu cầu hoàn tiền"" button","1. ""Yêu cầu hoàn tiền"" button is disabled or not shown
+2. Or system displays error message: ""Hoàn tiền chỉ có sẵn khi hủy ít nhất 2 ngày trước ngày check-in"" or ""ít nhất 2 ngày""
+3. Refund request cannot be created
+4. Error message explains the 2-day requirement
+5. Message is shown in red or warning color",Confirmed booking exists with startDate < 2 days later. Booking belongs to logged-in tenant
+WF-REFUND-003,RefundBooking,Request Refund - Booking Not Found,"1. Open browser and login the system with Tenant role
+2. Try to navigate to refund request page with invalid booking ID (e.g., type URL: /request-refund/99999)","1. System displays 404 error page
+2. Shows message: ""Không tìm thấy booking cho tenant này""
+3. Refund request cannot be created
+4. Error page has link to go back to bookings list",BookingId does not exist
+WF-REFUND-004,RefundBooking,Request Refund - Wrong Customer,"1. Create booking for different customer in system
+2. Open browser and login the system with Tenant role
+3. Try to navigate to other customer's booking refund page (e.g., type URL: /request-refund/{otherCustomerBookingId})
+4. Try to create refund request if page is accessible","1. System displays 404 error page or 403 Forbidden
+2. Shows message: ""Không tìm thấy booking cho tenant này""
+3. Refund request cannot be created
+4. Access is denied
+5. Error message is displayed clearly",Booking belongs to different customer
+WF-REFUND-005,RefundBooking,Request Refund - Booking Not Refundable Status,"1. Open browser and login the system with Tenant role
+2. Navigate to ""My Bookings"" page
+3. Click on pending booking
+4. On booking detail page, try to find and click ""Yêu cầu hoàn tiền"" button (if button exists)","1. ""Yêu cầu hoàn tiền"" button is not shown or is disabled
+2. Or system displays error message: ""Chỉ có thể hoàn tiền cho các booking đã bị hủy, đã xác nhận hoặc đã hoàn thành""
+3. Error message explains which statuses are refundable
+4. Message is shown in red or warning color",Pending booking exists and belongs to logged-in tenant
+WF-REFUND-006,RefundBooking,Request Refund - Already Refunded,"1. Open browser and login the system with Tenant role
+2. Navigate to ""My Bookings"" page
+3. Click on confirmed booking that already has completed refund
+4. On booking detail page, try to click ""Yêu cầu hoàn tiền"" button again","1. ""Yêu cầu hoàn tiền"" button is disabled or shows ""Đã hoàn tiền"" status
+2. Or system displays error message: ""Booking đã được hoàn tiền""
+3. New refund request cannot be created
+4. Status badge shows ""Đã hoàn tiền"" (green)
+5. Refund information may be displayed (amount, date, status)",RefundRequest with status = Completed exists for booking
+WF-REFUND-007,RefundBooking,Request Refund - Without Bank Info (Use Wallet),"1. Open browser and login the system with Tenant role
+2. Navigate to ""My Bookings"" page
+3. Click on confirmed booking
+4. On booking detail page, click ""Yêu cầu hoàn tiền"" button
+5. Navigate to refund request page
+6. Leave bank information fields empty (or skip if system auto-fills from wallet)
+7. Click ""Gửi yêu cầu hoàn tiền"" button","1. System uses bank info from Wallet automatically (if available)
+2. Bank information fields are pre-filled from wallet
+3. Or system displays message: ""Sử dụng thông tin ngân hàng từ ví""
+4. After submitting, system displays message: ""Yêu cầu hoàn tiền đã được tạo thành công""
+5. Refund request is created with bank info from Wallet
+6. Wallet bank info is shown in confirmation",Customer has wallet in system. Confirmed booking exists
+WF-REFUND-008,RefundBooking,Request Refund - With Bank Info,"1. Open browser and login the system with Tenant role
+2. Navigate to ""My Bookings"" page
+3. Click on confirmed booking
+4. On booking detail page, click ""Yêu cầu hoàn tiền"" button
+5. Navigate to refund request page
+6. Fill in refund request form:
+   - Select bank from dropdown: ""Vietcombank - VCB""
+   - Enter account number: 1234567890
+   - Enter account holder name: [Tenant name]
+7. Review form
+8. Click ""Gửi yêu cầu hoàn tiền"" button","1. System displays refund request form with all fields
+2. Bank dropdown shows list of Vietnamese banks (VCB, MB, TCB, etc.)
+3. All fields are filled correctly
+4. Form validation works (required fields highlighted if empty)
+5. After submitting, system displays message: ""Yêu cầu hoàn tiền đã được tạo thành công""
+6. Refund request is created with provided bank information
+7. Bank info (VCB, account number, account holder) is saved and shown in confirmation",Confirmed booking exists and belongs to logged-in tenant
+WF-REFUND-009,GetRefundRequests,Admin View Refund Requests - All,"1. Open browser and login the system with Admin role
+2. Click on ""Quản lý hoàn tiền"" or ""Refund Management"" in admin navigation menu
+3. Navigate to refund requests page (/admin/refunds)
+4. View refund requests list page","1. System displays list of all refund requests in table or card layout
+2. Shows refund requests with different statuses (Đang chờ, Đã hoàn thành, Đã từ chối)
+3. Each refund request row/card shows:
+   - Booking ID (clickable)
+   - Customer name
+   - Amount (formatted as currency)
+   - Status badge (color-coded)
+   - Date created
+   - Bank info (if available)
+4. Filter options are available (by status dropdown)
+5. Search functionality works (search by booking ID, customer name)
+6. ""Xác nhận hoàn tiền"" button is available for pending requests
+7. Pagination works if there are many requests",User must be logged in as Admin role. Multiple refund requests exist in system
+WF-REFUND-010,GetRefundRequests,Admin View Refund Requests - Filter by Status Pending,"1. Navigate to ""Quản lý hoàn tiền"" page
+2. Find filter section (dropdown or tabs)
+3. Click on filter dropdown
+4. Select ""Đang chờ"" or ""Pending"" status from dropdown
+5. Click ""Lọc"" or ""Filter"" button (or filter applies automatically)
+6. View filtered results","1. System displays only pending refund requests
+2. List is filtered to show only ""Đang chờ"" status (blue badge)
+3. Other status refund requests are hidden
+4. Filter count shows number of pending requests
+5. Selected filter is highlighted
+6. ""Xóa bộ lọc"" or ""Clear Filter"" button is available
+7. User can change filter to show other statuses",Refund requests with different statuses exist in system
+WF-REFUND-011,GetRefundRequests,Admin View Refund Requests - Filter by Status Completed,"1. Navigate to ""Quản lý hoàn tiền"" page
+2. Click on filter dropdown
+3. Select ""Đã hoàn thành"" or ""Completed"" status from dropdown
+4. Click ""Lọc"" button
+5. View filtered results","1. System displays only completed/refunded refund requests
+2. List is filtered to show only ""Đã hoàn thành"" or ""Đã hoàn tiền"" status (green badge)
+3. Other status refund requests are hidden
+4. Completed requests show processed date
+5. Filter works correctly
+6. User can see all completed refunds",Refund requests with different statuses exist in system
+WF-REFUND-012,ConfirmRefund,Admin Confirm Refund - Valid,"1. Open browser and login the system with Admin role
+2. Navigate to ""Quản lý hoàn tiền"" page
+3. Click on pending refund request from list (click on row or ""Xem chi tiết"" button)
+4. View refund request detail page or modal
+5. Review refund information (booking, customer, amount, bank info)
+6. Click ""Xác nhận hoàn tiền"" or ""Confirm Refund"" button
+7. Confirm action in popup dialog (click ""Xác nhận"" or ""Confirm"")","1. System displays refund request detail with all information:
+   - Booking details
+   - Customer information
+   - Refund amount (highlighted)
+   - Bank information (bank code, account number, account holder)
+   - Status: ""Đang chờ""
+2. Confirmation dialog appears: ""Bạn có chắc chắn muốn xác nhận hoàn tiền?""
+3. After confirmation, system displays message: ""Đã xác nhận hoàn tiền thành công"" (green, with checkmark)
+4. Refund request status changes to ""Đã hoàn thành"" (green badge)
+5. ProcessedAt timestamp is updated and displayed
+6. Customer receives notification (if email service is configured)
+7. Refund request moves to ""Đã hoàn thành"" section or filtered view
+8. Success message is displayed clearly",User must be logged in as Admin role. Pending refund request exists in system
+WF-REFUND-013,ConfirmRefund,Admin Confirm Refund - Already Completed,"1. Open browser and login the system with Admin role
+2. Navigate to ""Quản lý hoàn tiền"" page
+3. Click on completed refund request (status = Completed)
+4. View refund request detail
+5. Try to find and click ""Xác nhận hoàn tiền"" button again (if button exists)","1. ""Xác nhận hoàn tiền"" button is disabled or not shown
+2. Or system displays error message: ""Hoàn tiền đã được xác nhận""
+3. Refund cannot be confirmed again
+4. Status badge shows ""Đã hoàn thành"" (green, cannot be changed)
+5. Processed date is displayed
+6. Error message explains that refund is already completed",RefundRequest with status = Completed exists in system
+WF-REFUND-014,ConfirmRefund,Admin Confirm Refund - Not Pending,"1. Open browser and login the system with Admin role
+2. Navigate to ""Quản lý hoàn tiền"" page
+3. Click on non-pending refund request (e.g., Rejected status)
+4. View refund request detail
+5. Try to click ""Xác nhận hoàn tiền"" button","1. ""Xác nhận hoàn tiền"" button is disabled
+2. Or system displays error message: ""Chỉ có thể xác nhận các yêu cầu hoàn tiền đang chờ xử lý""
+3. Refund cannot be confirmed
+4. Error message explains which statuses can be confirmed
+5. Status badge shows current status (not Pending)",RefundRequest with status != Pending exists in system
+WF-REFUND-015,ConfirmRefund,Admin Confirm Refund - Booking Not Found (Auto Create),"1. Open browser and login the system with Admin role
+2. Navigate to ""Quản lý hoàn tiền"" page
+3. Try to confirm refund for cancelled booking without RefundRequest (if system allows via booking ID)","1. System may auto-create RefundRequest if booking is cancelled (if feature is implemented)
+2. Or system displays error message: ""Không tìm thấy yêu cầu hoàn tiền cho booking này""
+3. Refund request may be created automatically or confirmation fails
+4. Error message explains the issue
+5. User may need to create refund request first",Cancelled booking without RefundRequest exists in system
+WF-REFUND-016,RequestRefundPage,Request Refund Page - View Booking Information,"1. Navigate to ""Lịch sử đặt phòng"" or ""My Bookings"" page
+2. Click on a confirmed or cancelled booking from list
+3. On booking detail page, click ""Yêu cầu hoàn tiền"" button
+4. System navigates to refund request page (/request-refund/:id)
+5. View all information on refund page","1. System displays booking information section:
+   - Booking ID (prominent)
+   - Condotel name and image
+   - Check-in and check-out dates (clearly displayed)
+   - Total price (large, bold)
+   - Booking status badge
+2. Refund amount is calculated and displayed (e.g., ""Số tiền hoàn: 1,000,000 VNĐ"")
+3. Bank information form is visible below booking info
+4. Form has: bank dropdown, account number input, account holder input
+5. ""Gửi yêu cầu hoàn tiền"" button is at bottom
+6. Page layout is clear and organized",Booking exists and is eligible for refund. User is logged in as Tenant
+WF-REFUND-017,RequestRefundPage,Request Refund Page - Fill Bank Information,"1. Navigate to refund request page (/request-refund/:id)
+2. View bank information form section
+3. Click on bank dropdown
+4. Select bank from dropdown (e.g., ""Vietcombank - VCB"")
+5. Click on account number input field
+6. Enter account number: 1234567890
+7. Click on account holder name input field
+8. Enter account holder name: [Tenant name]
+9. Review all fields before submitting","1. Bank dropdown shows list of Vietnamese banks:
+   - Vietcombank (VCB)
+   - MBBank (MB)
+   - Techcombank (TCB)
+   - ACB, BIDV, VietinBank, etc.
+2. All fields are filled correctly
+3. Form validation works:
+   - Required fields are marked with asterisk (*)
+   - Empty fields show error when trying to submit
+   - Account number format is validated (numbers only)
+   - Account holder name is validated (text, required)
+4. Form is ready to submit
+5. ""Gửi yêu cầu hoàn tiền"" button is enabled",User is on refund request page. Booking is eligible for refund
+WF-REFUND-018,RequestRefundPage,Request Refund Page - Submit Without Bank Info,"1. Navigate to refund request page
+2. View bank information form
+3. Leave all bank information fields empty
+4. Click ""Gửi yêu cầu hoàn tiền"" button
+5. View system response","1. System checks if user has wallet with bank information
+2. If wallet exists, bank info is auto-filled from wallet
+3. Or system displays message: ""Sử dụng thông tin ngân hàng từ ví""
+4. After submitting, system displays message: ""Yêu cầu hoàn tiền đã được tạo thành công""
+5. Refund request is created with bank info from Wallet
+6. Wallet bank info is shown in confirmation message
+7. Success message is displayed clearly",User has wallet with bank information. Booking is eligible for refund
+WF-REFUND-019,RefundPolicy,View Refund Policy Page,"1. Navigate to ""Chính sách hoàn tiền"" or ""Refund Policy"" page by clicking footer link or menu item (/refund-policy)
+2. View refund policy content
+3. Scroll through policy sections","1. System displays refund policy page with:
+   - Policy title: ""Chính sách hoàn tiền""
+   - Policy content sections:
+     * Điều kiện hoàn tiền (Refund conditions)
+     * Thời gian xử lý (Processing timeframes)
+     * Quy trình hoàn tiền (Refund process)
+     * Thông tin liên hệ (Contact information)
+2. Policy is clearly formatted and readable
+3. Sections are well-organized
+4. User can scroll through all content
+5. ""Quay lại"" or ""Back"" button navigates to previous page
+6. Policy information is accurate and up-to-date",Refund policy page exists and is accessible
+,,,,,
+Scenario D: Host Monthly Subscription Workflow (8 test cases),,,,,
+WF-SUBSCRIPTION-001,GetAvailablePackages,Get Available Packages,"1. Open browser and login the system with Host role
+2. Click on ""Gói dịch vụ"" or ""Service Packages"" in host navigation menu (or navigate to /subscription)
+3. Navigate to ""Gói dịch vụ có sẵn"" or ""Available Packages"" page
+4. View packages list","1. System displays list of available service packages in cards or table
+2. Each package card shows:
+   - Package name (e.g., ""Gói Cơ bản"", ""Gói Nâng cao"")
+   - Price (formatted as currency)
+   - Duration (e.g., ""1 tháng"", ""3 tháng"", ""6 tháng"")
+   - Features list (e.g., ""Tối đa 5 condotel"", ""Hỗ trợ 24/7"")
+   - Condotel limit (e.g., ""Giới hạn: 5 condotel"")
+3. Host can view package details by clicking on package card
+4. ""Mua gói"" or ""Purchase"" button is available for each package
+5. Packages are displayed in grid or list layout
+6. Comparison table may be available",User must be logged in as Host role. Service packages may exist in system
+WF-SUBSCRIPTION-002,GetMyPackage,Get My Package - Has Package,"1. Open browser and login the system with Host role
+2. Click on ""Gói dịch vụ của tôi"" or ""My Package"" in host navigation menu (or navigate to /host-dashboard?tab=package)
+3. View my package page","1. System displays current active package information in card or section:
+   - Package name (large, prominent)
+   - Status badge: ""Đang hoạt động"" (green) or ""Active""
+   - Start date (formatted: DD/MM/YYYY)
+   - End date (formatted: DD/MM/YYYY)
+   - Remaining days (e.g., ""Còn lại: 15 ngày"")
+   - Condotel limit (e.g., ""Giới hạn: 5 condotel"")
+   - Current condotel count (e.g., ""Đã sử dụng: 3/5"")
+   - Progress bar showing usage (if implemented)
+2. Package details are clearly displayed
+3. ""Gia hạn"" or ""Renew"" button may be available
+4. Package expiration warning may be shown if expiring soon",Active HostPackage exists for logged-in host
+WF-SUBSCRIPTION-003,GetMyPackage,Get My Package - No Package,"1. Open browser and login the system with Host role without package
+2. Click on ""Gói dịch vụ của tôi"" or ""My Package"" in host navigation menu (or navigate to /host-dashboard?tab=package)
+3. View my package page","1. System displays message: ""Bạn chưa có gói dịch vụ nào"" or shows empty state with illustration
+2. Empty state message is clear and helpful
+3. ""Mua gói ngay"" or ""Purchase Package"" button is prominently displayed
+4. Button redirects to available packages page when clicked
+5. Host is encouraged to purchase a package",User must be logged in as Host role. No HostPackage exists for host
+WF-SUBSCRIPTION-004,PurchasePackage,Purchase Package - Valid,"1. Open browser and login the system with Host role
+2. Navigate to ""Gói dịch vụ có sẵn"" or ""Available Packages"" page (click ""Mua gói"" or navigate to /subscription)
+3. Click on a package card from list
+4. On package detail page, review package information (price, duration, features, condotel limit)
+5. Click ""Mua gói"" or ""Purchase"" button
+6. Review purchase summary page (if applicable)
+7. Click ""Xác nhận mua"" or ""Confirm Purchase"" button","1. System redirects to PayOS payment page or displays payment QR code
+2. System displays message: ""Tạo link thanh toán thành công!"" if payment link is created
+3. Payment page shows: amount, package name, payment link/QR code
+4. HostPackage is created with status ""Chờ thanh toán"" in system
+5. User can complete payment on PayOS page
+6. After payment, package status changes to ""Đang hoạt động""",User must be logged in as Host role. Package exists in system
+WF-SUBSCRIPTION-005,PurchasePackage,Purchase Package - Invalid PackageId,"1. Open browser and login the system with Host role
+2. Try to navigate to package detail page with invalid package ID (e.g., type URL: /subscription?packageId=0 or packageId=-1)
+3. Or try to purchase with invalid package selection","1. System displays error message: ""PackageId không hợp lệ""
+2. Purchase cannot be completed
+3. ""Mua gói"" button is disabled or error is shown
+4. User is redirected to error page or package list
+5. Error message is clear and helpful",User must be logged in as Host role
+WF-SUBSCRIPTION-006,PurchasePackage,Purchase Package - Package Not Found,"1. Open browser and login the system with Host role
+2. Try to navigate to package detail page with invalid package ID (e.g., type URL: /subscription?packageId=99999)
+3. Or try to purchase non-existent package from package list","1. System displays 404 error page or error message in Vietnamese
+2. Shows message: ""Không tìm thấy gói dịch vụ"" or ""Package không tồn tại""
+3. Purchase cannot be completed
+4. Error page has link to go back to package list
+5. User is informed that package does not exist",PackageId does not exist in system
+WF-SUBSCRIPTION-007,CreateCondotel,Host Package Limits - Within Limit,"1. Open browser and login the system with Host role
+2. Create active HostPackage with condotel limit = 5 in system (via admin or purchase)
+3. Create 3 condotels for host in system (via UI: navigate to add condotel, fill form, submit)
+4. Navigate to Host Dashboard
+5. Click on ""Quản lý Condotel"" or ""Condotel Management"" tab
+6. Click ""Tạo Condotel mới"" or ""Create New Condotel"" button
+7. Navigate to add condotel page (/add-condotel)
+8. Fill in condotel creation form:
+   - Enter ""Tên condotel"": [name] in name input field
+   - Enter ""Mô tả"": [description] in description textarea
+   - Select resort from dropdown
+   - Enter ""Giá mỗi đêm"": 200000 in price input field
+   - Enter ""Số giường"": 2 in beds input field
+   - Enter ""Số phòng tắm"": 1 in bathrooms input field
+   - Select amenities from checkboxes
+   - Upload images using file upload button
+9. Click ""Tạo"" or ""Create"" button","1. System displays message: ""Tạo condotel thành công""
+2. Condotel is created successfully
+3. Condotel count increases to 4 (within limit of 5)
+4. New condotel appears in condotel list on Host Dashboard
+5. Success message is displayed clearly
+6. User is redirected to condotel list or detail page",HostPackage is active with condotel limit = 5. Current condotel count = 3 (within limit). User is logged in as Host
+WF-SUBSCRIPTION-008,CreateCondotel,Host Package Limits - Exceeds Limit,"1. Open browser and login the system with Host role
+2. Create active HostPackage with condotel limit = 3 in system
+3. Create 3 condotels for host in system (at limit) via UI
+4. Navigate to Host Dashboard
+5. Click on ""Quản lý Condotel"" tab
+6. Click ""Tạo Condotel mới"" button
+7. Navigate to add condotel page (/add-condotel)
+8. Fill in condotel creation form with valid data (name, description, resort, price, beds, bathrooms, amenities, images)
+9. Click ""Tạo"" button","1. System displays error message: ""Bạn đã đạt đến số lượng condotel tối đa được phép bởi gói của bạn""
+2. Condotel cannot be created
+3. ""Tạo"" button is disabled or error is shown after clicking
+4. Error message suggests upgrading package
+5. Link to package purchase/upgrade page is shown
+6. User is informed about package limit clearly",HostPackage is active with condotel limit = 3. Current condotel count = 3 (at limit). User is logged in as Host
+,,,,,
+Scenario E: Host Payout Workflow (10 test cases),,,,,
+WF-PAYOUT-001,GetPendingPayouts,Get Pending Payouts - Valid,"1. Open browser and login the system with Admin role
+2. Click on ""Quản lý thanh toán Host"" or ""Host Payout Management"" in admin navigation menu (or navigate to /admin/payouts)
+3. Click on ""Chờ thanh toán"" or ""Pending Payouts"" tab
+4. View pending payouts list page","1. System displays list of pending payouts in table or card layout
+2. Each payout row/card shows:
+   - Booking ID (clickable to view booking detail)
+   - Condotel name
+   - Host name
+   - Amount (formatted as currency: XXX,XXX VNĐ)
+   - End date (formatted: DD/MM/YYYY)
+   - Days since completed (e.g., ""Đã hoàn thành: 15 ngày"")
+3. List shows bookings eligible for payout (completed >= 15 days ago, not paid yet, no pending refund)
+4. ""Xác nhận thanh toán"" button is available for each payout
+5. List is sorted by date (oldest first) or by amount
+6. Empty state is shown if no pending payouts",User must be logged in as Admin role. Completed booking >= 15 days ago with IsPaidToHost = false exists
+WF-PAYOUT-002,GetPendingPayouts,Get Pending Payouts - With Refund Request,"1. Open browser and login the system with Admin role
+2. Create completed booking >= 15 days ago in system
+3. Create RefundRequest with status = Pending for booking in system (via UI: tenant requests refund)
+4. Navigate to ""Quản lý thanh toán Host"" page
+5. Click on ""Chờ thanh toán"" tab
+6. View pending payouts list","1. System displays pending payouts list
+2. Booking with refund request is NOT shown in pending payouts list
+3. Only bookings without pending refund requests are displayed
+4. System correctly filters out bookings with refund requests
+5. List shows only eligible payouts
+6. Filter works correctly",Booking has pending refund request in system. User is logged in as Admin
+WF-PAYOUT-003,ProcessPayout,Process Payout for Booking - Valid,"1. Open browser and login the system with Admin role
+2. Create wallet for host in system (via admin or host creates wallet)
+3. Create completed booking with endDate >= 15 days ago, IsPaidToHost = false in system
+4. Navigate to ""Quản lý thanh toán Host"" page (/admin/payouts)
+5. Click on ""Chờ thanh toán"" tab
+6. Click on a pending payout from list (or click ""Xác nhận thanh toán"" button)
+7. View payout detail page (if applicable) or confirmation dialog
+8. Review payout information displayed (booking ID, condotel name, host name, amount, bank info)
+9. Click ""Xác nhận thanh toán"" button
+10. Confirm action in popup dialog (click ""Xác nhận"" or ""Confirm"" button)","1. System displays payout detail information (if detail page exists) or shows confirmation dialog
+2. All information is correct (booking, host, amount, bank info from wallet)
+3. Confirmation dialog appears with payout details
+4. After clicking confirm, system displays message: ""Đã trả tiền thành công cho host""
+5. Booking IsPaidToHost status changes to true (visible in booking detail)
+6. PaidToHostAt timestamp is updated
+7. Payout moves from ""Chờ thanh toán"" to ""Đã thanh toán"" section
+8. Success message is displayed clearly
+9. Host receives notification email (if email service is configured)",Wallet exists for host. Completed booking >= 15 days ago with IsPaidToHost = false exists. User is logged in as Admin
+WF-PAYOUT-004,ProcessPayout,Process Payout for Booking - Less Than 15 Days,"1. Open browser and login the system with Admin role
+2. Create completed booking with endDate = 5 days ago in system
+3. Navigate to ""Quản lý thanh toán Host"" page
+4. Click on ""Chờ thanh toán"" tab
+5. Try to find booking in list (should not appear)
+6. Or try to confirm payout via direct action (if booking appears for some reason)","1. Booking does not appear in pending payouts list
+2. System correctly filters out bookings < 15 days
+3. If tried to process directly, system displays error message: ""Booking phải được hoàn thành ít nhất 15 ngày trước khi thanh toán"" or ""ít nhất 15 ngày""
+4. Payout cannot be processed
+5. Error message is clear and informative",Completed booking < 15 days ago exists in system. User is logged in as Admin
+WF-PAYOUT-005,ProcessPayout,Process Payout for Booking - Not Completed,"1. Open browser and login the system with Admin role
+2. Create pending booking in system
+3. Navigate to ""Quản lý thanh toán Host"" page
+4. Click on ""Chờ thanh toán"" tab
+5. Try to find booking in list (should not appear)
+6. Or try to process payout for pending booking (if accessible via direct URL)","1. Booking does not appear in pending payouts list
+2. System correctly filters out non-completed bookings
+3. If tried to process directly, system displays error message: ""Booking phải được hoàn thành để xử lý thanh toán""
+4. Payout cannot be processed
+5. Error message explains requirement clearly",Pending booking exists in system. User is logged in as Admin
+WF-PAYOUT-006,ProcessPayout,Process Payout for Booking - Already Paid,"1. Open browser and login the system with Admin role
+2. Create completed booking with IsPaidToHost = true in system
+3. Navigate to ""Quản lý thanh toán Host"" page
+4. Click on ""Đã thanh toán"" or ""Paid Payouts"" tab
+5. View paid payouts list
+6. Try to click ""Xác nhận thanh toán"" button again (if button exists)","1. System displays list of paid payouts
+2. Booking appears in ""Đã thanh toán"" section
+3. ""Xác nhận thanh toán"" button is disabled or not shown for paid bookings
+4. If tried to process again, system displays error message: ""Booking đã được trả tiền cho host""
+5. Payout cannot be processed again
+6. Paid status is clearly indicated",Booking already paid (IsPaidToHost = true) exists in system. User is logged in as Admin
+WF-PAYOUT-007,ProcessPayout,Process Payout for Booking - With Refund Request,"1. Open browser and login the system with Admin role
+2. Create completed booking >= 15 days ago in system
+3. Create RefundRequest with status = Pending for booking in system
+4. Navigate to ""Quản lý thanh toán Host"" page
+5. Click on ""Chờ thanh toán"" tab
+6. Try to find booking in list (should not appear)
+7. Or try to process payout for booking with refund request (if booking appears for some reason)","1. Booking does not appear in pending payouts list
+2. System correctly filters out bookings with pending refund requests
+3. If tried to process directly, system displays error message: ""Không thể xử lý thanh toán. Booking có yêu cầu hoàn tiền đang chờ xử lý hoặc đã được phê duyệt""
+4. Payout button is disabled or not shown
+5. Payout cannot be processed
+6. Error message explains the conflict clearly",Booking has pending refund request in system. User is logged in as Admin
+WF-PAYOUT-008,ProcessAllPayouts,Process All Payouts - Valid,"1. Open browser and login the system with Admin role
+2. Create wallet for host in system
+3. Create multiple completed bookings >= 15 days ago, IsPaidToHost = false in system
+4. Navigate to ""Quản lý thanh toán Host"" page
+5. Click on ""Chờ thanh toán"" tab
+6. View pending payouts list (should show multiple payouts)
+7. Click ""Xử lý tất cả"" or ""Process All"" button
+8. Review confirmation dialog (shows count of payouts and total amount)
+9. Click ""Xác nhận"" or ""Confirm"" button in dialog","1. System displays confirmation dialog with:
+   - Count of payouts to process (e.g., ""Xử lý 5 booking?"")
+   - Total amount to be paid (e.g., ""Tổng tiền: 10,000,000 VNĐ"")
+   - List of payouts (if shown)
+2. After clicking confirm, system processes all eligible payouts
+3. System displays message: ""Đã xử lý {count} booking và trả {amount} VNĐ cho host""
+4. ProcessedCount > 0, TotalAmount > 0
+5. All eligible bookings are marked as paid (IsPaidToHost = true)
+6. All processed payouts move to ""Đã thanh toán"" section
+7. Pending payouts list is updated (empty or shows remaining payouts)
+8. Success message shows summary clearly
+9. Hosts receive notification emails (if email service is configured)",Multiple eligible bookings exist in system. User is logged in as Admin. Hosts have wallets
+WF-PAYOUT-009,GetPaidPayouts,Get Paid Payouts - Valid,"1. Open browser and login the system with Admin role
+2. Create completed booking with IsPaidToHost = true in system
+3. Navigate to ""Quản lý thanh toán Host"" page (/admin/payouts)
+4. Click on ""Đã thanh toán"" or ""Paid Payouts"" tab
+5. View paid payouts list page","1. System displays list of paid payouts in table or card layout
+2. Each payout row/card shows:
+   - Booking ID
+   - Condotel name
+   - Host name
+   - Amount (formatted as currency)
+   - Paid date (formatted: DD/MM/YYYY HH:mm)
+   - Payment method (if applicable)
+3. List shows all bookings that have been paid to hosts
+4. Admin can view payout history and details
+5. List is sorted by paid date (newest first) or by amount
+6. Search and filter options may be available
+7. Export functionality may be available",Paid booking (IsPaidToHost = true) exists in system. User is logged in as Admin
+WF-PAYOUT-010,ProcessPayout,Process Payout for Booking - Booking Not Found,"1. Open browser and login the system with Admin role
+2. Navigate to ""Quản lý thanh toán Host"" page
+3. Try to process payout for booking with invalid booking ID (e.g., type URL: /admin/payouts/99999/confirm)
+4. Or try to access non-existent booking payout","1. System displays error message: ""Không tìm thấy booking""
+2. Payout cannot be processed
+3. Error page or message is shown
+4. Error message is clear and helpful
+5. User is redirected to payout list or error page",BookingId does not exist in system. User is logged in as Admin
+,,,,,
+Scenario F: Review Workflow (16 test cases),,,,,
+WF-REVIEW-001,CreateReview,Create Review - Valid,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" or ""My Bookings"" page (/booking-history)
+3. Click on a completed booking from the list
+4. View booking detail page
+5. Scroll to review section or click ""Viết đánh giá"" button
+6. Navigate to write review page (/write-review/:id)
+7. View booking information displayed
+8. Click on star rating selector (click 5th star for 5-star rating)
+9. Enter ""Tiêu đề"": ""Trải nghiệm tuyệt vời"" in title input field
+10. Enter ""Nhận xét"": ""Căn hộ rất đẹp và tiện nghi, vị trí thuận tiện..."" in comment textarea
+11. Review form before submitting
+12. Click ""Gửi đánh giá"" or ""Submit Review"" button","1. System displays booking information:
+   - Booking ID
+   - Condotel name and image
+   - Check-in and check-out dates
+   - Booking dates
+2. Review form is visible with:
+   - Star rating selector (1-5 stars, clickable)
+   - Title input field
+   - Comment textarea
+3. After clicking submit, system displays message: ""Tạo review thành công""
+4. Review is created and displayed on condotel detail page
+5. Review shows: rating (5 stars), title, comment, user name, date
+6. User can see review in ""Đánh giá của tôi"" section
+7. Success message is displayed clearly
+8. User is redirected to review list or condotel detail page",Completed booking exists. No existing review for this booking. User is logged in as Tenant
+WF-REVIEW-002,CreateReview,Create Review - Booking Not Found,"1. Open browser and login the system with Tenant role
+2. Try to navigate to review creation page with invalid booking ID (e.g., type URL: /write-review/99999)
+3. Or click on non-existent booking from booking history","1. System displays error message: ""Không tìm thấy booking hoặc booking không thuộc về bạn""
+2. Review cannot be created
+3. Error page or message is shown
+4. Error message is clear and helpful
+5. User is redirected to booking history or error page",BookingId does not exist. User is logged in as Tenant
+WF-REVIEW-003,CreateReview,Create Review - Wrong Customer,"1. Open browser and login the system with Tenant role
+2. Create booking for different customer in system
+3. Try to navigate to review creation page for other customer's booking (e.g., type URL: /write-review/:otherCustomerBookingId)
+4. Or try to access review form for other customer's booking","1. System displays error message: ""Không tìm thấy booking hoặc booking không thuộc về bạn""
+2. Review cannot be created
+3. Access is denied
+4. Error message explains access restriction
+5. User is redirected to booking history or error page",Booking belongs to different customer. User is logged in as Tenant
+WF-REVIEW-004,CreateReview,Create Review - Booking Not Completed,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" page
+3. Click on pending booking from list
+4. View booking detail page
+5. Try to click ""Viết đánh giá"" button (if button exists)
+6. Or try to navigate to write review page (/write-review/:id)","1. ""Viết đánh giá"" button is disabled or not shown for non-completed bookings
+2. Or if accessed directly, system displays error message: ""Bạn chỉ có thể review các booking đã hoàn thành""
+3. Review cannot be created
+4. Error message explains requirement clearly
+5. User is informed that only completed bookings can be reviewed",Pending booking exists and belongs to logged-in tenant. User is logged in as Tenant
+WF-REVIEW-005,CreateReview,Create Review - Duplicate Review,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Lịch sử đặt phòng"" page
+3. Click on completed booking that already has review
+4. Try to click ""Viết đánh giá"" button again
+5. Or try to navigate to write review page again","1. ""Viết đánh giá"" button is disabled or shows ""Đã đánh giá"" status
+2. Or if accessed directly, system displays error message: ""Bạn đã review booking này rồi""
+3. New review cannot be created
+4. Existing review is shown instead
+5. Error message is clear and helpful
+6. User is informed that review already exists",Existing review for booking exists in system. User is logged in as Tenant
+WF-REVIEW-006,GetMyReviews,Get My Reviews,"1. Open browser and login the system with Tenant role
+2. Click on ""Đánh giá của tôi"" or ""My Reviews"" in navigation menu (or navigate to /my-reviews)
+3. View reviews list page","1. System displays list of all reviews created by logged-in tenant
+2. Each review card/row shows:
+   - Condotel name and image (clickable to view condotel detail)
+   - Rating (stars displayed visually)
+   - Title
+   - Comment (truncated if long, with ""Xem thêm"" link)
+   - Date created (formatted: DD/MM/YYYY)
+   - Edit/Delete buttons (if within 7 days)
+3. Only reviews with Status != Deleted are shown
+4. Reviews are ordered by date descending (newest first)
+5. Empty state is shown if no reviews exist
+6. Pagination may be available if many reviews",Multiple reviews exist for logged-in tenant. User is logged in as Tenant
+WF-REVIEW-007,UpdateReview,Update Review - Within 7 Days,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Đánh giá của tôi"" page (/my-reviews)
+3. Click on review from list (created < 7 days ago)
+4. View review detail page or edit form opens
+5. Click ""Chỉnh sửa"" or ""Edit"" button
+6. Update review form:
+   - Change rating by clicking different star (e.g., change from 5 to 4 stars)
+   - Update ""Tiêu đề"": [new title] in title input field
+   - Update ""Nhận xét"": [new comment] in comment textarea
+7. Review updated form
+8. Click ""Lưu thay đổi"" or ""Save Changes"" button","1. Review form opens with existing data pre-filled
+2. User can update rating and comment
+3. Form shows current values
+4. After clicking save, system displays message: ""Cập nhật review thành công""
+5. Review is updated with new rating and comment
+6. Updated review is displayed with new information
+7. Updated timestamp is shown
+8. Success message is displayed clearly
+9. User is redirected to review list or review detail page",Review created < 7 days ago exists and belongs to logged-in tenant. User is logged in as Tenant
+WF-REVIEW-008,UpdateReview,Update Review - After 7 Days,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Đánh giá của tôi"" page
+3. Click on review from list (created > 7 days ago)
+4. View review detail page
+5. Try to click ""Chỉnh sửa"" button (if button exists)","1. ""Chỉnh sửa"" button is disabled or not shown for reviews > 7 days old
+2. System displays message: ""Bạn chỉ có thể chỉnh sửa review trong vòng 7 ngày kể từ khi tạo""
+3. Review cannot be updated
+4. Message explains time limit clearly
+5. Review is displayed in read-only mode",Review created > 7 days ago exists and belongs to logged-in tenant. User is logged in as Tenant
+WF-REVIEW-009,ReplyReview,Host Reply to Review,"1. Open browser and login the system with Host role
+2. Click on ""Quản lý đánh giá"" or ""Review Management"" in host navigation menu (or navigate to /host-dashboard?tab=reviews)
+3. View reviews list for host's condotels
+4. Click on a review from list
+5. View review detail page
+6. Scroll to reply section
+7. Enter ""Trả lời"": [reply message] in reply textarea
+8. Review reply before submitting
+9. Click ""Gửi trả lời"" or ""Submit Reply"" button","1. System displays list of reviews for host's condotels
+2. Each review shows: condotel name, customer name, rating, title, comment, date
+3. Reply section is visible below review
+4. After clicking submit, system displays message: ""Đã trả lời review""
+5. Reply is added to review and displayed below original review
+6. Reply shows: host name, reply message, date
+7. Tenant can see reply on condotel detail page
+8. Success message is displayed clearly
+9. Reply is formatted and displayed correctly",Review exists for host's condotel. User is logged in as Host role
+WF-REVIEW-010,GetReviewsByHost,Host View Reviews,"1. Open browser and login the system with Host role
+2. Click on ""Quản lý đánh giá"" or ""Review Management"" in host navigation menu (or navigate to /host-dashboard?tab=reviews)
+3. View reviews list page","1. System displays list of all reviews for host's condotels
+2. Each review card/row shows:
+   - Condotel name (clickable to view condotel)
+   - Customer name
+   - Rating (stars)
+   - Title and comment
+   - Date created
+   - Reply section (with ""Trả lời"" button if not replied yet)
+   - Existing reply (if host has replied)
+3. Host can reply to each review
+4. Reviews are grouped by condotel or shown in chronological order
+5. Filter options may be available (by condotel, by rating, by date)
+6. Empty state is shown if no reviews exist",Multiple reviews exist for host's condotels. User is logged in as Host role
+WF-REVIEW-011,WriteReviewPage,Write Review Page - View Booking Information,"1. Navigate to ""Lịch sử đặt phòng"" page
+2. Click on a completed booking
+3. Click ""Viết đánh giá"" button
+4. Navigate to write review page (/write-review/:id)","1. System displays booking information:
+   - Booking ID
+   - Condotel name and image
+   - Check-in and check-out dates
+   - Booking dates
+2. Review form is visible with:
+   - Star rating selector (1-5 stars)
+   - Title input field
+   - Comment textarea
+3. Submit button is available","Booking exists with status ""Completed"". User is logged in as Tenant"
+WF-REVIEW-012,WriteReviewPage,Write Review Page - Select Rating,"1. Navigate to write review page
+2. Click on star rating (e.g., click 5th star for 5-star rating)
+3. Verify rating is selected","1. Selected stars are highlighted (yellow/gold color)
+2. Unselected stars are gray
+3. Rating value is stored (1-5)
+4. User can change rating by clicking different star
+5. Rating is visually clear",User is on write review page
+WF-REVIEW-013,WriteReviewPage,Write Review Page - Fill Review Form,"1. Navigate to write review page
+2. Select rating: 5 stars
+3. Enter title: ""Trải nghiệm tuyệt vời""
+4. Enter comment: ""Căn hộ rất đẹp và tiện nghi...""
+5. Review form before submitting","1. All fields are filled correctly
+2. Title and comment are saved in form state
+3. Form validation works (rating is required)
+4. Character count is shown (if applicable)
+5. Submit button is enabled",User is on write review page
+WF-REVIEW-014,MyReviewsPage,My Reviews Page - View Reviews List,"1. Navigate to ""Đánh giá của tôi"" or ""My Reviews"" page (/my-reviews)
+2. View reviews list","1. System displays list of all reviews created by user
+2. Each review shows: condotel name, rating, comment, date, edit/delete options (if within 7 days)
+3. Reviews are ordered by date descending (newest first)
+4. Only reviews with Status != Deleted are shown",Multiple reviews exist for logged-in tenant
+WF-REVIEW-015,MyReviewsPage,My Reviews Page - Edit Review,"1. Navigate to ""My Reviews"" page
+2. Click ""Chỉnh sửa"" button on a review (created < 7 days ago)
+3. Update rating and comment
+4. Click ""Lưu thay đổi"" button","1. Review form opens with existing data
+2. User can update rating and comment
+3. Changes are saved successfully
+4. Updated review is displayed with new information
+5. Updated timestamp is shown",Review created < 7 days ago exists and belongs to logged-in tenant
+WF-REVIEW-016,MyReviewsPage,My Reviews Page - Edit Review After 7 Days,"1. Navigate to ""My Reviews"" page
+2. Try to click ""Chỉnh sửa"" button on a review (created > 7 days ago)","1. ""Chỉnh sửa"" button is disabled or not shown
+2. System displays message: ""Bạn chỉ có thể chỉnh sửa review trong vòng 7 ngày kể từ khi tạo""
+3. Review cannot be updated",Review created > 7 days ago exists and belongs to logged-in tenant
