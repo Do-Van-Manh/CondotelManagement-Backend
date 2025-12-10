@@ -456,7 +456,6 @@ namespace CondotelManagement.Controllers.Payment
                                 new Microsoft.Data.SqlClient.SqlParameter("@condotelId", booking.CondotelId),
                                 new Microsoft.Data.SqlClient.SqlParameter("@currentBookingId", booking.BookingId),
                                 new Microsoft.Data.SqlClient.SqlParameter("@today", today))
-                            .AsEnumerable()
                             .ToListAsync();
 
                         // Kiểm tra overlap với các booking đã confirmed/completed

@@ -1563,6 +1563,11 @@ namespace CondotelManagement.Services
 
         public async Task<ServiceResultDTO> RejectRefundRequest(int refundRequestId, string reason)
         {
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                return ServiceResultDTO.Fail("Reason is required for rejecting a refund request.");
+            }
+
             // Tìm RefundRequest theo Id (không phải BookingId)
             var refundRequest = await _context.RefundRequests
                 .Include(r => r.Booking)
@@ -1572,18 +1577,23 @@ namespace CondotelManagement.Services
 
             if (refundRequest == null)
             {
-                return ServiceResultDTO.Fail("Refund request not found.");
+                return ServiceResultDTO.Fail($"Refund request with ID {refundRequestId} not found.");
             }
 
             // Kiểm tra status hiện tại
             if (refundRequest.Status == "Rejected")
             {
-                return ServiceResultDTO.Fail("Refund request has already been rejected.");
+                return ServiceResultDTO.Fail($"Refund request (ID: {refundRequestId}) has already been rejected.");
             }
 
             if (refundRequest.Status == "Completed" || refundRequest.Status == "Refunded")
             {
-                return ServiceResultDTO.Fail("Cannot reject a refund request that has already been completed or refunded.");
+                return ServiceResultDTO.Fail($"Cannot reject a refund request (ID: {refundRequestId}) that has already been completed or refunded. Current status: {refundRequest.Status}");
+            }
+
+            if (refundRequest.Status != "Pending")
+            {
+                return ServiceResultDTO.Fail($"Cannot reject a refund request (ID: {refundRequestId}) with status '{refundRequest.Status}'. Only 'Pending' requests can be rejected.");
             }
 
             // Cập nhật status thành "Rejected"
