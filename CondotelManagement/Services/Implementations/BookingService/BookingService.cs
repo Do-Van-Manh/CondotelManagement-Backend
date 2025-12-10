@@ -477,7 +477,8 @@ namespace CondotelManagement.Services
                     TotalPrice = price,
                     Status = "Pending",
                     PromotionId = appliedPromotionId,
-                    VoucherId = appliedVoucherId
+                    VoucherId = appliedVoucherId,
+                    CreatedAt = DateTime.Now
                 };
                 var responseDto = new BookingDTO
                 {
@@ -527,7 +528,7 @@ namespace CondotelManagement.Services
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
-                return ServiceResultDTO.Ok("Đặt phòng thành công.", responseDto);
+                return ServiceResultDTO.Ok("Đặt phòng thành công. Vui lòng thanh toán trong 3 phút.", responseDto);
             }
             catch (Exception ex)
             {
@@ -562,7 +563,7 @@ namespace CondotelManagement.Services
                 throw new InvalidOperationException("Không thể chỉnh sửa đặt phòng đã bị hủy.");
 
             // 4. Không cho sửa nếu còn dưới 1 ngày tới StartDate
-            var today = DateTime.UtcNow.Date;
+            var today = DateTime.Now.Date;
             var startDate = booking.StartDate; // kiểu DateOnly
 
             var daysBeforeCheckIn = (startDate.ToDateTime(TimeOnly.MinValue) - today).TotalDays;

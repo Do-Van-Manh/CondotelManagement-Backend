@@ -38,6 +38,7 @@ using CondotelManagement.Services.Implementations.Host;
 using CondotelManagement.Services.Interfaces.Wallet;
 using CondotelManagement.Services.Implementations.Wallet;
 using CondotelManagement.Services.Background;
+using CondotelManagement.Services.BackgroundServices;
 
 namespace CondotelManagement.Configurations
 {
@@ -126,6 +127,7 @@ namespace CondotelManagement.Configurations
             services.AddSignalR();
             // --- Background Services ---
             services.AddHostedService<BookingStatusUpdateService>();
+            services.AddHostedService<BookingTimeoutBackgroundService>();
 
             // --- Payment (PayOS) ---
             services.AddHttpClient<IPayOSService, PayOSService>((serviceProvider, client) =>
