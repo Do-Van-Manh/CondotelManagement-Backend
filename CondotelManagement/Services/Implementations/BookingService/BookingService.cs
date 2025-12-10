@@ -55,12 +55,12 @@ namespace CondotelManagement.Services
 
         public async Task<IEnumerable<BookingDTO>> GetBookingsByCustomerAsync(int customerId)
         {
-            
-              var bookings = await _context.Bookings
-        .Include(b => b.Condotel)
-        .Where(b => b.CustomerId == customerId)
-        .OrderByDescending(b => b.EndDate)
-        .ToListAsync();
+
+            var bookings = await _context.Bookings
+     .Include(b => b.Condotel)
+     .Where(b => b.CustomerId == customerId)
+     .OrderByDescending(b => b.EndDate)
+     .ToListAsync();
 
             // Lấy tất cả RefundRequests để check một lần
             var bookingIds = bookings.Select(b => b.BookingId).ToList();
@@ -95,26 +95,18 @@ namespace CondotelManagement.Services
                         canRefund = false;
                     }
                     // Nếu status là "Confirmed" hoặc "Completed" → có nút hoàn tiền
-                    else if (b.Status == "Confirmed" || b.Status == "Completed")
+                    
+                    else if (b.Status == "Confirmed")
                     {
-                        var now = DateTime.UtcNow;
+                        var now = DateTime.Now;
                         
-                        if (b.Status == "Confirmed")
-                        {
+                      
                             // Với booking "Confirmed": Phải hủy trước 2 ngày check-in
                             var startDateTime = b.StartDate.ToDateTime(TimeOnly.MinValue);
                             var daysBeforeCheckIn = (startDateTime - now).TotalDays;
                             
                             canRefund = daysBeforeCheckIn >= 2; // Có thể refund nếu còn >= 2 ngày
-                        }
-                        else if (b.Status == "Completed")
-                        {
-                            // Với booking "Completed": Cho phép refund trong vòng 7 ngày sau EndDate
-                            var endDateTime = b.EndDate.ToDateTime(TimeOnly.MaxValue);
-                            var daysAfterCheckOut = (now - endDateTime).TotalDays;
-                            
-                            canRefund = daysAfterCheckOut >= 0 && daysAfterCheckOut <= 7; // Có thể refund trong vòng 7 ngày sau check-out
-                        }
+  
                     }
                 }
 

@@ -49,7 +49,7 @@ namespace CondotelManagement.Services.BackgroundServices
             var context = scope.ServiceProvider.GetRequiredService<CondotelDbVer1Context>();
 
             // Tính thời điểm timeout (3 phút trước hiện tại)
-            var timeoutThreshold = DateTime.UtcNow.AddMinutes(-PAYMENT_TIMEOUT_MINUTES);
+            var timeoutThreshold = DateTime.Now.AddMinutes(-PAYMENT_TIMEOUT_MINUTES);
 
             // Tìm tất cả booking Pending đã quá hạn
             var expiredBookings = await context.Bookings

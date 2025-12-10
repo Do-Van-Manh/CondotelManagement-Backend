@@ -87,7 +87,7 @@ namespace CondotelManagement.Services.Implementations.Payment
 
                 if (!request.ExpiredAt.HasValue)
                 {
-                    request.ExpiredAt = (int)DateTimeOffset.UtcNow.AddMinutes(3).ToUnixTimeSeconds();
+                    request.ExpiredAt = (int)DateTimeOffset.Now.AddMinutes(3).ToUnixTimeSeconds();
                 }
                 // Tạo request object theo format chuẩn PayOS
                 var requestBodyDict = new Dictionary<string, object>
