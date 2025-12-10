@@ -146,6 +146,30 @@ namespace CondotelManagement.Controllers
 			return Ok(servicePackages);
 		}
 
+		// GET api/tenant/condotels/host/{hostId} - Lấy danh sách condotels của một host (Public API)
+		[HttpGet("host/{hostId}")]
+		[AllowAnonymous]
+		public ActionResult<IEnumerable<CondotelDTO>> GetCondotelsByHostId(int hostId)
+		{
+			if (hostId <= 0)
+				return BadRequest(new { message = "Host ID không hợp lệ" });
+
+			var condotels = _condotelService.GetCondtelsByHost(hostId);
+			
+			// Chỉ trả về các condotel có status "Active" hoặc "Hoạt động"
+			var activeCondotels = condotels
+				.Where(c => c.Status == "Active" || c.Status == "Hoạt động")
+				.ToList();
+
+			return Ok(new
+			{
+				success = true,
+				data = activeCondotels,
+				total = activeCondotels.Count,
+				hostId = hostId
+			});
+		}
+
 		// GET api/tenant/condotels/{id} - Lấy chi tiết condotel (ĐẶT CUỐI CÙNG)
 		[HttpGet("{id}")]
 		[AllowAnonymous]

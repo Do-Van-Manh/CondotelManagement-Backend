@@ -148,15 +148,23 @@ namespace CondotelManagement.Services
 
 		public Task<bool> DeleteVoucherAsync(int id) => _repo.DeleteAsync(id);
 
-		public async Task<List<VoucherDTO>> CreateVoucherAfterBookingAsync(int bookingId)
-		{
-			// 1. Lấy booking
-			var booking = _bookingRepo.GetBookingById(bookingId);
-			if (booking == null)
-				return new List<VoucherDTO>();
+	public async Task<List<VoucherDTO>> CreateVoucherAfterBookingAsync(int bookingId)
+	{
+		// 1. Lấy booking
+		var booking = _bookingRepo.GetBookingById(bookingId);
+		if (booking == null)
+			return new List<VoucherDTO>();
 
-			int userId = booking.CustomerId;
-			int condotelId = booking.CondotelId;
+		// QUAN TRỌNG: Chỉ tạo voucher khi booking đã Completed
+		// Voucher KHÔNG được tạo khi booking Confirmed (khi thanh toán thành công)
+		if (booking.Status != "Completed")
+		{
+			Console.WriteLine($"[CreateVoucherAfterBookingAsync] Booking {bookingId} có status '{booking.Status}', không phải 'Completed'. Không tạo voucher.");
+			return new List<VoucherDTO>();
+		}
+
+		int userId = booking.CustomerId;
+		int condotelId = booking.CondotelId;
 
 			// 2. Lấy condotel để biết HostID
 			var condotel = _condotelRepo.GetCondotelById(condotelId);

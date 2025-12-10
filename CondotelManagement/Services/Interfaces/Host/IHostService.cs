@@ -20,5 +20,7 @@ namespace CondotelManagement.Services.Interfaces
         Task<HostVerificationResponseDTO> VerifyHostWithIdCardAsync(int userId, IFormFile idCardFront, IFormFile idCardBack);
 
         Task<ValidateIdCardResponseDTO> ValidateIdCardInfoAsync(int userId);
+
+        Task<List<TopHostDTO>> GetTopHostsByRatingAsync(int topCount = 10);
     }
 }

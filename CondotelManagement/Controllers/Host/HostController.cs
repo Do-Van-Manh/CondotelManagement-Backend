@@ -21,6 +21,35 @@ namespace CondotelManagement.Controllers.Host
             _hostService = hostService;
         }
 
+        /// <summary>
+        /// Lấy top 10 host xuất sắc dựa trên đánh giá của khách hàng (Public API - không cần auth)
+        /// </summary>
+        [HttpGet("top-rated")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetTopHostsByRating([FromQuery] int topCount = 10)
+        {
+            try
+            {
+                if (topCount <= 0 || topCount > 100)
+                {
+                    return BadRequest(new { message = "topCount phải từ 1 đến 100." });
+                }
+
+                var topHosts = await _hostService.GetTopHostsByRatingAsync(topCount);
+                
+                return Ok(new
+                {
+                    success = true,
+                    data = topHosts,
+                    total = topHosts.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Lỗi khi lấy danh sách top hosts: {ex.Message}" });
+            }
+        }
+
         [HttpPost("register-as-host")]
         public async Task<IActionResult> RegisterHost([FromBody] HostRegisterRequestDto dto)
         {

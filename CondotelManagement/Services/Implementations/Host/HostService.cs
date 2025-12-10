@@ -487,6 +487,87 @@ namespace CondotelManagement.Services
             return stringBuilder.ToString().Normalize(System.Text.NormalizationForm.FormC);
         }
 
+        public async Task<List<TopHostDTO>> GetTopHostsByRatingAsync(int topCount = 10)
+        {
+            // Lấy tất cả hosts active với thông tin user
+            var hosts = await _context.Hosts
+                .Include(h => h.User)
+                .Where(h => h.Status == "Active")
+                .ToListAsync();
+
+            // Lấy tất cả condotels của các hosts này
+            var hostIds = hosts.Select(h => h.HostId).ToList();
+            var condotels = await _context.Condotels
+                .Where(c => hostIds.Contains(c.HostId))
+                .Select(c => new { c.HostId, c.CondotelId })
+                .ToListAsync();
+
+            // Lấy tất cả reviews Visible của các condotels này
+            var condotelIds = condotels.Select(c => c.CondotelId).ToList();
+            var reviews = await _context.Reviews
+                .Where(r => condotelIds.Contains(r.CondotelId) && r.Status == "Visible")
+                .Select(r => new { r.CondotelId, r.Rating })
+                .ToListAsync();
+
+            // Group reviews theo HostId thông qua CondotelId
+            var hostReviewStats = condotels
+                .GroupJoin(reviews,
+                    condotel => condotel.CondotelId,
+                    review => review.CondotelId,
+                    (condotel, reviewGroup) => new
+                    {
+                        condotel.HostId,
+                        Reviews = reviewGroup.ToList()
+                    })
+                .GroupBy(x => x.HostId)
+                .Select(g => new
+                {
+                    HostId = g.Key,
+                    AllReviews = g.SelectMany(x => x.Reviews).ToList()
+                })
+                .ToList();
+
+            var hostDTOs = new List<TopHostDTO>();
+
+            foreach (var host in hosts)
+            {
+                var stats = hostReviewStats.FirstOrDefault(s => s.HostId == host.HostId);
+                if (stats != null && stats.AllReviews.Any())
+                {
+                    var averageRating = stats.AllReviews.Average(r => (double)r.Rating);
+                    var totalReviews = stats.AllReviews.Count;
+                    var totalCondotels = condotels.Count(c => c.HostId == host.HostId);
+
+                    hostDTOs.Add(new TopHostDTO
+                    {
+                        HostId = host.HostId,
+                        CompanyName = host.CompanyName ?? string.Empty,
+                        FullName = host.User?.FullName,
+                        AvatarUrl = host.User?.ImageUrl,
+                        AverageRating = Math.Round(averageRating, 2),
+                        TotalReviews = totalReviews,
+                        TotalCondotels = totalCondotels,
+                        Rank = 0 // Sẽ set sau khi sort
+                    });
+                }
+            }
+
+            // Sắp xếp theo AverageRating giảm dần, sau đó theo TotalReviews giảm dần
+            var sortedHosts = hostDTOs
+                .OrderByDescending(h => h.AverageRating)
+                .ThenByDescending(h => h.TotalReviews)
+                .Take(topCount)
+                .ToList();
+
+            // Set rank
+            for (int i = 0; i < sortedHosts.Count; i++)
+            {
+                sortedHosts[i].Rank = i + 1;
+            }
+
+            return sortedHosts;
+        }
+
         // Helper method để parse ngày từ string
         private bool TryParseDate(string dateString, out DateTime date)
         {
