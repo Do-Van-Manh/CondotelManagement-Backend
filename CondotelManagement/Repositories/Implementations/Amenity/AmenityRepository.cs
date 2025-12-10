@@ -64,7 +64,7 @@ namespace CondotelManagement.Repositories.Implementations.Amenity
             // Kiểm tra xem amenity có đang được sử dụng không
             if (amenity.CondotelAmenities != null && amenity.CondotelAmenities.Any())
             {
-                throw new InvalidOperationException("Cannot delete amenity that is being used by condotels");
+                throw new InvalidOperationException("Không thể xóa tiện ích đang được sử dụng bởi các căn hộ khách sạn.");
             }
 
             _context.Amenities.Remove(amenity);
