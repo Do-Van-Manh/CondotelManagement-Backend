@@ -213,12 +213,21 @@ namespace CondotelManagement.Services
         {
             var today = DateOnly.FromDateTime(DateTime.Now);
 
-            // Kiểm tra nếu đã có transaction
-            var currentTransaction = _context.Database.CurrentTransaction;
+         
+            if (checkIn < today) return false;
 
+            if (checkOut <= checkIn) return false;
+
+            var condotelExists = _context.Condotels
+                .Any(c => c.CondotelId == condotelId && c.Status == "Active");
+
+            if (!condotelExists)
+            {
+                return false; 
+            }
+            var currentTransaction = _context.Database.CurrentTransaction;
             try
             {
-                // Sử dụng transaction hiện có hoặc tạo mới
                 if (currentTransaction == null)
                 {
                     using var transaction = _context.Database.BeginTransaction(System.Data.IsolationLevel.Serializable);
@@ -235,7 +244,6 @@ namespace CondotelManagement.Services
             {
                 if (currentTransaction == null)
                 {
-                    // Chỉ rollback nếu transaction được tạo trong method này
                     currentTransaction?.Rollback();
                 }
                 throw;
