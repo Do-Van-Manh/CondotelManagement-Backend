@@ -85,7 +85,10 @@ namespace CondotelManagement.Services.Implementations.Payment
                 var returnUrl = request.ReturnUrl ?? string.Empty;
                 var cancelUrl = request.CancelUrl ?? string.Empty;
 
-
+                if (!request.ExpiredAt.HasValue)
+                {
+                    request.ExpiredAt = (int)DateTimeOffset.Now.AddMinutes(3).ToUnixTimeSeconds();
+                }
                 // Tạo request object theo format chuẩn PayOS
                 var requestBodyDict = new Dictionary<string, object>
                 {
@@ -94,6 +97,7 @@ namespace CondotelManagement.Services.Implementations.Payment
                     { "description", description },
                     { "returnUrl", returnUrl },
                     { "cancelUrl", cancelUrl },
+                    { "expiredAt", request.ExpiredAt.Value },
                     { "items", request.Items.Select(i => new Dictionary<string, object>
                     {
                         { "name", i.Name ?? string.Empty },
