@@ -469,7 +469,6 @@ namespace CondotelManagement.Services.Implementations.Payment
                                 new SqlParameter("@condotelId", booking.CondotelId),
                                 new SqlParameter("@currentBookingId", booking.BookingId),
                                 new SqlParameter("@today", today))
-                            .AsEnumerable()
                             .ToListAsync();
 
                         // Kiểm tra overlap với các booking đã confirmed/completed

@@ -55,8 +55,13 @@ namespace CondotelManagement.Controllers.Admin
         /// Từ chối yêu cầu hoàn tiền
         /// </summary>
         [HttpPost("{id}/reject")]
-        public async Task<IActionResult> RejectRefund(int id, [FromBody] RejectRefundRequestDTO request)
+        public async Task<IActionResult> RejectRefund(int id, [FromBody] RejectRefundRequestDTO? request)
         {
+            if (request == null)
+            {
+                return BadRequest(new { success = false, message = "Request body is required." });
+            }
+
             if (string.IsNullOrWhiteSpace(request.Reason))
             {
                 return BadRequest(new { success = false, message = "Reason is required for rejecting a refund request." });
