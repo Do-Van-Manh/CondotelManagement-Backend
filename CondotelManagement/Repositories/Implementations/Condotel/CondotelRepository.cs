@@ -54,7 +54,7 @@ namespace CondotelManagement.Repositories
 			foreach (var voucher in condotel.Vouchers)
 				voucher.Status = "Inactive";
 
-			_context.SaveChanges();
+			// Không gọi SaveChanges() ở đây, để Service quản lý transaction
 		}
 
     public Condotel GetCondotelById(int id)
