@@ -19,24 +19,43 @@ namespace CondotelManagement.Repositories
 
     public void DeleteCondotel(int id)
     {
-        var condotel = _context.Condotels
-            .Include(c => c.CondotelImages)
-            .Include(c => c.CondotelAmenities)
-            .Include(c => c.CondotelPrices)
-            .Include(c => c.CondotelDetails)
-            .Include(c => c.CondotelUtilities)
-            .FirstOrDefault(c => c.CondotelId == id);
+			var condotel = _context.Condotels
+				   .Include(c => c.CondotelImages)
+				   .Include(c => c.CondotelAmenities)
+				   .Include(c => c.CondotelDetails)
+				   .Include(c => c.CondotelPrices)
+				   .Include(c => c.CondotelUtilities)
+				   .Include(c => c.Promotions)
+				   .Include(c => c.Vouchers)
+				   .FirstOrDefault(c => c.CondotelId == id);
 
-        if (condotel != null)
-        {
-            _context.CondotelImages.RemoveRange(condotel.CondotelImages);
-            _context.CondotelAmenities.RemoveRange(condotel.CondotelAmenities);
-            _context.CondotelPrices.RemoveRange(condotel.CondotelPrices);
-            _context.CondotelDetails.RemoveRange(condotel.CondotelDetails);
-            _context.CondotelUtilities.RemoveRange(condotel.CondotelUtilities);
-            _context.Condotels.Remove(condotel);
-        }
-    }
+			if (condotel == null)
+				return;
+
+			// Soft delete Condotel chính
+			condotel.Status = "Inactive";
+
+			// Soft delete các bảng phụ
+			foreach (var item in condotel.CondotelAmenities)
+				item.Status = "Inactive";
+
+			foreach (var item in condotel.CondotelDetails)
+				item.Status = "Inactive";
+
+			foreach (var item in condotel.CondotelPrices)
+				item.Status = "Inactive";
+
+			foreach (var item in condotel.CondotelUtilities)
+				item.Status = "Inactive";
+
+			foreach (var promo in condotel.Promotions)
+				promo.Status = "Inactive";
+
+			foreach (var voucher in condotel.Vouchers)
+				voucher.Status = "Inactive";
+
+			_context.SaveChanges();
+		}
 
     public Condotel GetCondotelById(int id)
     {
@@ -56,7 +75,8 @@ namespace CondotelManagement.Repositories
         public IEnumerable<Condotel> GetCondtels()
         {
             return _context.Condotels
-                .Include(c => c.Resort)
+				.Where(c => c.Status == "Active")
+				.Include(c => c.Resort)
                 .Include(c => c.Host)
                 .Include(c => c.CondotelImages)
                 .Include(c => c.Promotions)
@@ -160,7 +180,7 @@ namespace CondotelManagement.Repositories
         public IEnumerable<Condotel> GetCondtelsByHost(int hostId)
         {
             return _context.Condotels
-                    .Where(c => c.HostId == hostId)
+                    .Where(c => c.HostId == hostId && c.Status == "Active")
                     .Include(c => c.Resort)
                     .Include(c => c.Host)
                     .Include(c => c.CondotelImages)
@@ -187,7 +207,7 @@ namespace CondotelManagement.Repositories
 		}
 
 		// Bắt đầu với query cơ bản
-		var query = _context.Condotels.AsQueryable().Where(c => c.Status == "Hoạt động");
+		var query = _context.Condotels.AsQueryable().Where(c => c.Status == "Active");
 
 		// Lọc theo tên condotel
 		if (!string.IsNullOrWhiteSpace(name))

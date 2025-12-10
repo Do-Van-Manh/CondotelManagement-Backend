@@ -316,7 +316,7 @@ namespace CondotelManagement.Services
                 var condotel = _condotelRepo.GetCondotelById(dto.CondotelId);
                 if (condotel == null)
                     return ServiceResultDTO.Fail("Không tìm thấy condotel.");
-                if (condotel.Status == "Không hoạt động")
+                if (condotel.Status == "Inactive")
                     return ServiceResultDTO.Fail("Condotel này hiện không hoạt động.");
 
 
