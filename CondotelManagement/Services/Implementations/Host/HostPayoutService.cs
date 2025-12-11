@@ -32,7 +32,7 @@ namespace CondotelManagement.Services.Implementations.Host
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             var cutoffDate = today.AddDays(-15); // 15 ngày trước
 
-            // Lấy các booking đã completed >= 15 ngày, chưa được trả tiền
+            // Lấy các booking đã completed >= 15 ngày, chưa được trả tiền, chưa bị từ chối
             var allEligibleBookings = await _context.Bookings
                 .Include(b => b.Condotel)
                     .ThenInclude(c => c.Host)
@@ -40,6 +40,7 @@ namespace CondotelManagement.Services.Implementations.Host
                 .Include(b => b.Customer)
                 .Where(b => b.EndDate <= cutoffDate
                     && (b.IsPaidToHost == null || b.IsPaidToHost == false)
+                    && b.PayoutRejectedAt == null // Loại bỏ booking đã bị từ chối
                     && b.TotalPrice.HasValue
                     && b.TotalPrice.Value > 0)
                 .ToListAsync();
@@ -437,6 +438,11 @@ namespace CondotelManagement.Services.Implementations.Host
                 };
             }
 
+            // Đánh dấu booking đã bị từ chối thanh toán
+            booking.PayoutRejectedAt = DateTime.UtcNow;
+            booking.PayoutRejectionReason = reason;
+            await _context.SaveChangesAsync();
+
             // Gửi email thông báo từ chối thanh toán cho host
             try
             {
@@ -460,21 +466,14 @@ namespace CondotelManagement.Services.Implementations.Host
                 }
                 else
                 {
-                    return new HostPayoutResponseDTO
-                    {
-                        Success = false,
-                        Message = "Host email not found. Cannot send rejection notification."
-                    };
+                    // Vẫn trả về success vì đã đánh dấu reject trong DB
+                    Console.WriteLine($"[PayoutService] Host email not found for booking {bookingId}, but rejection has been recorded.");
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[PayoutService] Error sending payout rejection email to host: {ex.Message}");
-                return new HostPayoutResponseDTO
-                {
-                    Success = false,
-                    Message = $"Failed to send rejection notification email: {ex.Message}"
-                };
+                // Vẫn trả về success vì đã đánh dấu reject trong DB
             }
 
             return new HostPayoutResponseDTO
@@ -499,6 +498,7 @@ namespace CondotelManagement.Services.Implementations.Host
                 .Include(b => b.Customer)
                 .Where(b => b.EndDate <= cutoffDate
                     && (b.IsPaidToHost == null || b.IsPaidToHost == false)
+                    && b.PayoutRejectedAt == null // Loại bỏ booking đã bị từ chối
                     && b.TotalPrice.HasValue
                     && b.TotalPrice.Value > 0);
 

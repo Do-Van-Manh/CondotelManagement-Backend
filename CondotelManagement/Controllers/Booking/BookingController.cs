@@ -145,32 +145,32 @@ namespace CondotelManagement.Controllers
                 return NotFound(new { success = false, message = "Booking not found or you don't have permission to cancel this booking." });
             }
             
-            // Nếu booking đã thanh toán, thử refund trước
-            if (booking.Status == "Confirmed" || booking.Status == "Completed")
+            // Nếu booking đã thanh toán (Confirmed), thử refund trước
+            // Booking "Completed" không thể hủy và hoàn tiền
+            if (booking.Status == "Completed")
             {
-                // Kiểm tra có thể refund không
-                var canRefund = await _bookingService.CanRefundBooking(id, customerId);
-                if (!canRefund)
-                {
-                    return BadRequest(new { 
-                        success = false, 
-                        message = "Cannot cancel this booking. It may not be eligible for refund (e.g., too close to check-in date, already paid to host, or outside refund window)." 
-                    });
-                }
-                
-                // Thử refund
+                return BadRequest(new { 
+                    success = false, 
+                    message = "Không thể hủy booking. Booking đã hoàn thành (đã check-out), không thể hủy và hoàn tiền." 
+                });
+            }
+            
+            if (booking.Status == "Confirmed")
+            {
+                // Gọi trực tiếp RefundBooking để nhận message chi tiết
                 var refundResult = await _bookingService.RefundBooking(id, customerId);
                 if (!refundResult.Success)
                 {
+                    // Trả về message cụ thể từ RefundBooking
                     return BadRequest(new { 
                         success = false, 
-                        message = refundResult.Message ?? "Failed to process refund. Please try again or contact support." 
+                        message = refundResult.Message ?? "Không thể hủy booking. Vui lòng kiểm tra lại điều kiện hoàn tiền." 
                     });
                 }
                 
                 return Ok(new { 
                     success = true, 
-                    message = "Booking cancelled and refund request created successfully.",
+                    message = refundResult.Message ?? "Booking đã được hủy và yêu cầu hoàn tiền đã được gửi đến admin.",
                     data = refundResult.Data
                 });
             }

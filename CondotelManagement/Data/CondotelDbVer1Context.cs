@@ -186,6 +186,8 @@ public partial class CondotelDbVer1Context : DbContext
             entity.Property(e => e.IsPaidToHost)
                 .HasDefaultValue(false);
             entity.Property(e => e.PaidToHostAt).HasColumnType("datetime");
+            entity.Property(e => e.PayoutRejectedAt).HasColumnType("datetime");
+            entity.Property(e => e.PayoutRejectionReason).HasMaxLength(500);
 
             entity.HasOne(d => d.Condotel).WithMany(p => p.Bookings)
                 .HasForeignKey(d => d.CondotelId)

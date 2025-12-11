@@ -42,6 +42,8 @@ namespace CondotelManagement.Repositories
     {
         return _context.Condotels
             .Include(r => r.Resort)
+            .Include(c => c.Host)
+                .ThenInclude(h => h.User)
             .Include(c => c.CondotelImages)
             .Include(c => c.CondotelAmenities)
 			.ThenInclude(ca => ca.Amenity)
@@ -50,6 +52,7 @@ namespace CondotelManagement.Repositories
             .Include(c => c.CondotelUtilities)
 			.ThenInclude(cu => cu.Utility)
 			.Include(c => c.Promotions)
+			.Include(c => c.Reviews)
 			.FirstOrDefault(c => c.CondotelId == id);
     }
 
@@ -166,6 +169,7 @@ namespace CondotelManagement.Repositories
                     .Include(c => c.CondotelImages)
                     .Include(c => c.Promotions)
 					.Include(c => c.CondotelPrices)
+					.Include(c => c.Reviews)
 					.ToList();
         }
 
@@ -260,16 +264,17 @@ namespace CondotelManagement.Repositories
 				query = query.Where(c => c.Bathrooms >= bathrooms.Value);
 			}
 
-			// Include các navigation properties sau khi đã filter
-			query = query
-			.Include(c => c.Resort)
-				.ThenInclude(r => r.Location)
-			.Include(c => c.Host)
-			.Include(c => c.CondotelImages)
-			.Include(c => c.Promotions)
-			.Include(c => c.CondotelPrices);
+		// Include các navigation properties sau khi đã filter
+		query = query
+		.Include(c => c.Resort)
+			.ThenInclude(r => r.Location)
+		.Include(c => c.Host)
+		.Include(c => c.CondotelImages)
+		.Include(c => c.Promotions)
+		.Include(c => c.CondotelPrices)
+		.Include(c => c.Reviews);
 
-		return query.ToList();
+	return query.ToList();
 	}
 
 	public bool ResortExists(int? resortId)

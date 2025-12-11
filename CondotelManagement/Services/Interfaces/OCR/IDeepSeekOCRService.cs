@@ -22,3 +22,4 @@ namespace CondotelManagement.Services.Interfaces.OCR
     }
 }
 
+

@@ -29,6 +29,10 @@ public partial class Booking
 
     public DateTime? PaidToHostAt { get; set; }
 
+    public DateTime? PayoutRejectedAt { get; set; }
+
+    public string? PayoutRejectionReason { get; set; }
+
     public virtual ICollection<BookingDetail> BookingDetails { get; set; } = new List<BookingDetail>();
 
     public virtual Condotel Condotel { get; set; } = null!;

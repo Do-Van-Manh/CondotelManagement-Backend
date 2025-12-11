@@ -209,18 +209,29 @@ public class CondotelService : ICondotelService
 		{
             CondotelId = c.CondotelId,
             HostId = c.HostId,
-            Resort = new ResortDTO
+            Resort = c.Resort != null ? new ResortDTO
             {
                 ResortId = c.Resort.ResortId,
                 Name = c.Resort.Name,
                 Address = c.Resort.Address
-            },
+            } : null,
             Name = c.Name,
             Description = c.Description,
             PricePerNight = c.PricePerNight,
             Beds = c.Beds,
             Bathrooms = c.Bathrooms,
             Status = c.Status,
+            // Thông tin Host
+            HostName = c.Host?.User?.FullName,
+            HostAvatar = c.Host?.User?.ImageUrl,
+            // Thông tin Resort
+            ResortName = c.Resort?.Name,
+            ResortAddress = c.Resort?.Address,
+            // Thông tin Review
+            ReviewCount = c.Reviews?.Count ?? 0,
+            ReviewRate = c.Reviews != null && c.Reviews.Count > 0 
+                ? Math.Round(c.Reviews.Average(r => r.Rating), 1)
+                : 0,
             Images = c.CondotelImages?.Select(i => new ImageDTO
             {
                 ImageId = i.ImageId,
@@ -294,7 +305,11 @@ public class CondotelService : ICondotelService
             Status = c.Status,
             ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
             ResortName = c.Resort?.Name,
-            HostName = c.Host?.CompanyName,
+            HostName = c.Host?.User?.FullName,
+            ReviewCount = c.Reviews?.Count ?? 0,
+            ReviewRate = c.Reviews != null && c.Reviews.Count > 0 
+                ? Math.Round(c.Reviews.Average(r => r.Rating), 1)
+                : 0,
             // Lấy promotion đang active (Status = "Active" và trong khoảng thời gian hiện tại)
             ActivePromotion = c.Promotions
                 .Where(p => p.Status == "Active" 
@@ -355,7 +370,11 @@ public class CondotelService : ICondotelService
 			Status = c.Status,
 			ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
 			ResortName = c.Resort?.Name,
-			HostName = c.Host?.CompanyName,
+			HostName = c.Host?.User?.FullName,
+			ReviewCount = c.Reviews?.Count ?? 0,
+			ReviewRate = c.Reviews != null && c.Reviews.Count > 0 
+				? Math.Round(c.Reviews.Average(r => r.Rating), 1)
+				: 0,
 			// Lấy promotion đang active (Status = "Active" và trong khoảng thời gian hiện tại)
 			ActivePromotion = c.Promotions
 				.Where(p => p.Status == "Active" 

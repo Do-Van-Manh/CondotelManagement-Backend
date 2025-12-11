@@ -737,34 +737,25 @@ namespace CondotelManagement.Services
                 return false;
             }
 
-            // Nếu status là "Confirmed" hoặc "Completed" → có nút hoàn tiền
-            if (booking.Status == "Confirmed" || booking.Status == "Completed")
+            // Nếu status là "Confirmed" → có nút hoàn tiền (nếu đủ điều kiện)
+            if (booking.Status == "Confirmed")
             {
-                var now = DateTime.Now;
+                var now = DateTime.UtcNow; // Sử dụng UTC để nhất quán với RefundBooking
                 
-                if (booking.Status == "Confirmed")
-                {
-                    // Với booking "Confirmed": Phải hủy trước 2 ngày check-in
-                    var startDateTime = booking.StartDate.ToDateTime(TimeOnly.MinValue);
-                    var daysBeforeCheckIn = (startDateTime - now).TotalDays;
-                    
-                    if (daysBeforeCheckIn < 2)
-                        return false; // Quá gần ngày check-in, không cho refund
-                }
-                else if (booking.Status == "Completed")
-                {
-                    // Với booking "Completed": Cho phép refund trong vòng 7 ngày sau EndDate
-                    var endDateTime = booking.EndDate.ToDateTime(TimeOnly.MaxValue);
-                    var daysAfterCheckOut = (now - endDateTime).TotalDays;
-                    
-                    if (daysAfterCheckOut > 7)
-                        return false; // Quá 7 ngày sau check-out, không cho refund
-                    
-                    if (daysAfterCheckOut < 0)
-                        return false; // Chưa check-out, không cho refund
-                }
+                // Với booking "Confirmed": Phải hủy trước 2 ngày check-in
+                var startDateTime = booking.StartDate.ToDateTime(TimeOnly.MinValue);
+                var daysBeforeCheckIn = (startDateTime - now).TotalDays;
+                
+                if (daysBeforeCheckIn < 2)
+                    return false; // Quá gần ngày check-in, không cho refund
 
                 return true; // Có thể refund
+            }
+            
+            // Booking "Completed" → KHÔNG cho phép hoàn tiền
+            if (booking.Status == "Completed")
+            {
+                return false; // Booking đã hoàn thành, không thể hoàn tiền
             }
 
             // Nếu status là "Cancelled" nhưng đã có RefundRequest → có thể đang pending refund
@@ -782,7 +773,7 @@ namespace CondotelManagement.Services
         {
             var booking = _bookingRepo.GetBookingById(bookingId);
             if (booking == null || booking.CustomerId != customerId)
-                return ServiceResultDTO.Fail("Booking not found for this tenant.");
+                return ServiceResultDTO.Fail("Không tìm thấy booking hoặc bạn không có quyền hủy booking này.");
 
             // Log bank info từ request
             Console.WriteLine($"[RefundBooking Service] BookingId: {bookingId}, CustomerId: {customerId}");
@@ -791,7 +782,7 @@ namespace CondotelManagement.Services
             // Kiểm tra booking đã được payout cho host chưa
             if (booking.IsPaidToHost == true)
             {
-                return ServiceResultDTO.Fail("Cannot refund booking that has already been paid to host.");
+                return ServiceResultDTO.Fail("Không thể hoàn tiền. Booking này đã được thanh toán cho chủ nhà.");
             }
 
             // Kiểm tra xem đã có RefundRequest với status Completed/Refunded chưa
@@ -802,7 +793,7 @@ namespace CondotelManagement.Services
             if (existingRefundRequest != null && 
                 (existingRefundRequest.Status == "Completed" || existingRefundRequest.Status == "Refunded"))
             {
-                return ServiceResultDTO.Fail("Booking has already been refunded.");
+                return ServiceResultDTO.Fail("Booking này đã được hoàn tiền rồi.");
             }
 
             // Nếu status là "Cancelled" và chưa có RefundRequest → kiểm tra xem có phải cancel payment không
@@ -814,21 +805,27 @@ namespace CondotelManagement.Services
                 // Nếu TotalPrice <= 0 hoặc null → đây là cancel payment (chưa thanh toán) → không cho refund
                 if (booking.TotalPrice == null || booking.TotalPrice <= 0)
                 {
-                    return ServiceResultDTO.Fail("Cannot refund booking that was cancelled before payment. This booking was not paid.");
+                    return ServiceResultDTO.Fail("Không thể hoàn tiền. Booking này đã bị hủy trước khi thanh toán, không có tiền để hoàn lại.");
                 }
                 // Nếu TotalPrice > 0 → đây là cancel booking (đã thanh toán) → cho phép tạo RefundRequest
             }
 
-            // Nếu status là "Refunded" nhưng chưa có refund request, coi như booking vừa hủy và cho phép tạo refund request
-            // Hoặc nếu status là "Confirmed", "Completed" thì cho phép
-            if (booking.Status != "Cancelled" && booking.Status != "Confirmed" && booking.Status != "Completed" && booking.Status != "Refunded")
+            // Nếu status là "Completed" → KHÔNG cho phép hoàn tiền
+            if (booking.Status == "Completed")
             {
-                return ServiceResultDTO.Fail("Only cancelled (after payment), confirmed, or completed bookings can be refunded.");
+                return ServiceResultDTO.Fail("Không thể hoàn tiền. Booking đã hoàn thành (đã check-out), không thể hủy và hoàn tiền.");
+            }
+
+            // Nếu status là "Refunded" nhưng chưa có refund request, coi như booking vừa hủy và cho phép tạo refund request
+            // Hoặc nếu status là "Confirmed" thì cho phép
+            if (booking.Status != "Cancelled" && booking.Status != "Confirmed" && booking.Status != "Refunded")
+            {
+                return ServiceResultDTO.Fail($"Không thể hoàn tiền. Chỉ có thể hoàn tiền cho các booking có trạng thái: Đã xác nhận (Confirmed) hoặc Đã hủy sau khi thanh toán. Trạng thái hiện tại: {booking.Status}.");
             }
 
             var now = DateTime.UtcNow;
             
-            // Logic kiểm tra thời gian refund khác nhau cho "Confirmed" và "Completed"
+            // Logic kiểm tra thời gian refund cho "Confirmed"
             if (booking.Status == "Confirmed")
             {
                 // Với booking "Confirmed" (chưa check-in): Phải hủy trước 2 ngày check-in
@@ -836,19 +833,21 @@ namespace CondotelManagement.Services
                 var daysBeforeCheckIn = (startDateTime - now).TotalDays;
 
                 if (daysBeforeCheckIn < 2)
-                    return ServiceResultDTO.Fail("Refund is only available when cancelling at least 2 days before check-in.");
-            }
-            else if (booking.Status == "Completed")
-            {
-                // Với booking "Completed" (đã check-out): Cho phép refund trong vòng 7 ngày sau EndDate
-                var endDateTime = booking.EndDate.ToDateTime(TimeOnly.MaxValue);
-                var daysAfterCheckOut = (now - endDateTime).TotalDays;
-
-                if (daysAfterCheckOut > 7)
-                    return ServiceResultDTO.Fail("Refund is only available within 7 days after check-out date.");
-                
-                if (daysAfterCheckOut < 0)
-                    return ServiceResultDTO.Fail("Cannot refund booking that has not completed yet.");
+                {
+                    var daysRemaining = Math.Ceiling(daysBeforeCheckIn);
+                    if (daysRemaining < 0)
+                    {
+                        return ServiceResultDTO.Fail("Không thể hủy booking. Ngày check-in đã qua hoặc đang trong thời gian sử dụng.");
+                    }
+                    else if (daysRemaining == 0)
+                    {
+                        return ServiceResultDTO.Fail("Không thể hủy booking. Bạn chỉ có thể hủy trước ít nhất 2 ngày so với ngày check-in. Hôm nay là ngày check-in.");
+                    }
+                    else
+                    {
+                        return ServiceResultDTO.Fail($"Không thể hủy booking. Bạn chỉ có thể hủy trước ít nhất 2 ngày so với ngày check-in. Còn {daysRemaining} ngày nữa là đến ngày check-in ({booking.StartDate:dd/MM/yyyy}).");
+                    }
+                }
             }
             // Với booking "Cancelled" (đã hủy sau khi thanh toán): Không cần check thời gian
 
@@ -864,7 +863,7 @@ namespace CondotelManagement.Services
             // Kiểm tra booking đã được payout cho host chưa
             if (booking.IsPaidToHost == true)
             {
-                return ServiceResultDTO.Fail("Cannot refund booking that has already been paid to host.");
+                return ServiceResultDTO.Fail("Không thể hoàn tiền. Booking này đã được thanh toán cho chủ nhà.");
             }
 
             // Kiểm tra xem đã có RefundRequest với status Completed/Refunded chưa
@@ -875,11 +874,11 @@ namespace CondotelManagement.Services
             if (existingRefundRequest != null && 
                 (existingRefundRequest.Status == "Completed" || existingRefundRequest.Status == "Refunded"))
             {
-                return ServiceResultDTO.Fail("Booking has already been refunded.");
+                return ServiceResultDTO.Fail("Booking này đã được hoàn tiền rồi.");
             }
 
             if (booking.Status == "Pending")
-                return ServiceResultDTO.Fail("Cannot refund a booking that has not been paid.");
+                return ServiceResultDTO.Fail("Không thể hoàn tiền. Booking này chưa được thanh toán.");
 
             return await ProcessRefund(booking, "Admin", reason);
         }
@@ -1001,6 +1000,56 @@ namespace CondotelManagement.Services
                     Console.WriteLine($"[ProcessRefund] Created new RefundRequest with bank info - BankCode: {refundRequest.BankCode}, AccountNumber: {refundRequest.AccountNumber}, AccountHolder: {refundRequest.AccountHolder}");
                 }
 
+                // Cập nhật booking status
+                if (booking.Status != "Cancelled")
+                {
+                    booking.Status = "Cancelled";
+                    _bookingRepo.UpdateBooking(booking);
+                }
+
+                // Set PaymentMethod dựa trên initiatedBy
+                // - "Tenant": Manual (gửi yêu cầu đến admin, không gọi PayOS)
+                // - "Admin": Có thể là Auto hoặc Manual (tùy admin quyết định)
+                if (initiatedBy == "Tenant")
+                {
+                    // Tenant tạo refund request → Chỉ gửi yêu cầu đến admin, KHÔNG gọi PayOS
+                    refundRequest.PaymentMethod = "Manual";
+                    refundRequest.Status = "Pending";
+                    refundRequest.UpdatedAt = DateTime.UtcNow;
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    Console.WriteLine($"[ProcessRefund] RefundRequest {refundRequest.Id} created by Tenant - Manual refund (admin will process)");
+                    Console.WriteLine($"[ProcessRefund] Bank info saved - BankCode: {refundRequest.BankCode}, AccountNumber: {refundRequest.AccountNumber}, AccountHolder: {refundRequest.AccountHolder}");
+
+                    return ServiceResultDTO.Ok(
+                        "Yêu cầu hoàn tiền đã được gửi đến admin. Admin sẽ xử lý trong thời gian sớm nhất.",
+                        new
+                        {
+                            booking.BookingId,
+                            RefundRequestId = refundRequest.Id,
+                            RefundAmount = totalPrice,
+                            Currency = "VND",
+                            InitiatedBy = initiatedBy,
+                            Reason = reason,
+                            Status = "Pending",
+                            PaymentMethod = "Manual",
+                            BankInfo = new
+                            {
+                                BankCode = refundRequest.BankCode,
+                                AccountNumber = refundRequest.AccountNumber,
+                                AccountHolder = refundRequest.AccountHolder
+                            },
+                            Note = "Yêu cầu hoàn tiền đã được ghi nhận. Admin sẽ xử lý và chuyển tiền vào tài khoản của bạn."
+                        }
+                    );
+                }
+
+                // Admin tạo refund request → Có thể tạo PayOS link tự động
+                // Lưu RefundRequest trước để đảm bảo có ID
+                await _context.SaveChangesAsync();
+                
                 try
                 {
                     // Kiểm tra xem đã có PayOS link chưa (nếu đã có TransactionId thì không tạo mới)
@@ -1010,7 +1059,7 @@ namespace CondotelManagement.Services
 
                     if (shouldCreatePayOSLink)
                     {
-                        // Tạo PayOS refund payment link cho customer
+                        // Admin có thể tạo PayOS refund payment link tự động
                         var refundAmount = (int)totalPrice;
                         refundResponse = await _payOSService.CreateRefundPaymentLinkAsync(
                             booking.BookingId,
@@ -1171,33 +1220,22 @@ namespace CondotelManagement.Services
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"PayOS Refund Error for Booking {booking.BookingId}: {ex.Message}");
+                    Console.WriteLine($"[ProcessRefund] PayOS Refund Error for Booking {booking.BookingId}: {ex.Message}");
                     Console.WriteLine($"Stack Trace: {ex.StackTrace}");
 
                     // Kiểm tra xem có phải lỗi "Đơn thanh toán đã tồn tại" không
                     bool isDuplicateOrderError = ex.Message.Contains("Đơn thanh toán đã tồn tại") ||
                                                 ex.Message.Contains("Code: 231") ||
-                                                ex.Message.Contains("orderCode already exists");
+                                                ex.Message.Contains("orderCode already exists") ||
+                                                ex.Message.Contains("231");
 
-                    // Nếu đã tạo RefundRequest, vẫn giữ lại và commit
-                    // Nếu chưa tạo RefundRequest, rollback transaction
-                    if (refundRequest == null || refundRequest.Id == 0)
+                    // RefundRequest đã được tạo và lưu trước đó, giữ lại
+                    // Cập nhật booking status và refund request
+                    if (booking.Status != "Cancelled")
                     {
-                        // Chưa tạo RefundRequest, rollback transaction
-                        try
-                        {
-                            await transaction.RollbackAsync();
-                        }
-                         catch (Exception rollbackEx)
-                         {
-                             Console.WriteLine($"[ProcessRefund] Error rolling back transaction: {rollbackEx.Message}");
-                         }
-                        return ServiceResultDTO.Fail($"Failed to create refund request: {ex.Message}");
+                        booking.Status = "Cancelled";
+                        _bookingRepo.UpdateBooking(booking);
                     }
-
-                    // Đã tạo RefundRequest, giữ lại nhưng không tạo PayOS link
-                    booking.Status = "Cancelled";
-                    _bookingRepo.UpdateBooking(booking);
 
                     refundRequest.Status = "Pending";
 
@@ -1210,7 +1248,7 @@ namespace CondotelManagement.Services
                     }
                     else if (!isDuplicateOrderError)
                     {
-                        refundRequest.PaymentMethod = null;
+                        refundRequest.PaymentMethod = "Manual"; // Cần xử lý thủ công
                     }
 
                     refundRequest.UpdatedAt = DateTime.UtcNow;
@@ -1226,9 +1264,10 @@ namespace CondotelManagement.Services
                     Console.WriteLine($"[ProcessRefund]   AccountNumber: {refundRequest.AccountNumber}");
                     Console.WriteLine($"[ProcessRefund]   AccountHolder: {refundRequest.AccountHolder}");
 
+                    // Trả về success với message rõ ràng
                     var message = isDuplicateOrderError
-                        ? "Refund request updated with bank info. PayOS payment link may already exist."
-                        : "Refund request created. Failed to create automatic refund link. Manual refund may be required.";
+                        ? "Yêu cầu hoàn tiền đã được tạo thành công. Hệ thống sẽ xử lý hoàn tiền tự động."
+                        : "Yêu cầu hoàn tiền đã được tạo thành công. Vui lòng chờ admin xử lý hoàn tiền thủ công.";
 
                     return ServiceResultDTO.Ok(
                         message,
@@ -1247,10 +1286,9 @@ namespace CondotelManagement.Services
                                 AccountNumber = refundRequest.AccountNumber,
                                 AccountHolder = refundRequest.AccountHolder
                             },
-                            Error = isDuplicateOrderError ? null : ex.Message,
                             Note = isDuplicateOrderError
-                                ? "PayOS payment link may already exist. Bank info updated successfully."
-                                : "Please process manual refund"
+                                ? "Yêu cầu hoàn tiền đã được ghi nhận. Hệ thống sẽ xử lý tự động."
+                                : "Yêu cầu hoàn tiền đã được ghi nhận. Admin sẽ xử lý trong thời gian sớm nhất."
                         }
                     );
                 }
