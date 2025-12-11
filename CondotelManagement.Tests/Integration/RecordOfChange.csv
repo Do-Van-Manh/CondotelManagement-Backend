@@ -1,0 +1,21 @@
+Effective Date,Version,Change Item,*A,D,M,Change description,Reference
+15/11/2025,1,"Booking Workflow
+Payment Workflow
+Refund Workflow
+Host Monthly Subscription Workflow
+Host Payout Workflow
+Review Workflow",A,M,"Created comprehensive system test cases for all main workflows of Condotel Management System. Total 101 test cases covering end-to-end UI interactions and user journeys:
+- Booking Workflow: 31 test cases (CheckAvailability, CreateBooking, GetMyBookings, GetBookingById, CancelBooking, BrowseCondotels, FilterCondotels, SearchCondotels, ViewCondotelDetail, CheckoutPage)
+- Payment Workflow: 17 test cases (CreatePaymentLink, GetPaymentStatus, PayOSReturnUrl, PayPage, PaymentSuccess, PaymentCancel, PaymentStatus)
+- Refund Workflow: 19 test cases (RefundBooking, GetRefundRequests, ConfirmRefund, RequestRefundPage, RefundPolicy)
+- Host Monthly Subscription Workflow: 8 test cases (GetAvailablePackages, GetMyPackage, PurchasePackage, CreateCondotel)
+- Host Payout Workflow: 10 test cases (GetPendingPayouts, ProcessPayout, GetPaidPayouts, ProcessAllPayouts)
+- Review Workflow: 16 test cases (CreateReview, GetMyReviews, UpdateReview, GetReviewsByHost, WriteReviewPage, MyReviewsPage, ReplyReview)
+
+All test cases are UI-based system tests describing detailed user interactions on Front-end interface. Test procedures include step-by-step user actions (click buttons, fill forms, navigate pages) rather than direct API calls. Expected results messages are in Vietnamese. Each test case includes Function Name, Test Case Description, Test Case Procedure, Expected Results, and Pre-conditions.",MainWorkFlow,
+
+
+
+
+
+

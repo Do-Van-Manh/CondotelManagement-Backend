@@ -55,12 +55,12 @@ namespace CondotelManagement.Services
 
         public async Task<IEnumerable<BookingDTO>> GetBookingsByCustomerAsync(int customerId)
         {
-            
-              var bookings = await _context.Bookings
-        .Include(b => b.Condotel)
-        .Where(b => b.CustomerId == customerId)
-        .OrderByDescending(b => b.EndDate)
-        .ToListAsync();
+
+            var bookings = await _context.Bookings
+     .Include(b => b.Condotel)
+     .Where(b => b.CustomerId == customerId)
+     .OrderByDescending(b => b.EndDate)
+     .ToListAsync();
 
             // Lấy tất cả RefundRequests để check một lần
             var bookingIds = bookings.Select(b => b.BookingId).ToList();
@@ -95,26 +95,18 @@ namespace CondotelManagement.Services
                         canRefund = false;
                     }
                     // Nếu status là "Confirmed" hoặc "Completed" → có nút hoàn tiền
-                    else if (b.Status == "Confirmed" || b.Status == "Completed")
+                    
+                    else if (b.Status == "Confirmed")
                     {
-                        var now = DateTime.UtcNow;
+                        var now = DateTime.Now;
                         
-                        if (b.Status == "Confirmed")
-                        {
+                      
                             // Với booking "Confirmed": Phải hủy trước 2 ngày check-in
                             var startDateTime = b.StartDate.ToDateTime(TimeOnly.MinValue);
                             var daysBeforeCheckIn = (startDateTime - now).TotalDays;
                             
                             canRefund = daysBeforeCheckIn >= 2; // Có thể refund nếu còn >= 2 ngày
-                        }
-                        else if (b.Status == "Completed")
-                        {
-                            // Với booking "Completed": Cho phép refund trong vòng 7 ngày sau EndDate
-                            var endDateTime = b.EndDate.ToDateTime(TimeOnly.MaxValue);
-                            var daysAfterCheckOut = (now - endDateTime).TotalDays;
-                            
-                            canRefund = daysAfterCheckOut >= 0 && daysAfterCheckOut <= 7; // Có thể refund trong vòng 7 ngày sau check-out
-                        }
+  
                     }
                 }
 
@@ -220,13 +212,9 @@ namespace CondotelManagement.Services
         public bool CheckAvailability(int condotelId, DateOnly checkIn, DateOnly checkOut)
         {
             var today = DateOnly.FromDateTime(DateTime.Now);
-
-            // Kiểm tra nếu đã có transaction
             var currentTransaction = _context.Database.CurrentTransaction;
-
             try
             {
-                // Sử dụng transaction hiện có hoặc tạo mới
                 if (currentTransaction == null)
                 {
                     using var transaction = _context.Database.BeginTransaction(System.Data.IsolationLevel.Serializable);
@@ -243,7 +231,6 @@ namespace CondotelManagement.Services
             {
                 if (currentTransaction == null)
                 {
-                    // Chỉ rollback nếu transaction được tạo trong method này
                     currentTransaction?.Rollback();
                 }
                 throw;
@@ -324,7 +311,7 @@ namespace CondotelManagement.Services
                 var condotel = _condotelRepo.GetCondotelById(dto.CondotelId);
                 if (condotel == null)
                     return ServiceResultDTO.Fail("Không tìm thấy condotel.");
-                if (condotel.Status == "Không hoạt động")
+                if (condotel.Status == "Inactive")
                     return ServiceResultDTO.Fail("Condotel này hiện không hoạt động.");
 
 
@@ -477,7 +464,8 @@ namespace CondotelManagement.Services
                     TotalPrice = price,
                     Status = "Pending",
                     PromotionId = appliedPromotionId,
-                    VoucherId = appliedVoucherId
+                    VoucherId = appliedVoucherId,
+                    CreatedAt = DateTime.Now
                 };
                 var responseDto = new BookingDTO
                 {
@@ -527,7 +515,7 @@ namespace CondotelManagement.Services
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
-                return ServiceResultDTO.Ok("Đặt phòng thành công.", responseDto);
+                return ServiceResultDTO.Ok("Đặt phòng thành công. Vui lòng thanh toán trong 3 phút.", responseDto);
             }
             catch (Exception ex)
             {
@@ -562,7 +550,7 @@ namespace CondotelManagement.Services
                 throw new InvalidOperationException("Không thể chỉnh sửa đặt phòng đã bị hủy.");
 
             // 4. Không cho sửa nếu còn dưới 1 ngày tới StartDate
-            var today = DateTime.UtcNow.Date;
+            var today = DateTime.Now.Date;
             var startDate = booking.StartDate; // kiểu DateOnly
 
             var daysBeforeCheckIn = (startDate.ToDateTime(TimeOnly.MinValue) - today).TotalDays;

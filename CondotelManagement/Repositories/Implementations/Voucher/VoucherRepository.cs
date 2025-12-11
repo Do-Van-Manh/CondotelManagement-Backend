@@ -19,7 +19,7 @@ namespace CondotelManagement.Repositories
 			return await _context.Vouchers
 				.Include(v => v.Condotel)
 				.Include(v => v.User)
-				.Where(v => v.Condotel != null && v.Condotel.HostId == hostId)
+				.Where(v => v.Condotel != null && v.Condotel.HostId == hostId && v.Status == "Active")
 				.ToListAsync();
 		}
 
@@ -94,7 +94,8 @@ namespace CondotelManagement.Repositories
 			var existing = await _context.Vouchers.FindAsync(id);
 			if (existing == null) return false;
 
-			_context.Vouchers.Remove(existing);
+			// Soft delete: chuyển trạng thái
+			existing.Status = "Inactive";
 			await _context.SaveChangesAsync();
 			return true;
 		}

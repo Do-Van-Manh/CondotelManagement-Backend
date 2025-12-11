@@ -176,7 +176,7 @@ namespace CondotelManagement.Controllers
 		public ActionResult<CondotelDetailDTO> GetCondotelById(int id)
 		{
 			var condotel = _condotelService.GetCondotelById(id);
-			if (condotel == null)
+			if (condotel == null || condotel.Status == "Inactive")
 				return NotFound(new { message = "Không tìm thấy condotel" });
 
 			return Ok(condotel);

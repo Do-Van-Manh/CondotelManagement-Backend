@@ -132,7 +132,7 @@ namespace CondotelManagement.Controllers.Host
                 condotelDto.HostId = host.HostId;
                 var created = _condotelService.CreateCondotel(condotelDto);
 
-				return Ok(ApiResponse<object>.SuccessResponse(created, "Tạo tiện ích thành công"));
+				return Ok(ApiResponse<object>.SuccessResponse(created, "Tạo condotel thành công"));
             }
             catch (Exception ex)
             {

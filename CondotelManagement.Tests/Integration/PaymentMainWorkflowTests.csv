@@ -1,0 +1,461 @@
+﻿Workflow,Payment Main Workflow Tests - Complete UI-Based Test Cases,,,,
+Test requirement,"Test all possible scenarios for payment main workflow of Condotel Management system end-to-end on Front-end UI, including user interactions, button clicks, form submissions, navigation flows, error messages display, and complete payment journeys visible on screen",,,,
+Number of TCs,35,,,,
+,,,,,
+Testing Round Summary,,,,,
+,Passed,Failed,Pending,N/A,
+Round 1,0,0,35,0,
+Round 2,0,0,35,0,
+Round 3,0,0,35,0,
+,,,,,
+TestcaseID,Function Name,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions
+,,,,,
+Scenario A: Create Payment from Checkout Page (7 test cases),,,,,
+WF-PAYMENT-001,CreatePayment,Create Payment - Valid Booking with Promotion and Voucher,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Danh sách Condotel"" page (/listing-stay) by clicking on menu item ""Danh sách Condotel""
+3. Click on a condotel card to view details
+4. On condotel detail page, select check-in date from date picker
+5. Select check-out date from date picker
+6. Click ""Đặt ngay"" button
+7. Observe page navigation
+8. On checkout page, scroll to ""Khuyến mãi"" section (if promotions available)
+9. Select a promotion by clicking radio button (if available)
+10. Scroll to ""Voucher"" section
+11. Enter voucher code in input field or click on suggested voucher card
+12. Click ""Áp dụng"" button to apply voucher
+13. Scroll to ""Thanh toán"" section
+14. Review blue info box with text: ""Thanh toán qua PayOS. Bạn sẽ được chuyển hướng đến trang thanh toán PayOS để hoàn tất giao dịch.""
+15. Click ""Xác nhận và thanh toán"" button
+16. Observe button state and page behavior","1. After clicking ""Đặt ngay"", user sees checkout page (/checkout) appears in browser
+2. Checkout page displays booking summary in sidebar with calculated prices
+3. ""Khuyến mãi"" section is visible (if promotions available) with radio buttons
+4. ""Voucher"" section is visible with input field and ""Áp dụng"" button
+5. ""Thanh toán"" section is visible with blue info box
+6. Button ""Xác nhận và thanh toán"" is visible and enabled
+7. When clicking button, button text changes to ""Đang xử lý..."" with spinner icon
+8. Button becomes disabled during processing
+9. After processing, user sees PayOS checkout page appears in browser (external PayOS website)
+10. No error message is displayed on checkout page",User is logged in as Tenant role. Condotel is available for selected dates. Booking has valid TotalPrice >= 10000 VND. Promotions and vouchers may be available
+WF-PAYMENT-002,CreatePayment,Create Payment - Error: Condotel Not Available,"1. Open browser and login the system with Tenant role
+2. Navigate to ""Danh sách Condotel"" page
+3. Click on a condotel that has overlapping booking
+4. Select dates that overlap with existing confirmed/completed booking
+5. Click ""Đặt ngay"" button
+6. Observe error message on condotel detail page
+7. If error not shown, try to proceed to checkout and click ""Xác nhận và thanh toán"" button
+8. Observe error message on checkout page","1. After clicking ""Đặt ngay"", user may see error message on condotel detail page: ""Căn hộ không khả dụng trong khoảng thời gian đã chọn. Vui lòng chọn ngày khác.""
+2. Or if user reaches checkout page, after clicking ""Xác nhận và thanh toán"", user sees error message in red box on checkout page
+3. Error box appears below ""Thanh toán"" section with red background (bg-red-50 dark:bg-red-900/20)
+4. Error text color is red (text-red-800 dark:text-red-200)
+5. Error message contains: ""Căn hộ không còn trống trong khoảng thời gian này. Đặt phòng đã bị hủy."" or ""Condotel is not available""
+6. User cannot proceed to PayOS checkout page
+7. Button ""Xác nhận và thanh toán"" becomes enabled again after error",Existing booking with overlapping dates exists. User tries to book same dates
+WF-PAYMENT-003,CreatePayment,Create Payment - Error: Booking Amount Invalid,"1. Open browser and login the system with Tenant role
+2. Navigate to checkout page with booking data that has TotalPrice = 0 or null
+3. Scroll to ""Thanh toán"" section
+4. Click ""Xác nhận và thanh toán"" button
+5. Observe error message displayed on page","1. After clicking button, user sees error message appears in red box on checkout page
+2. Error box appears below ""Thanh toán"" section
+3. Error box has red background and border (bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800)
+4. Error text is red (text-red-800 dark:text-red-200)
+5. Error message contains: ""Booking chưa có tổng tiền (TotalPrice = 0 hoặc null). Có thể backend chưa tính toán tổng tiền cho booking. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.""
+6. User does NOT see PayOS checkout page
+7. Button ""Xác nhận và thanh toán"" becomes enabled again (loading stops)
+8. User can retry by clicking button again after fixing booking",Booking exists with TotalPrice = 0 or null. User is on checkout page
+WF-PAYMENT-004,CreatePayment,Create Payment - Error: Amount Less Than Minimum,"1. Open browser and login the system with Tenant role
+2. Navigate to checkout page with booking data that has TotalPrice < 10000 VND
+3. Scroll to ""Thanh toán"" section
+4. Click ""Xác nhận và thanh toán"" button
+5. Observe error message displayed on page","1. After clicking button, user sees error message appears in red box on checkout page
+2. Error box appears below ""Thanh toán"" section
+3. Error message contains: ""Amount must be at least 10,000 VND"" or ""Current amount: {amount}""
+4. User does NOT see PayOS checkout page
+5. Button ""Xác nhận và thanh toán"" becomes enabled again (loading stops)",Booking exists with TotalPrice < 10000 VND. User is on checkout page
+WF-PAYMENT-005,CreatePayment,Create Payment - Error: PayOS Connection Failed,"1. Open browser and login the system with Tenant role
+2. Navigate to checkout page with valid booking data
+3. Scroll to ""Thanh toán"" section
+4. Click ""Xác nhận và thanh toán"" button
+5. Observe error message displayed on page","1. Button shows loading state: ""Đang xử lý..."" with spinner
+2. After processing, user sees error message appears in red box on checkout page
+3. Error box appears below ""Thanh toán"" section
+4. Error box: bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6
+5. Error text: text-red-800 dark:text-red-200 whitespace-pre-line
+6. Error message contains: ""Không thể tạo link thanh toán"" or ""Cannot connect to PayOS API"" or ""timed out""
+7. Button ""Xác nhận và thanh toán"" becomes enabled again (loading stops)
+8. User can retry payment by clicking button again
+9. User does NOT see PayOS checkout page",User is logged in as Tenant role. Valid booking data exists. PayOS API is unavailable
+WF-PAYMENT-006,CreatePayment,Create Payment - Error: Session Expired,"1. Open browser and login the system with Tenant role
+2. Wait for session to expire or manually expire session
+3. Navigate to checkout page
+4. Scroll to ""Thanh toán"" section
+5. Click ""Xác nhận và thanh toán"" button
+6. Observe error message and page behavior","1. After clicking button, user sees error message appears in red box on checkout page
+2. Error message text: ""Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.""
+3. Error box: bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800
+4. After 2 seconds, user sees login page (/login) appears in browser automatically
+5. User must login again to continue",User session has expired. User is on checkout page
+WF-PAYMENT-007,CreatePayment,Create Payment - Retry Payment from Checkout,"1. Open browser and login the system with Tenant role
+2. Navigate to checkout page with URL: /checkout?bookingId={bookingId}&retry=true
+3. Observe page behavior
+4. Scroll to ""Thanh toán"" section
+5. Click ""Xác nhận và thanh toán"" button
+6. Observe automatic payment link creation","1. Page automatically loads booking data for the bookingId
+2. If booking has valid totalPrice, page automatically creates payment link
+3. User sees button loading state: ""Đang xử lý..."" with spinner
+4. After processing, user sees PayOS checkout page appears in browser automatically
+5. If error occurs, user sees error message in red box
+6. User can retry payment from checkout page","User is logged in as Tenant role. Booking exists with Status = """"Pending"""". User navigates to /checkout?bookingId={id}&retry=true"
+,,,,,
+Scenario B: Payment Success Page Display (5 test cases),,,,,
+WF-PAYMENT-008,PaymentSuccessPage,Payment Success Page - Display After Successful Payment,"1. Complete payment successfully on PayOS checkout page
+2. After payment, observe page that appears in browser
+3. View payment success page content","1. User sees payment success page appears in browser with URL containing /pay-done?bookingId={bookingId}&status=success&orderCode={orderCode}&paymentLinkId={id}
+2. Page displays heading: ""Thanh toán thành công! 🎉"" (green text, text-3xl lg:text-4xl, text-green-600 dark:text-green-400)
+3. Page displays ""Thông tin đặt phòng"" section (h3: text-2xl font-semibold) with:
+   - Condotel name and image (if booking.condotelImageUrl exists)
+   - Check-in and check-out dates formatted as: ""DD MMM - DD MMM, YYYY"" (e.g., ""15 Jan - 17 Jan, 2025"")
+   - Number of nights displayed as: ""{nights} đêm""
+4. Page displays ""Chi tiết booking"" section with:
+   - Mã booking: #{bookingId} (prominent)
+   - Ngày đặt: DD MMM, YYYY (formatted from booking.createdAt)
+   - Tổng tiền: {totalPrice.toLocaleString()} đ (e.g., ""1,000,000 đ"")
+   - Trạng thái: ""Đã xác nhận"" (green badge, text-green-600 dark:text-green-400)
+   - Phương thức thanh toán: ""PayOS""
+5. If vouchers were auto-generated, user sees green voucher section with:
+   - Heading: ""🎁 Bạn đã nhận được {count} voucher!"" (text-green-800 dark:text-green-200)
+   - Loading state: ""Đang tạo voucher cho bạn..."" (if loadingVouchers = true, with spinner)
+   - Voucher cards with code, discount info, HSD, usage limit
+   - Button: ""Xem tất cả voucher của tôi""
+6. User sees buttons at bottom:
+   - ""Xem booking của tôi"" button
+   - ""Về trang chủ"" button (bg-neutral-600 hover:bg-neutral-700)
+7. All information matches booking data","Payment was completed successfully on PayOS. User returns to application and sees /pay-done page. Booking status is """"Confirmed"""""
+WF-PAYMENT-009,PaymentSuccessPage,Payment Success Page - No Vouchers Generated,"1. Complete payment successfully on PayOS
+2. After payment, observe page that appears in browser
+3. View payment success page content
+4. Check if voucher section is displayed","1. User sees payment success page appears in browser
+2. Page displays heading: ""Thanh toán thành công! 🎉"" (green)
+3. Page displays booking information correctly
+4. User does NOT see green voucher section (no voucher box displayed)
+5. Or if voucher API is called, user may see blue info box: ""Không có voucher được tạo tự động"" (text-blue-800 dark:text-blue-200)
+6. User sees buttons: ""Xem booking của tôi"" and ""Về trang chủ""
+7. All other information displays correctly",Payment was completed successfully. Host has not configured auto-generate vouchers. User sees /pay-done page
+WF-PAYMENT-010,PaymentSuccessPage,Payment Success Page - Booking Not Found,"1. Type URL in browser: /pay-done?bookingId=99999&status=success
+2. Press Enter to navigate
+3. Observe page content displayed","1. User sees loading spinner appears: ""Đang tải thông tin..."" (animate-spin rounded-full h-12 w-12 border-b-2 border-primary-6000)
+2. Loading text: ""Đang tải thông tin..."" (text-neutral-600 dark:text-neutral-400)
+3. After loading, user sees error state displayed:
+   - Heading: ""Có lỗi xảy ra"" (red text, text-3xl lg:text-4xl, text-red-600 dark:text-red-400)
+   - Error message: ""Không tìm thấy booking này"" or ""Không thể tải thông tin booking""
+   - Buttons: ""Xem booking của tôi"" and ""Về trang chủ""
+4. User does NOT see booking information
+5. User can click buttons to navigate",BookingId does not exist in database. User navigates to /pay-done with invalid bookingId
+WF-PAYMENT-011,PaymentSuccessPage,Payment Success Page - Missing BookingId Parameter,"1. Type URL in browser: /pay-done
+2. Press Enter to navigate
+3. Observe page content displayed","1. User sees error state displayed immediately (no loading spinner)
+2. Heading: ""Có lỗi xảy ra"" (red text, text-3xl lg:text-4xl)
+3. Error message: ""Không tìm thấy thông tin booking""
+4. Buttons: ""Xem booking của tôi"" and ""Về trang chủ"" are visible
+5. User does NOT see booking information
+6. User can click buttons",User navigates to /pay-done without bookingId query parameter
+WF-PAYMENT-012,PaymentSuccessPage,Payment Success Page - Unauthorized Access,"1. Login as Tenant A
+2. Complete payment for Booking A
+3. Logout
+4. Login as Tenant B
+5. Type URL in browser: /pay-done?bookingId={BookingA.bookingId}&status=success
+6. Press Enter to navigate
+7. Observe page content displayed","1. User sees loading spinner appears initially
+2. After loading, user sees error state displayed:
+   - Heading: ""Không có quyền truy cập"" (red text)
+   - Error message: ""Bạn không có quyền truy cập booking này""
+   - Message: ""Đang chuyển về trang chủ...""
+3. After 3 seconds, user sees home page (/) appears in browser automatically
+4. User does NOT see booking information
+5. Security check prevents unauthorized access",User tries to access booking that belongs to another user. Security validation is active
+,,,,,
+Scenario C: Payment Pending Page Display (3 test cases),,,,,
+WF-PAYMENT-013,PaymentPendingPage,Payment Pending Page - Display While Payment Processing,"1. Initiate payment on PayOS checkout page but do not complete payment
+2. After some time, observe page that appears in browser
+3. View payment pending page content","1. User sees payment pending page appears in browser with URL containing /pay-done?bookingId={bookingId}&status=pending (or status != success)
+2. Page displays heading: ""Đang chờ thanh toán"" (orange text, text-3xl lg:text-4xl, text-orange-600 dark:text-orange-400)
+3. User sees yellow warning box displayed: bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4
+4. Warning message text: ""Lưu ý: Booking của bạn đang ở trạng thái ""{status}"". Hệ thống đang xác nhận thanh toán của bạn. Nếu bạn đã hoàn tất thanh toán, vui lòng đợi vài giây để hệ thống cập nhật trạng thái."" (text-yellow-800 dark:text-yellow-200)
+5. User sees ""Thông tin đặt phòng"" section with condotel details
+6. User sees ""Chi tiết booking"" section with:
+   - Mã booking: #{bookingId}
+   - Ngày đặt: DD MMM, YYYY
+   - Tổng tiền: formatted as currency
+   - Trạng thái: ""Đang chờ"" (yellow badge, text-yellow-600 dark:text-yellow-400)
+   - Phương thức thanh toán: ""PayOS""
+7. User sees buttons:
+   - ""Xem booking của tôi"" button
+   - ""Về trang chủ"" button
+8. User does NOT see voucher section (payment not confirmed yet)","Payment is still processing. User sees /pay-done page with status != success. Booking status is """"Pending"""""
+WF-PAYMENT-014,PaymentPendingPage,Payment Pending Page - Auto Refresh Status,"1. View payment pending page (shows ""Đang chờ thanh toán"")
+2. Wait for payment to complete in background (webhook processing)
+3. Observe page automatically refreshes booking status
+4. Observe updated page content","1. Initially user sees heading: ""Đang chờ thanh toán"" (orange)
+2. Page automatically refreshes booking status every 3 seconds (if booking.status = ""Pending"")
+3. After webhook processes payment, user sees heading changes to: ""Thanh toán thành công! 🎉"" (green)
+4. Status badge changes from ""Đang chờ"" (yellow) to ""Đã xác nhận"" (green)
+5. User sees voucher section appears if vouchers were generated
+6. All information updates to reflect confirmed status
+7. Auto-refresh stops after 30 seconds or when status becomes ""Confirmed""",Payment was pending. Payment completes in background via webhook. User is on /pay-done page. Page auto-refreshes booking status
+WF-PAYMENT-015,PaymentPendingPage,Payment Pending Page - Loading State,"1. Type URL in browser: /pay-done?bookingId={bookingId}&status=pending
+2. Press Enter to navigate
+3. Observe loading state before content appears","1. User sees loading spinner appears: ""Đang tải thông tin..."" (animate-spin rounded-full h-12 w-12 border-b-2 border-primary-6000)
+2. Loading text: ""Đang tải thông tin..."" (text-neutral-600 dark:text-neutral-400)
+3. User does NOT see booking information during loading
+4. After loading completes, user sees booking information or error state displayed",User navigates to /pay-done page. Page is loading booking data
+,,,,,
+Scenario D: Payment Cancelled Page Display (4 test cases),,,,,
+WF-PAYMENT-016,PaymentCancelledPage,Payment Cancelled Page - Display After Cancellation,"1. On PayOS checkout page, click cancel button or close browser tab
+2. After cancelling, observe page that appears in browser
+3. View payment cancelled page content","1. User sees payment cancelled page appears in browser with URL containing /payment/cancel?bookingId={bookingId}&status=cancelled&orderCode={orderCode}&paymentLinkId={id}
+2. User sees red X icon in circle displayed (w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/20)
+3. Page displays heading: ""Thanh toán thất bại"" (red text, text-3xl lg:text-4xl, text-red-600 dark:text-red-400)
+4. User sees cancellation message: ""Giao dịch thanh toán của bạn đã bị hủy. Vui lòng thử lại hoặc liên hệ hỗ trợ nếu vấn đề vẫn tiếp tục."" (text-neutral-600 dark:text-neutral-400)
+5. If booking exists, user sees ""Thông tin đặt phòng"" section with:
+   - Mã booking: #{bookingId}
+   - Căn hộ: condotel name (if available)
+   - Ngày: DD/MM/YYYY - DD/MM/YYYY (formatted from startDate and endDate)
+   - Tổng tiền: {totalPrice.toLocaleString()} đ
+6. If orderCode or paymentLinkId available, user sees ""Thông tin thanh toán"" section with:
+   - Mã đơn hàng: {orderCode}
+   - Trạng thái: ""Đã hủy"" (red text, text-red-600 dark:text-red-400)
+7. User sees yellow note box: bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4
+8. Note message: ""Lưu ý: Nếu bạn đã thanh toán nhưng vẫn thấy thông báo này, vui lòng kiểm tra lại email xác nhận hoặc liên hệ hỗ trợ với mã booking của bạn."" (text-yellow-800 dark:text-yellow-200)
+9. User sees buttons:
+   - ""Thử thanh toán lại"" button (ButtonPrimary, flex-1) - only if bookingId exists
+   - ""Xem booking của tôi"" button (ButtonSecondary, flex-1)
+   - ""Về trang chủ"" button (ButtonSecondary, flex-1)","User cancels payment on PayOS. User sees /payment/cancel page appears in browser. Booking status is """"Cancelled"""""
+WF-PAYMENT-017,PaymentCancelledPage,Payment Cancelled Page - Retry Payment Button,"1. View payment cancelled page (/payment/cancel)
+2. Click ""Thử thanh toán lại"" button
+3. Observe page that appears
+4. Observe checkout page behavior","1. After clicking ""Thử thanh toán lại"", user sees checkout page appears in browser with URL containing /checkout?bookingId={bookingId}&retry=true
+2. Checkout page automatically loads booking data
+3. If booking has valid totalPrice, checkout page automatically creates payment link and redirects to PayOS
+4. User sees button loading state: ""Đang xử lý..."" with spinner
+5. After processing, user sees PayOS checkout page appears in browser
+6. User can complete payment on PayOS",Payment was cancelled. User is on /payment/cancel page. BookingId is available. Booking has valid totalPrice
+WF-PAYMENT-018,PaymentCancelledPage,Payment Cancelled Page - Loading State,"1. Type URL in browser: /payment/cancel?bookingId={bookingId}&status=cancelled
+2. Press Enter to navigate
+3. Observe loading state before content appears","1. User sees loading spinner appears: ""Đang tải thông tin..."" (animate-spin rounded-full h-12 w-12 border-b-2 border-primary-6000)
+2. Loading text: ""Đang tải thông tin..."" (text-neutral-600 dark:text-neutral-400)
+3. User does NOT see booking information during loading
+4. After loading completes, user sees booking information (if booking exists) or page without booking info displayed",User navigates to /payment/cancel page. Page is loading booking data
+WF-PAYMENT-019,PaymentCancelledPage,Payment Cancelled Page - No Booking Data,"1. Type URL in browser: /payment/cancel?bookingId=99999&status=cancelled
+2. Press Enter to navigate
+3. Observe page content displayed","1. User sees loading spinner appears initially
+2. After loading, user sees cancellation message and UI displayed normally
+3. User does NOT see ""Thông tin đặt phòng"" section (booking not found)
+4. User may see ""Thông tin thanh toán"" section if orderCode/paymentLinkId are available
+5. User sees yellow note box displayed
+6. User sees buttons:
+   - ""Thử thanh toán lại"" button is NOT shown (no valid bookingId)
+   - ""Xem booking của tôi"" button is shown
+   - ""Về trang chủ"" button is shown",BookingId does not exist. User navigates to /payment/cancel with invalid bookingId
+,,,,,
+Scenario E: Complete Payment Flow End-to-End (6 test cases),,,,,
+WF-PAYMENT-020,PaymentFlowE2E,Complete Payment Flow - Success Journey with Promotion,"1. Open browser and login the system with Tenant role
+2. Click on menu item ""Danh sách Condotel"" to navigate to listing page
+3. Click on a condotel card to view details
+4. On condotel detail page, select check-in date from date picker
+5. Select check-out date from date picker (must be after check-in date)
+6. Click ""Đặt ngay"" button
+7. Observe page navigation
+8. On checkout page, review booking summary in sidebar
+9. Scroll to ""Khuyến mãi"" section
+10. Select a promotion by clicking radio button
+11. Scroll to ""Thanh toán"" section
+12. Click ""Xác nhận và thanh toán"" button
+13. Observe button loading state
+14. Observe page navigation
+15. On PayOS checkout page (external website), complete payment
+16. After payment, observe page that appears in browser","1. After clicking ""Đặt ngay"", user sees checkout page appears in browser
+2. Checkout page displays all booking details in sidebar with promotion discount applied
+3. Button ""Xác nhận và thanh toán"" shows loading: ""Đang xử lý..."" with spinner
+4. After processing, user sees PayOS checkout page appears in browser (external PayOS website)
+5. After completing payment on PayOS, user sees payment success page
+6. Payment success page displays:
+   - Heading: ""Thanh toán thành công! 🎉"" 
+   - All booking information
+   - Status: ""Đã xác nhận"" 
+   - Voucher section (if vouchers were generated)
+7. User can click ""Xem booking của tôi"" button to navigate to booking history page
+8. Complete journey from listing to payment success works seamlessly",User is logged in as Tenant role. Condotel is available. User has valid payment method on PayOS. Promotion is available for selected dates
+WF-PAYMENT-021,PaymentFlowE2E,Complete Payment Flow - Cancelled Journey,"1. Open browser and login the system with Tenant role
+2. Navigate to checkout page and create booking
+3. Scroll to ""Thanh toán"" section
+4. Click ""Xác nhận và thanh toán"" button
+5. Observe page navigation
+6. On PayOS checkout page, click cancel button or close browser tab
+7. After cancelling, observe page that appears in browser","1. After clicking ""Xác nhận và thanh toán"", user sees PayOS checkout page appears in browser
+2. User clicks cancel button on PayOS or closes browser tab
+3. After cancelling, user sees payment cancelled page
+4. Payment cancelled page displays:
+   - Heading: ""Thanh toán thất bại"" 
+   - Cancellation message
+   - Booking information 
+   - Yellow note box
+5. User can click ""Thử thanh toán lại"" button to navigate to checkout page with retry=true
+6. User can click ""Xem booking của tôi"" button to navigate to booking history page
+7. Complete journey from checkout to payment cancellation works correctly",User is logged in as Tenant role. Valid booking data exists. User cancels payment on PayOS
+WF-PAYMENT-022,PaymentFlowE2E,Complete Payment Flow - Error on Checkout Page,"1. Open browser and login the system with Tenant role
+2. Navigate to checkout page with valid booking data
+3. Scroll to ""Thanh toán"" section
+4. Click ""Xác nhận và thanh toán"" button
+5. Observe error message displayed on page","1. Button shows loading state: ""Đang xử lý..."" with spinner
+2. After processing, user sees error message appears in red box on checkout page
+3. Error box appears below ""Thanh toán"" section
+4. Error box: bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6
+5. Error text: text-red-800 dark:text-red-200 whitespace-pre-line
+6. Error message contains: ""Không thể tạo link thanh toán"" or backend error message
+7. Button becomes enabled again (loading stops, shows ""Xác nhận và thanh toán"")
+8. User can retry by clicking ""Xác nhận và thanh toán"" button again
+9. User does NOT see PayOS checkout page",User is logged in as Tenant role. Valid booking data exists. PayOS API returns error or is unavailable
+WF-PAYMENT-023,PaymentFlowE2E,Complete Payment Flow - Without Login,"1. Open browser without logging in (not authenticated)
+2. Click on menu item ""Danh sách Condotel"" to navigate to listing page
+3. Click on a condotel card
+4. Try to select dates and click ""Đặt ngay"" button
+5. Observe alert message and page behavior","1. After clicking ""Đặt ngay"", user sees alert popup appears: ""Vui lòng đăng nhập để đặt phòng""
+2. After clicking OK on alert, user sees login page (/login) appears in browser
+3. User cannot proceed to checkout without logging in
+4. After login, user can continue booking process",User is not logged in. User tries to access booking
+WF-PAYMENT-024,PaymentFlowE2E,Complete Payment Flow - Missing Condotel Selection,"1. Open browser and login the system with Tenant role
+2. Type URL in browser: /checkout
+3. Press Enter to navigate directly
+4. Observe page behavior and error message","1. User may see alert popup appears: ""Vui lòng chọn căn hộ để đặt phòng""
+2. Or checkout page displays error message: ""Vui lòng chọn căn hộ để đặt phòng""
+3. User cannot proceed without selecting condotel
+4. User may be redirected to listing page or error is shown
+5. Button ""Xác nhận và thanh toán"" may be disabled",User is logged in but no condotel is selected. User tries to access /checkout directly
+WF-PAYMENT-025,PaymentFlowE2E,Complete Payment Flow - Invalid Date Selection,"1. Open browser and login the system with Tenant role
+2. Navigate to condotel detail page
+3. Try to select check-out date before or same as check-in date
+4. Click ""Đặt ngay"" button
+5. Observe alert message displayed","1. After clicking ""Đặt ngay"", user sees alert popup appears: ""Ngày check-out phải sau ngày check-in""
+2. User cannot proceed to checkout with invalid dates
+3. User must correct dates to proceed
+4. Date picker may prevent selecting invalid dates",User is logged in as Tenant role. User selects invalid date range
+,,,,,
+Scenario F: Checkout Page Payment Section (3 test cases),,,,,
+WF-PAYMENT-026,CheckoutPaymentSection,Checkout Page - Payment Section Display,"1. Open browser and login the system with Tenant role
+2. Navigate to checkout page with valid booking data
+3. Scroll down to find ""Thanh toán"" section
+4. Observe payment section UI elements displayed","1. User sees section heading: ""Thanh toán"" (h3: text-2xl font-semibold)
+2. User sees blue info box displayed: bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6
+3. Info box contains text:
+   - ""Thanh toán qua PayOS"" (strong, text-blue-800 dark:text-blue-200)
+   - ""Bạn sẽ được chuyển hướng đến trang thanh toán PayOS để hoàn tất giao dịch."" (text-blue-800 dark:text-blue-200)
+4. User sees button: ""Xác nhận và thanh toán"" (ButtonPrimary, w-full)
+5. Button is enabled (can be clicked) if condotelId exists and not loading
+6. Button is disabled (grayed out) if loading=true or condotelId is missing
+7. User does NOT see error message initially",User is logged in as Tenant role. Valid booking data is available. User is on checkout page
+WF-PAYMENT-027,CheckoutPaymentSection,Checkout Page - Error Message Display,"1. Open browser and login the system with Tenant role
+2. Navigate to checkout page
+3. Scroll to ""Thanh toán"" section
+4. Click ""Xác nhận và thanh toán"" button
+5. Observe error message that appears on page","1. After clicking button, user sees error message appears in red box on page
+2. Error box appears below blue info box
+3. Error box: bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6
+4. Error text: text-sm text-red-800 dark:text-red-200 whitespace-pre-line
+5. Error message content matches backend error (e.g., ""Không thể tạo link thanh toán"", ""Invalid booking amount"", etc.)
+6. Error box is visible and clearly displayed
+7. Button ""Xác nhận và thanh toán"" becomes enabled again after error
+8. User can read error message and retry",User is on checkout page. Error occurs when clicking payment button
+WF-PAYMENT-028,CheckoutPaymentSection,Checkout Page - Button Loading State During Payment,"1. Open browser and login the system with Tenant role
+2. Navigate to checkout page with valid booking data
+3. Scroll to ""Thanh toán"" section
+4. Click ""Xác nhận và thanh toán"" button
+5. Observe button appearance changes while processing","1. Initially button shows text: ""Xác nhận và thanh toán""
+2. After clicking, button text changes to: ""Đang xử lý...""
+3. Spinner icon appears inside button: animate-spin rounded-full h-5 w-5 border-b-2 border-white
+4. Button becomes disabled (cannot click again)
+5. If successful, user sees PayOS checkout page appears in browser
+6. If error, button text changes back to ""Xác nhận và thanh toán"" and becomes enabled",User is on checkout page. User clicks payment button. System is processing payment
+,,,,,
+Scenario G: Navigation and Button Actions (2 test cases),,,,,
+WF-PAYMENT-029,NavigationActions,Payment Success Page - Button Navigation,"1. Complete payment successfully
+2. View payment success page (/pay-done)
+3. Click ""Xem booking của tôi"" button
+4. Observe page that appears
+5. Go back to payment success page
+6. Click ""Về trang chủ"" button
+7. Observe page that appears","1. After clicking ""Xem booking của tôi"", user sees booking history page (/my-bookings) appears in browser
+2. Booking history page displays the confirmed booking in list
+3. After going back and clicking ""Về trang chủ"", user sees home page (/) appears in browser
+4. Home page displays correctly
+5. All navigation works as expected",Payment was completed successfully. User is on /pay-done page
+WF-PAYMENT-030,NavigationActions,Payment Cancelled Page - Button Navigation,"1. View payment cancelled page (/payment/cancel)
+2. Click ""Thử thanh toán lại"" button
+3. Observe page that appears
+4. Go back to payment cancelled page
+5. Click ""Xem booking của tôi"" button
+6. Observe page that appears
+7. Go back and click ""Về trang chủ"" button
+8. Observe page that appears","1. After clicking ""Thử thanh toán lại"", user sees checkout page appears in browser with URL containing /checkout?bookingId={bookingId}&retry=true
+2. Checkout page loads with booking data displayed (if bookingId is valid)
+3. User can retry payment from checkout page
+4. After clicking ""Xem booking của tôi"", user sees booking history page (/my-bookings) appears in browser
+5. After clicking ""Về trang chủ"", user sees home page (/) appears in browser
+6. All navigation works correctly",Payment was cancelled. User is on /payment/cancel page. BookingId is available
+,,,,,
+Scenario H: Payment Timeout Handling (5 test cases),,,,,
+WF-PAYMENT-031,PaymentTimeout,Payment Timeout - Countdown Timer Display,"1. Open browser and login the system with Tenant role
+2. Create a new booking and navigate to booking detail page (/booking-history/{bookingId})
+3. Observe payment countdown timer displayed on page
+4. Wait and observe countdown timer updates","1. User sees booking detail page displays payment countdown timer
+2. Countdown timer shows text: ""Thời gian thanh toán còn lại:"" (text-red-600 font-bold)
+3. Timer displays time in format: ""MM:SS"" (e.g., ""2:45"", ""1:30"", ""0:15"")
+4. Timer text is large and prominent (text-2xl ml-2)
+5. Timer counts down every second (updates every 1 second)
+6. Timer starts from 3:00 (3 minutes = 180 seconds)
+7. Timer is visible only when booking status is ""Pending""","User is logged in as Tenant role. Booking exists with Status = """"Pending"""". User navigates to booking detail page"
+WF-PAYMENT-032,PaymentTimeout,Payment Timeout - Booking Auto-Cancelled After 3 Minutes,"1. Open browser and login the system with Tenant role
+2. Create a new booking (Status = ""Đang xử lí"")
+3. Navigate to booking detail page 
+4. Observe countdown timer
+5. Wait for 3 minutes without completing payment
+6. Observe page automatically refreshes or click browser refresh button (F5)
+7. Observe booking status change","1. User sees countdown timer counting down from 3:00 to 0:00
+2. When timer reaches 0:00, user sees message: ""Đã hết thời gian thanh toán. Vui lòng đặt phòng lại."" 
+3. After 3 minutes from booking creation, backend automatically cancels booking
+4. When user refreshes page or page auto-refreshes, booking status changes from ""Đang xử lý"" to ""Đã hủy""
+5. User sees status badge displays: ""Đã hủy"" (red badge)
+6. Countdown timer disappears 
+7. User cannot proceed to payment ","User is logged in as Tenant role. Booking exists with Status = """"Đang xử lý"""". User does NOT complete payment within 3 minutes. Background service cancels booking automatically"
+WF-PAYMENT-033,PaymentTimeout,Payment Timeout - Expired Message Display,"1. Open browser and login the system with Tenant role
+2. Create a new booking (Status = ""Đang xử lý"")
+3. Navigate to booking detail page 
+4. Wait for countdown timer to reach 0:00
+5. Observe expired message displayed on page
+6. Click browser refresh button (F5) to reload page
+7. Observe updated booking status and message","1. When countdown reaches 0:00, user sees expired message appears on page
+2. Expired message displays in red box: ""Đã hết thời gian thanh toán. Đơn đặt phòng đã được tự động hủy."" 
+3. Or user may see message: ""Đã hết thời gian thanh toán. Vui lòng kiểm tra lại trạng thái đơn đặt phòng.""
+4. Message appears in alert box or notification area on page
+5. User can click close button (X) to dismiss message
+6. After refresh, booking status shows ""Cancelled""
+7. Expired message may persist or disappear based on booking status","User is logged in as Tenant role. Booking exists with Status = """"Đang xử lý"""". Countdown timer reaches 0:00. Booking is cancelled by background service"
+WF-PAYMENT-034,PaymentTimeout,Payment Timeout - Cannot Pay After Timeout,"1. Open browser and login the system with Tenant role
+2. Create a new booking 
+3. Wait for 3 minutes without completing payment
+4. Navigate to booking detail page 
+","1. User sees booking status is ""Cancelled"" (not ""Pending"")
+2. User does NOT see countdown timer (timer only shows for ""Pending"" status)
+3. User does NOT see button to proceed to payment
+4. User may see button ""Yêu cầu hoàn tiền"" if booking was cancelled (not cancelled due to timeout without payment)
+5. If user tries to navigate to checkout page with expired booking, user sees error message
+6. User cannot create new payment link for cancelled booking
+7. User must create new booking to proceed with payment","User is logged in as Tenant role. Booking exists with Status = """"Cancelled"""" (cancelled due to timeout). User tries to pay after timeout"
+WF-PAYMENT-035,PaymentTimeout,Payment Timeout - Countdown Timer Not Displayed for Confirmed Booking,"1. Open browser and login the system with Tenant role
+2. Complete payment successfully for a booking
+3. Navigate to booking detail page 
+4. Observe page content
+5. Check if countdown timer is displayed","1. User sees booking detail page displays booking information
+2. Booking status shows ""Đã xác nhận"" 
+3. User does NOT see payment countdown timer
+4. User sees booking information correctly displayed
+5. User may see button ""Hủy đặt phòng"" or ""Yêu cầu hoàn tiền"" based on booking status
+6. No timeout-related messages are displayed","User is logged in as Tenant role. Booking exists with Status = """"Đã  xác nhận"""". Payment was completed successfully. User navigates to booking detail page"

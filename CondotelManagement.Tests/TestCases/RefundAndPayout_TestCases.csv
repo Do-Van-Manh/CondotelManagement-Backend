@@ -1,0 +1,270 @@
+﻿Test Case ID,Function Name,Sheet Name,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions
+TC-REFUND-001,Cancel Booking,RefundManagement,Tenant cancels paid booking - Automatically creates refund request,"1. Create a request in Postman with DELETE method to https://localhost:5000/api/booking/100
+2. Set Authorization header: Bearer {tenant-token}
+3. Click Send","Status = 204 (NoContent)
+Booking status = ""Cancelled""
+RefundRequest created with: Status = ""Pending"", RefundAmount = 1000000, CustomerId = 3","User is logged in (Tenant role)
+Booking ID = 100 exists with Status = ""Confirmed""
+Booking.StartDate >= 2 days from now"
+TC-REFUND-002,Request Refund,RefundManagement,Tenant requests refund with bank information,"1. Create a request in Postman with POST method to https://localhost:5000/api/booking/101/refund
+2. Set Authorization header: Bearer {tenant-token}
+3. Set request body as raw JSON: {""bankCode"": ""VCB"", ""accountNumber"": ""1234567890"", ""accountHolder"": ""Tenant User""}
+4. Click Send","Status = 200
+Response contains: success: true
+RefundRequest created with: BankCode = ""VCB"", AccountNumber = ""1234567890"", AccountHolder = ""Tenant User"", Status = ""Pending""","User is logged in (Tenant role)
+Booking ID = 101 exists with Status = ""Confirmed""
+Booking.StartDate >= 2 days from now"
+TC-REFUND-003,Request Refund,RefundManagement,Tenant requests refund for booking less than 2 days before check-in - Refund not allowed,"1. Create a request in Postman with POST method to https://localhost:5000/api/booking/102/refund
+2. Set Authorization header: Bearer {tenant-token}
+3. Set request body as raw JSON: {""bankCode"": ""VCB"", ""accountNumber"": ""1234567890"", ""accountHolder"": ""Tenant User""}
+4. Click Send","Status = 400 (BadRequest)
+Response contains: success: false
+message contains ""Refund is only available when cancelling at least 2 days before check-in""","User is logged in (Tenant role)
+Booking ID = 102 exists with Status = ""Confirmed""
+Booking.StartDate < 2 days from now"
+TC-REFUND-004,Get Refund Requests,RefundManagement,Admin views list of refund requests,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/refund-requests
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains: success: true, data: Array of RefundRequestDTO, total: >= 2
+List contains refund requests with status ""Pending"" and ""Completed""","Admin is logged in
+RefundRequests exist in database"
+TC-REFUND-005,Confirm Refund,RefundManagement,Admin confirms refund - Updates status,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/refund-requests/{refundRequestId}/confirm
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains: success: true
+RefundRequest updated: Status = ""Completed"", ProcessedAt != null","Admin is logged in
+RefundRequest ID exists with Status = ""Pending""
+Booking exists"
+TC-REFUND-006,Request Refund,RefundManagement,Tenant requests refund for unpaid booking - BadRequest,"1. Create a request in Postman with POST method to https://localhost:5000/api/booking/104/refund
+2. Set Authorization header: Bearer {tenant-token}
+3. Set request body as raw JSON: {""bankCode"": ""VCB"", ""accountNumber"": ""1234567890"", ""accountHolder"": ""Tenant User""}
+4. Click Send","Status = 400 (BadRequest)
+Response contains: success: false
+message = ""Cannot refund a booking that has not been paid""","User is logged in (Tenant role)
+Booking ID = 104 exists with Status = ""Pending"" (not paid)"
+TC-REFUND-007,Get Refund Requests,RefundManagement,Admin filters refund requests by status,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/refund-requests?status=Pending
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains: success: true, data: Array of RefundRequestDTO, All items have Status = ""Pending"", total: >= 0","Admin is logged in
+RefundRequests exist with various statuses"
+TC-REFUND-008,Get Refund Requests,RefundManagement,Admin filters refund requests by searchTerm,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/refund-requests?searchTerm=John
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains: success: true, data: Array of RefundRequestDTO, All items match searchTerm (CustomerName or BookingId contains ""John""), total: >= 0","Admin is logged in
+RefundRequests exist
+Some refund requests have CustomerName containing ""John"""
+TC-REFUND-009,Get Refund Requests,RefundManagement,Admin filters refund requests by date range,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/refund-requests?startDate=2025-01-01&endDate=2025-12-31
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains: success: true, data: Array of RefundRequestDTO, All items have CreatedAt between startDate and endDate, total: >= 0","Admin is logged in
+RefundRequests exist
+Some refund requests created in date range"
+TC-REFUND-010,Can Refund Booking,RefundManagement,Tenant checks if booking can be refunded - Eligible booking,"1. Create a request in Postman with GET method to https://localhost:5000/api/booking/105/can-refund
+2. Set Authorization header: Bearer {tenant-token}
+3. Click Send","Status = 200
+Response contains: success: true, canRefund: true, message contains ""can be refunded""","User is logged in (Tenant role)
+Booking ID = 105 exists with Status = ""Confirmed""
+Booking belongs to logged-in tenant
+Booking.StartDate >= 2 days from now
+Booking.IsPaidToHost = false"
+TC-REFUND-011,Can Refund Booking,RefundManagement,Tenant checks if booking can be refunded - Already paid to host,"1. Create a request in Postman with GET method to https://localhost:5000/api/booking/106/can-refund
+2. Set Authorization header: Bearer {tenant-token}
+3. Click Send","Status = 200
+Response contains: success: true, canRefund: false, message contains ""cannot be refunded""","User is logged in (Tenant role)
+Booking ID = 106 exists
+Booking.IsPaidToHost = true"
+TC-REFUND-012,Can Refund Booking,RefundManagement,Tenant checks if booking can be refunded - Already refunded,"1. Create a request in Postman with GET method to https://localhost:5000/api/booking/107/can-refund
+2. Set Authorization header: Bearer {tenant-token}
+3. Click Send","Status = 200
+Response contains: success: true, canRefund: false, message contains ""cannot be refunded""","User is logged in (Tenant role)
+Booking ID = 107 exists
+RefundRequest exists with Status = ""Completed"" or ""Refunded"""
+TC-REFUND-013,Request Refund,RefundManagement,Tenant requests refund for booking with existing Pending RefundRequest - Updates bank info,"1. Create a request in Postman with POST method to https://localhost:5000/api/booking/108/refund
+2. Set Authorization header: Bearer {tenant-token}
+3. Set request body as raw JSON: {""bankCode"": ""TCB"", ""accountNumber"": ""9876543210"", ""accountHolder"": ""Updated Name""}
+4. Click Send","Status = 200
+Response contains: success: true
+Existing RefundRequest updated: BankCode = ""TCB"", AccountNumber = ""9876543210"", AccountHolder = ""Updated Name"", Status remains ""Pending"", UpdatedAt != null","User is logged in (Tenant role)
+Booking ID = 108 exists with Status = ""Cancelled""
+RefundRequest exists with Status = ""Pending"" for this booking"
+TC-REFUND-014,Request Refund,RefundManagement,Tenant requests refund for already completed/refunded booking - BadRequest,"1. Create a request in Postman with POST method to https://localhost:5000/api/booking/109/refund
+2. Set Authorization header: Bearer {tenant-token}
+3. Set request body as raw JSON: {""bankCode"": ""VCB"", ""accountNumber"": ""1234567890"", ""accountHolder"": ""Tenant User""}
+4. Click Send","Status = 400 (BadRequest)
+Response contains: success: false
+message = ""Booking has already been refunded""","User is logged in (Tenant role)
+Booking ID = 109 exists
+RefundRequest exists with Status = ""Completed"" or ""Refunded"""
+TC-REFUND-015,Request Refund,RefundManagement,Tenant requests refund for booking already paid to host - BadRequest,"1. Create a request in Postman with POST method to https://localhost:5000/api/booking/110/refund
+2. Set Authorization header: Bearer {tenant-token}
+3. Set request body as raw JSON: {""bankCode"": ""VCB"", ""accountNumber"": ""1234567890"", ""accountHolder"": ""Tenant User""}
+4. Click Send","Status = 400 (BadRequest)
+Response contains: success: false
+message = ""Cannot refund booking that has already been paid to host""","User is logged in (Tenant role)
+Booking ID = 110 exists
+Booking.IsPaidToHost = true"
+TC-REFUND-016,Request Refund,RefundManagement,Tenant requests refund for booking not belonging to them - BadRequest,"1. Create a request in Postman with POST method to https://localhost:5000/api/booking/111/refund
+2. Set Authorization header: Bearer {tenant-token}
+3. Set request body as raw JSON: {""bankCode"": ""VCB"", ""accountNumber"": ""1234567890"", ""accountHolder"": ""Tenant User""}
+4. Click Send","Status = 400 (BadRequest)
+Response contains: success: false
+message = ""Booking not found for this tenant""","User is logged in (Tenant role)
+Booking ID = 111 exists but belongs to different tenant"
+TC-REFUND-017,Request Refund,RefundManagement,Tenant requests refund for non-existent booking - BadRequest,"1. Create a request in Postman with POST method to https://localhost:5000/api/booking/99999/refund
+2. Set Authorization header: Bearer {tenant-token}
+3. Set request body as raw JSON: {""bankCode"": ""VCB"", ""accountNumber"": ""1234567890"", ""accountHolder"": ""Tenant User""}
+4. Click Send","Status = 400 (BadRequest)
+Response contains: success: false
+message = ""Booking not found for this tenant""","User is logged in (Tenant role)
+Booking ID = 99999 does not exist"
+TC-REFUND-018,Confirm Refund,RefundManagement,Admin confirms refund for non-existent refund request - BadRequest,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/refund-requests/99999/confirm
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 400 (BadRequest)
+Response contains: success: false
+message contains ""not found""","Admin is logged in
+RefundRequest ID = 99999 does not exist"
+TC-REFUND-019,Get Refund Requests,RefundManagement,Admin views refund requests with combined filters (status + searchTerm + date),"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/refund-requests?status=Pending&searchTerm=John&startDate=2025-01-01&endDate=2025-12-31
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains: success: true, data: Array of RefundRequestDTO, All items match all filter criteria, total: >= 0","Admin is logged in
+RefundRequests exist matching filter criteria"
+TC-PAYOUT-001,Get Pending Payouts,PayoutManagement,Admin views list of bookings pending payment to host,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/payouts/pending
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains: success: true, data: Array of HostPayoutItemDTO, total: >= 1
+List contains bookings with: Status = ""Completed"", EndDate <= (Today - 15 days), IsPaidToHost = false, DaysSinceCompleted >= 15","Admin is logged in
+Booking exists with Status = ""Completed""
+Booking.EndDate <= (Today - 15 days)
+Booking.IsPaidToHost = false
+Host has Wallet with Status = ""Active"""
+TC-PAYOUT-002,Process All Payouts,PayoutManagement,Admin processes all eligible bookings for host payment,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/payouts/process-all
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains HostPayoutResponseDTO: success: true, processedCount > 0, totalAmount > 0
+message contains ""Đã xử lý"" and ""VNĐ cho host""
+processedItems: Array of HostPayoutItemDTO
+Booking updated: IsPaidToHost = true, PaidToHostAt != null","Admin is logged in
+Bookings exist with Status = ""Completed""
+Bookings.EndDate <= (Today - 15 days)
+Bookings.IsPaidToHost = false
+No refund requests pending/approved for these bookings
+Host has Wallet with Status = ""Active"""
+TC-PAYOUT-003,Confirm Payout,PayoutManagement,Admin confirms payment for a specific booking,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/payouts/202/confirm
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains HostPayoutResponseDTO: success: true, processedCount = 1
+message contains ""Đã trả"" and ""VNĐ cho host""
+processedItems: Array with 1 item
+Booking updated: IsPaidToHost = true, PaidToHostAt != null","Admin is logged in
+Booking ID = 202 exists with Status = ""Completed""
+Booking.EndDate <= (Today - 15 days)
+Booking.IsPaidToHost = false
+No refund request pending/approved
+Host has Wallet with Status = ""Active"""
+TC-PAYOUT-004,Confirm Payout,PayoutManagement,Admin processes payment for booking less than 15 days old - BadRequest,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/payouts/203/confirm
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 400 (BadRequest)
+Response contains HostPayoutResponseDTO: success: false
+message contains ""Booking must be completed for at least 15 days"" and ""EndDate"" and ""Required""","Admin is logged in
+Booking ID = 203 exists with Status = ""Completed""
+Booking.EndDate > (Today - 15 days) (less than 15 days)"
+TC-PAYOUT-005,Get Paid Payouts,PayoutManagement,Admin views list of bookings already paid to host,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/payouts/paid
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains: success: true, data: Array of HostPayoutItemDTO, total: >= 1, totalAmount: Sum of all amounts, summary: { totalBookings, totalRevenue, averageAmount }
+List contains bookings with: IsPaidToHost = true, PaidAt != null","Admin is logged in
+Bookings exist with IsPaidToHost = true"
+TC-PAYOUT-006,Confirm Payout,PayoutManagement,Admin processes payment for booking with refund request - Not allowed,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/payouts/205/confirm
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 400 (BadRequest)
+Response contains HostPayoutResponseDTO: success: false
+message = ""Cannot process payout. Booking has pending or approved refund request""","Admin is logged in
+Booking ID = 205 exists with Status = ""Completed""
+Booking.EndDate <= (Today - 15 days)
+RefundRequest exists with Status = ""Pending"" or ""Approved"" for this booking"
+TC-PAYOUT-007,Confirm Payout,PayoutManagement,Admin processes payment for already paid booking - BadRequest,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/payouts/206/confirm
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 400 (BadRequest)
+Response contains HostPayoutResponseDTO: success: false
+message = ""Booking has already been paid to host""","Admin is logged in
+Booking ID = 206 exists with Status = ""Completed""
+Booking.IsPaidToHost = true
+Booking.PaidToHostAt != null"
+TC-PAYOUT-008,Get Pending Payouts,PayoutManagement,Host views list of their pending bookings,"1. Create a request in Postman with GET method to https://localhost:5000/api/host/payout/pending
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Status = 200
+Response contains: Array of HostPayoutItemDTO, All items have HostId matching logged-in host, IsPaid = false, DaysSinceCompleted >= 15","Host is logged in
+Bookings exist with Status = ""Completed"" for this host
+Bookings.EndDate <= (Today - 15 days)
+Bookings.IsPaidToHost = false"
+TC-PAYOUT-009,Get Pending Payouts,PayoutManagement,Admin filters pending payouts by hostId,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/payouts/pending?hostId=5
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains: success: true, data: Array of HostPayoutItemDTO, All items have HostId = 5, total: >= 0","Admin is logged in
+Host ID = 5 exists
+Bookings may or may not exist for this host"
+TC-PAYOUT-010,Process Payout for Booking,PayoutManagement,Host processes payout for a specific booking,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/payout/process/207
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Status = 200
+Response contains HostPayoutResponseDTO: success: true, processedCount = 1
+message contains ""Đã trả"" and ""VNĐ cho host""
+Booking updated: IsPaidToHost = true, PaidToHostAt != null","Host is logged in
+Booking ID = 207 exists with Status = ""Completed""
+Booking belongs to logged-in host
+Booking.EndDate <= (Today - 15 days)
+Booking.IsPaidToHost = false
+Host has Wallet with Status = ""Active"""
+TC-PAYOUT-011,Process Payout for Booking,PayoutManagement,Host processes payout for booking not belonging to them - BadRequest,"1. Create a request in Postman with POST method to https://localhost:5000/api/host/payout/process/208
+2. Set Authorization header: Bearer {host-token}
+3. Click Send","Status = 400 (BadRequest) or 500
+Response contains: success: false
+message contains ""not found"" or ""Booking not found""","Host is logged in
+Booking ID = 208 exists but belongs to different host"
+TC-PAYOUT-012,Get Paid Payouts,PayoutManagement,Admin views paid bookings with hostId filter,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/payouts/paid?hostId=5
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains: success: true, data: Array of HostPayoutItemDTO, All items have HostId = 5, totalAmount: Sum of amounts for host 5, summary: { totalBookings, totalRevenue, averageAmount }","Admin is logged in
+Host ID = 5 exists
+Bookings exist with IsPaidToHost = true for host 5"
+TC-PAYOUT-013,Get Paid Payouts,PayoutManagement,Admin views paid bookings with date range filter,"1. Create a request in Postman with GET method to https://localhost:5000/api/admin/payouts/paid?fromDate=2025-01-01&toDate=2025-12-31
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200
+Response contains: success: true, data: Array of HostPayoutItemDTO, All items have PaidAt between fromDate and toDate, totalAmount: Sum of filtered amounts","Admin is logged in
+Bookings exist with IsPaidToHost = true
+Some bookings have PaidToHostAt in date range"
+TC-PAYOUT-014,Report Account Error,PayoutManagement,Admin reports account information error when manually transferring payment,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/payouts/209/report-account-error
+2. Set Authorization header: Bearer {admin-token}
+3. Set request body as raw JSON: {""errorMessage"": ""Account number is incorrect""}
+4. Click Send","Status = 200
+Response contains HostPayoutResponseDTO: success: true
+message contains ""Đã gửi thông báo lỗi thông tin tài khoản cho host qua email"" and ""Host cần cập nhật thông tin tài khoản để nhận thanh toán""
+Email sent to host with error information","Admin is logged in
+Booking ID = 209 exists with Status = ""Completed""
+Host has email address"
+TC-PAYOUT-015,Report Account Error,PayoutManagement,Admin reports account error with empty errorMessage - BadRequest,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/payouts/210/report-account-error
+2. Set Authorization header: Bearer {admin-token}
+3. Set request body as raw JSON: {""errorMessage"": """"}
+4. Click Send","Status = 400 (BadRequest)
+Response contains: success: false
+message = ""Error message is required""","Admin is logged in
+Booking ID = 210 exists"
+TC-PAYOUT-016,Confirm Payout,PayoutManagement,Admin processes payment for non-existent booking - BadRequest,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/payouts/99999/confirm
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 400 (BadRequest)
+Response contains HostPayoutResponseDTO: success: false
+message = ""Booking not found""","Admin is logged in
+Booking ID = 99999 does not exist"
+TC-PAYOUT-017,Confirm Payout,PayoutManagement,Admin processes payment for booking with status not Completed - BadRequest,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/payouts/211/confirm
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 400 (BadRequest)
+Response contains HostPayoutResponseDTO: success: false
+message = ""Booking must be completed to process payout""","Admin is logged in
+Booking ID = 211 exists with Status = ""Confirmed"" (not Completed)"
+TC-PAYOUT-018,Confirm Payout,PayoutManagement,Admin processes payment for booking without Wallet - BadRequest or processed but no bank info,"1. Create a request in Postman with POST method to https://localhost:5000/api/admin/payouts/212/confirm
+2. Set Authorization header: Bearer {admin-token}
+3. Click Send","Status = 200 or 400
+If 200: Response has BankName = null, AccountNumber = null, AccountHolderName = null
+If 400: message contains ""Booking not found"" or ""completed""","Admin is logged in
+Booking ID = 212 exists with Status = ""Completed""
+Booking.EndDate <= (Today - 15 days)
+Host does NOT have Wallet with Status = ""Active"""
