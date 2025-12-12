@@ -6,18 +6,18 @@ using Microsoft.Extensions.Logging;
 namespace CondotelManagement.Services.Background
 {
     /// <summary>
-    /// Background service tự động cập nhật trạng thái promotion khi hết hạn
-    /// Chạy mỗi ngày lúc 00:00 UTC để cập nhật các promotion đã hết hạn
+    /// Background service tự động cập nhật trạng thái voucher khi hết hạn
+    /// Chạy mỗi ngày lúc 00:00 UTC để cập nhật các voucher đã hết hạn
     /// </summary>
-    public class PromotionStatusUpdateService : BackgroundService
+    public class VoucherStatusUpdateService : BackgroundService
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly ILogger<PromotionStatusUpdateService> _logger;
-        private const int BatchSize = 100; // Xử lý 100 promotions mỗi batch
+        private readonly ILogger<VoucherStatusUpdateService> _logger;
+        private const int BatchSize = 100; // Xử lý 100 vouchers mỗi batch
 
-        public PromotionStatusUpdateService(
+        public VoucherStatusUpdateService(
             IServiceProvider serviceProvider,
-            ILogger<PromotionStatusUpdateService> logger)
+            ILogger<VoucherStatusUpdateService> logger)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
@@ -25,7 +25,7 @@ namespace CondotelManagement.Services.Background
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("PromotionStatusUpdateService is starting.");
+            _logger.LogInformation("VoucherStatusUpdateService is starting.");
 
             // Chờ đến 00:00 UTC đầu tiên
             await WaitUntilMidnight(stoppingToken);
@@ -34,19 +34,19 @@ namespace CondotelManagement.Services.Background
             {
                 try
                 {
-                    _logger.LogInformation("Running scheduled promotion status update at {Time}", DateTime.UtcNow);
-                    await UpdateExpiredPromotionsAsync();
+                    _logger.LogInformation("Running scheduled voucher status update at {Time}", DateTime.UtcNow);
+                    await UpdateExpiredVouchersAsync();
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error occurred while updating promotion statuses.");
+                    _logger.LogError(ex, "Error occurred while updating voucher statuses.");
                 }
 
                 // Chờ đến 00:00 UTC ngày hôm sau
                 await WaitUntilMidnight(stoppingToken);
             }
 
-            _logger.LogInformation("PromotionStatusUpdateService is stopping.");
+            _logger.LogInformation("VoucherStatusUpdateService is stopping.");
         }
 
         /// <summary>
@@ -63,10 +63,10 @@ namespace CondotelManagement.Services.Background
         }
 
         /// <summary>
-        /// Cập nhật status của các promotion đã hết hạn
+        /// Cập nhật status của các voucher đã hết hạn
         /// Xử lý theo batch để tối ưu performance
         /// </summary>
-        private async Task UpdateExpiredPromotionsAsync()
+        private async Task UpdateExpiredVouchersAsync()
         {
             using var scope = _serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<CondotelDbVer1Context>();
@@ -76,57 +76,60 @@ namespace CondotelManagement.Services.Background
                 var today = DateOnly.FromDateTime(DateTime.UtcNow);
                 int totalProcessed = 0;
 
-                // Lấy tổng số promotions cần xử lý (đã hết hạn và đang Active)
-                var totalCount = await context.Promotions
-                    .Where(p => p.EndDate < today && p.Status == "Active")
+                // Lấy tổng số vouchers cần xử lý (đã hết hạn và đang Active)
+                var totalCount = await context.Vouchers
+                    .Where(v => v.EndDate < today && (v.Status == "Active" || v.Status == null))
                     .CountAsync();
 
                 if (totalCount == 0)
                 {
-                    _logger.LogInformation("No expired promotions to update.");
+                    _logger.LogInformation("No expired vouchers to update.");
                     return;
                 }
 
-                _logger.LogInformation("Found {Count} expired promotion(s) to update. Processing in batches of {BatchSize}.", 
+                _logger.LogInformation("Found {Count} expired voucher(s) to update. Processing in batches of {BatchSize}.", 
                     totalCount, BatchSize);
 
                 // Xử lý theo batch
                 int skip = 0;
                 while (skip < totalCount)
                 {
-                    // Lấy batch promotions
-                    var promotionsBatch = await context.Promotions
-                        .Where(p => p.EndDate < today && p.Status == "Active")
-                        .OrderBy(p => p.PromotionId) // Đảm bảo thứ tự nhất quán
+                    // Lấy batch vouchers
+                    var vouchersBatch = await context.Vouchers
+                        .Where(v => v.EndDate < today && (v.Status == "Active" || v.Status == null))
+                        .OrderBy(v => v.VoucherId) // Đảm bảo thứ tự nhất quán
                         .Skip(skip)
                         .Take(BatchSize)
                         .ToListAsync();
 
-                    if (!promotionsBatch.Any())
+                    if (!vouchersBatch.Any())
                         break;
 
-                    _logger.LogInformation("Processing batch: {Current}/{Total} promotions (Batch {BatchNumber})", 
-                        skip + promotionsBatch.Count, totalCount, (skip / BatchSize) + 1);
+                    _logger.LogInformation("Processing batch: {Current}/{Total} vouchers (Batch {BatchNumber})", 
+                        skip + vouchersBatch.Count, totalCount, (skip / BatchSize) + 1);
 
-                    // Cập nhật status cho từng promotion trong batch
-                    foreach (var promotion in promotionsBatch)
+                    // Cập nhật status cho từng voucher trong batch
+                    foreach (var voucher in vouchersBatch)
                     {
                         try
                         {
-                            // Cập nhật status thành "Inactive" hoặc "Expired"
-                            promotion.Status = "Inactive";
+                            // Lưu status cũ trước khi thay đổi
+                            var oldStatus = voucher.Status ?? "null";
+                            
+                            // Cập nhật status thành "Expired"
+                            voucher.Status = "Expired";
                             _logger.LogDebug(
-                                "Updated promotion {PromotionId} ({Name}) status from Active to Inactive. EndDate: {EndDate}",
-                                promotion.PromotionId, promotion.Name, promotion.EndDate);
+                                "Updated voucher {VoucherId} ({Code}) status from {OldStatus} to Expired. EndDate: {EndDate}",
+                                voucher.VoucherId, voucher.Code, oldStatus, voucher.EndDate);
 
                             totalProcessed++;
                         }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex,
-                                "Error processing promotion {PromotionId}. Continuing with next promotion.",
-                                promotion.PromotionId);
-                            // Tiếp tục với promotion tiếp theo
+                                "Error processing voucher {VoucherId}. Continuing with next voucher.",
+                                voucher.VoucherId);
+                            // Tiếp tục với voucher tiếp theo
                         }
                     }
 
@@ -137,17 +140,15 @@ namespace CondotelManagement.Services.Background
                 }
 
                 _logger.LogInformation(
-                    "Completed processing: {Processed}/{Total} promotions updated to Inactive.",
+                    "Completed processing: {Processed}/{Total} vouchers updated to Expired.",
                     totalProcessed, totalCount);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating promotion statuses.");
+                _logger.LogError(ex, "Error updating voucher statuses.");
                 throw;
             }
         }
     }
 }
-
-
 

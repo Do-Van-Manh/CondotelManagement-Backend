@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using CondotelManagement.Data;
 using CondotelManagement.Services.Interfaces.Shared;
+using CondotelManagement.Services.Interfaces.Voucher;
 
 namespace CondotelManagement.Services.Background
 {
@@ -82,6 +83,9 @@ namespace CondotelManagement.Services.Background
             var updatedCount = 0;
             var failedCount = 0;
 
+            var voucherService = scope.ServiceProvider.GetRequiredService<IVoucherService>();
+            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
             foreach (var booking in expiredBookings)
             {
                 try
@@ -90,6 +94,61 @@ namespace CondotelManagement.Services.Background
 
                     booking.Status = "Completed";
 
+                    // Tự động tạo voucher nếu host có AutoGenerate = true
+                    try
+                    {
+                        var vouchers = await voucherService.CreateVoucherAfterBookingAsync(booking.BookingId);
+                        
+                        if (vouchers != null && vouchers.Any())
+                        {
+                            _logger.LogInformation($"[BookingStatusUpdate] Created {vouchers.Count} voucher(s) for booking #{booking.BookingId}");
+
+                            // Gửi email thông báo voucher cho customer
+                            var customer = await context.Users.FindAsync(booking.CustomerId);
+                            if (customer != null && !string.IsNullOrEmpty(customer.Email))
+                            {
+                                try
+                                {
+                                    var voucherInfos = vouchers.Select(v => new CondotelManagement.Services.Interfaces.Shared.VoucherInfo
+                                    {
+                                        Code = v.Code,
+                                        CondotelName = v.CondotelName ?? "N/A",
+                                        DiscountAmount = v.DiscountAmount,
+                                        DiscountPercentage = v.DiscountPercentage,
+                                        StartDate = v.StartDate,
+                                        EndDate = v.EndDate
+                                    }).ToList();
+
+                                    await emailService.SendVoucherNotificationEmailAsync(
+                                        customer.Email,
+                                        customer.FullName ?? "Khách hàng",
+                                        booking.BookingId,
+                                        voucherInfos
+                                    );
+
+                                    _logger.LogInformation($"[BookingStatusUpdate] Sent voucher notification email to {customer.Email} for booking #{booking.BookingId}");
+                                }
+                                catch (Exception emailEx)
+                                {
+                                    _logger.LogError(emailEx, $"[BookingStatusUpdate] Failed to send voucher email for booking #{booking.BookingId}");
+                                    // Không throw exception, tiếp tục xử lý booking
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogWarning($"[BookingStatusUpdate] Customer email not found for booking #{booking.BookingId}, skipping email notification");
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogInformation($"[BookingStatusUpdate] No vouchers created for booking #{booking.BookingId} (AutoGenerate may be false or setting not found)");
+                        }
+                    }
+                    catch (Exception voucherEx)
+                    {
+                        _logger.LogError(voucherEx, $"[BookingStatusUpdate] Failed to create vouchers for booking #{booking.BookingId}");
+                        // Không throw exception, tiếp tục xử lý booking
+                    }
 
                     updatedCount++;
                     _logger.LogInformation($"[BookingStatusUpdate] Successfully updated booking #{booking.BookingId} to Completed");

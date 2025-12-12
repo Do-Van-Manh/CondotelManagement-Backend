@@ -655,6 +655,92 @@ namespace CondotelManagement.Services.Implementations.Host
                 };
             }).ToList();
         }
+
+        public async Task<List<HostPayoutItemDTO>> GetRejectedPayoutsAsync(int? hostId = null, DateTime? fromDate = null, DateTime? toDate = null)
+        {
+            var query = _context.Bookings
+                .Include(b => b.Condotel)
+                    .ThenInclude(c => c.Host)
+                        .ThenInclude(h => h.User)
+                .Include(b => b.Customer)
+                .Where(b => b.PayoutRejectedAt != null // Chỉ lấy booking đã bị từ chối
+                    && b.TotalPrice.HasValue
+                    && b.TotalPrice.Value > 0);
+
+            // Filter theo hostId nếu có
+            if (hostId.HasValue)
+            {
+                query = query.Where(b => b.Condotel.HostId == hostId.Value);
+            }
+
+            // Filter theo ngày từ chối nếu có
+            if (fromDate.HasValue)
+            {
+                query = query.Where(b => b.PayoutRejectedAt >= fromDate.Value);
+            }
+
+            if (toDate.HasValue)
+            {
+                query = query.Where(b => b.PayoutRejectedAt <= toDate.Value);
+            }
+
+            var bookings = await query
+                .OrderByDescending(b => b.PayoutRejectedAt) // Sắp xếp theo ngày từ chối (mới nhất trước)
+                .ToListAsync();
+
+            // Filter completed status (hỗ trợ cả tiếng Anh và tiếng Việt)
+            bookings = bookings.Where(b => IsCompletedStatus(b.Status)).ToList();
+
+            // Lấy tất cả hostIds để query wallet một lần
+            var hostIds = bookings.Select(b => b.Condotel.HostId).Distinct().ToList();
+            var hostWallets = await _context.Wallets
+                .Where(w => hostIds.Contains(w.HostId ?? 0) && w.Status == "Active")
+                .ToListAsync();
+
+            return bookings.Select(b =>
+            {
+                var daysSinceCompleted = b.EndDate != null
+                    ? (DateOnly.FromDateTime(DateTime.UtcNow).ToDateTime(TimeOnly.MinValue) - b.EndDate.ToDateTime(TimeOnly.MinValue)).Days
+                    : 0;
+
+                // Tìm thông tin tài khoản ngân hàng của host từ Wallet (ưu tiên default)
+                var hostWallet = hostWallets
+                    .Where(w => w.HostId == b.Condotel.HostId)
+                    .OrderByDescending(w => w.IsDefault)
+                    .FirstOrDefault();
+
+                return new HostPayoutItemDTO
+                {
+                    BookingId = b.BookingId,
+                    CondotelId = b.CondotelId,
+                    CondotelName = b.Condotel?.Name ?? "N/A",
+                    HostId = b.Condotel?.HostId ?? 0,
+                    HostName = !string.IsNullOrWhiteSpace(b.Condotel?.Host?.CompanyName) 
+                        ? b.Condotel.Host.CompanyName 
+                        : (!string.IsNullOrWhiteSpace(b.Condotel?.Host?.User?.FullName) 
+                            ? b.Condotel.Host.User.FullName 
+                            : "N/A"),
+                    Amount = b.TotalPrice ?? 0m,
+                    EndDate = b.EndDate,
+                    PaidAt = null,
+                    IsPaid = false,
+                    DaysSinceCompleted = daysSinceCompleted,
+                    // Thông tin khách hàng
+                    CustomerId = b.CustomerId,
+                    CustomerName = !string.IsNullOrWhiteSpace(b.Customer?.FullName) 
+                        ? b.Customer.FullName 
+                        : "Khách hàng",
+                    CustomerEmail = b.Customer?.Email,
+                    // Thông tin tài khoản ngân hàng của host
+                    BankName = hostWallet?.BankName,
+                    AccountNumber = hostWallet?.AccountNumber,
+                    AccountHolderName = hostWallet?.AccountHolderName,
+                    // Thêm thông tin từ chối
+                    RejectedAt = b.PayoutRejectedAt,
+                    RejectionReason = b.PayoutRejectionReason
+                };
+            }).ToList();
+        }
     }
 }
 

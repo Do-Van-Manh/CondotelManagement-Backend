@@ -128,10 +128,11 @@ builder.Services.AddCors(options =>
 // Dependency Injection (gồm Auth, Admin, Booking,...)
 builder.Services.AddDependencyInjectionConfiguration(builder.Configuration);
 
-// Background Services: Tự động cập nhật booking status và promotion status
+// Background Services: Tự động cập nhật booking status, promotion status và voucher status
 builder.Services.AddHostedService<CondotelManagement.Services.Background.BookingStatusUpdateService>(); // CONFIRMED → COMPLETED khi qua EndDate
 builder.Services.AddHostedService<CondotelManagement.Services.Background.PendingBookingCancellationService>(); // PENDING → CANCELLED sau 10 phút chưa thanh toán
 builder.Services.AddHostedService<CondotelManagement.Services.Background.PromotionStatusUpdateService>(); // Active → Inactive khi hết hạn (EndDate < today)
+builder.Services.AddHostedService<CondotelManagement.Services.Background.VoucherStatusUpdateService>(); // Active → Expired khi hết hạn (EndDate < today)
 
 // ====================== Build ======================
 var app = builder.Build();

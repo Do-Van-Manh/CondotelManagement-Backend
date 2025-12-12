@@ -86,7 +86,7 @@ namespace CondotelManagement.Services
                 isNewWallet = true;
 
                 // 5. Nâng cấp quyền    
-                user.RoleId = 3;
+                user.RoleId = 4;
             }
             // --- LOGIC: USER ĐÃ LÀ HOST (existingHost != null) ---
             else

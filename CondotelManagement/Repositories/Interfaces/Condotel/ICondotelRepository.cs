@@ -23,6 +23,19 @@ namespace CondotelManagement.Repositories
 			decimal? maxPrice,
 			int? beds,
 			int? bathrooms);
+		(int TotalCount, IEnumerable<Condotel> Items) GetCondtelsByHostPaged(int hostId, int pageNumber, int pageSize);
+		(int TotalCount, IEnumerable<Condotel> Items) GetCondotelsByFiltersPaged(
+			string? name,
+			string? location,
+			int? locationId,
+			DateOnly? fromDate,
+			DateOnly? toDate,
+			decimal? minPrice,
+			decimal? maxPrice,
+			int? beds,
+			int? bathrooms,
+			int pageNumber,
+			int pageSize);
 
 		// Validation methods
 		bool ResortExists(int? resortId);

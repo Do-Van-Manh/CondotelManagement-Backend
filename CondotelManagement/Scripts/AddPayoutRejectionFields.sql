@@ -43,3 +43,4 @@ GO
 PRINT 'Hoàn thành! Các cột đã được thêm vào bảng Booking.';
 GO
 
+

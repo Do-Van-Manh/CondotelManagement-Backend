@@ -24,10 +24,10 @@ namespace CondotelManagement.Controllers
 			_context = context;
 		}
 
-		// GET api/tenant/condotels?name=abc&location=abc&locationId=1&fromDate=...&toDate=...
+		// GET api/tenant/condotels?name=abc&location=abc&locationId=1&fromDate=...&toDate=...&pageNumber=1&pageSize=10
 		[HttpGet]
 		[AllowAnonymous]
-		public ActionResult<IEnumerable<CondotelDTO>> GetCondotelsByFilters(
+		public ActionResult<object> GetCondotelsByFilters(
 				[FromQuery] string? name, 
 				[FromQuery] string? location,
 				[FromQuery] int? locationId,
@@ -36,10 +36,33 @@ namespace CondotelManagement.Controllers
 				[FromQuery] decimal? minPrice,
 				[FromQuery] decimal? maxPrice,
 				[FromQuery] int? beds,
-				[FromQuery] int? bathrooms)
+				[FromQuery] int? bathrooms,
+				[FromQuery] int pageNumber = 1,
+				[FromQuery] int pageSize = 10)
 		{
-			var condotels = _condotelService.GetCondotelsByFilters(name, location, locationId, fromDate, toDate, minPrice, maxPrice, beds, bathrooms);
-			return Ok(ApiResponse<object>.SuccessResponse(condotels));
+			// Validate pagination parameters
+			if (pageNumber < 1)
+				pageNumber = 1;
+			if (pageSize < 1 || pageSize > 100)
+				pageSize = 10; // Default 10, max 100
+
+			var result = _condotelService.GetCondotelsByFiltersPaged(
+				name, location, locationId, fromDate, toDate, minPrice, maxPrice, beds, bathrooms, pageNumber, pageSize);
+			
+			return Ok(new
+			{
+				success = true,
+				data = result.Items,
+				pagination = new
+				{
+					pageNumber = result.PageNumber,
+					pageSize = result.PageSize,
+					totalCount = result.TotalCount,
+					totalPages = result.TotalPages,
+					hasPreviousPage = result.HasPreviousPage,
+					hasNextPage = result.HasNextPage
+				}
+			});
 		}
 
 		// GET api/tenant/condotels/{id}/amenities-utilities - Lấy cả amenities và utilities (PHẢI ĐẶT TRƯỚC {id})
@@ -146,27 +169,44 @@ namespace CondotelManagement.Controllers
 			return Ok(servicePackages);
 		}
 
-		// GET api/tenant/condotels/host/{hostId} - Lấy danh sách condotels của một host (Public API)
+		// GET api/tenant/condotels/host/{hostId}?pageNumber=1&pageSize=10 - Lấy danh sách condotels của một host (Public API)
 		[HttpGet("host/{hostId}")]
 		[AllowAnonymous]
-		public ActionResult<IEnumerable<CondotelDTO>> GetCondotelsByHostId(int hostId)
+		public ActionResult<object> GetCondotelsByHostId(int hostId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
 		{
 			if (hostId <= 0)
 				return BadRequest(new { message = "Host ID không hợp lệ" });
 
-			var condotels = _condotelService.GetCondtelsByHost(hostId);
+			// Validate pagination parameters
+			if (pageNumber < 1)
+				pageNumber = 1;
+			if (pageSize < 1 || pageSize > 100)
+				pageSize = 10; // Default 10, max 100
+
+			var result = _condotelService.GetCondtelsByHostPaged(hostId, pageNumber, pageSize);
 			
 			// Chỉ trả về các condotel có status "Active" hoặc "Hoạt động"
-			var activeCondotels = condotels
+			var activeCondotels = result.Items
 				.Where(c => c.Status == "Active" || c.Status == "Hoạt động")
 				.ToList();
+
+			// Recalculate total count for active condotels only
+			var activeTotalCount = result.TotalCount; // Repository already filters by Active status
 
 			return Ok(new
 			{
 				success = true,
 				data = activeCondotels,
-				total = activeCondotels.Count,
-				hostId = hostId
+				pagination = new
+				{
+					pageNumber = result.PageNumber,
+					pageSize = result.PageSize,
+					totalCount = activeTotalCount,
+					totalPages = (int)Math.Ceiling((double)activeTotalCount / result.PageSize),
+					hasPreviousPage = result.HasPreviousPage,
+					hasNextPage = result.PageNumber < (int)Math.Ceiling((double)activeTotalCount / result.PageSize),
+					hostId = hostId
+				}
 			});
 		}
 

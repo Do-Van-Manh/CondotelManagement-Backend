@@ -1,7 +1,12 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using CondotelManagement.Helpers;
 
 namespace CondotelManagement.DTOs
 {
+	[DateRangeValidation(
+		StartDatePropertyName = "StartDate",
+		EndDatePropertyName = "EndDate",
+		ErrorMessage = "Ngày bắt đầu phải nhỏ hơn ngày kết thúc.")]
 	public class VoucherCreateDTO
 	{
 		public int? CondotelID { get; set; }
@@ -17,10 +22,10 @@ namespace CondotelManagement.DTOs
 		[Range(0.01, 999.99, ErrorMessage = "DiscountPercentage phải > 0 và < 1000.")]
 		public decimal? DiscountPercentage { get; set; }
 
-		[Required]
+		[Required(ErrorMessage = "Ngày bắt đầu không được để trống.")]
 		public DateOnly StartDate { get; set; }
 
-		[Required]
+		[Required(ErrorMessage = "Ngày kết thúc không được để trống.")]
 		public DateOnly EndDate { get; set; }
 
 		[Range(1, int.MaxValue, ErrorMessage = "UsageLimit phải >= 1.")]

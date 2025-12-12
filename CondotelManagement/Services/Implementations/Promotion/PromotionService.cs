@@ -68,9 +68,9 @@ namespace CondotelManagement.Services
 
         public async Task<ResponseDTO<PromotionDTO>> CreateAsync(PromotionCreateUpdateDTO dto)
         {
-			// Kiểm tra ngày logic
-			if (dto.StartDate >= dto.EndDate)
-				return ResponseDTO<PromotionDTO>.Fail("Start date must be less than end date.");
+		// Kiểm tra ngày logic
+		if (dto.StartDate >= dto.EndDate)
+			return ResponseDTO<PromotionDTO>.Fail("Ngày bắt đầu phải nhỏ hơn ngày kết thúc.");
 
 			if (dto.EndDate < DateOnly.FromDateTime(DateTime.Now))
 				return ResponseDTO<PromotionDTO>.Fail("The end date cannot be in the pastứ.");

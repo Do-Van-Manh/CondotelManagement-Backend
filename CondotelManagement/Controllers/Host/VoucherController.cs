@@ -34,11 +34,11 @@ namespace CondotelManagement.Controllers
 		[HttpPost]
 		public async Task<IActionResult> CreateVoucher([FromBody] VoucherCreateDTO dto)
 		{
-			if (dto.StartDate >= dto.EndDate)
-			{
-				ModelState.AddModelError("StartDate", "StartDate phải nhỏ hơn EndDate.");
-				ModelState.AddModelError("EndDate", "EndDate phải lớn hơn StartDate.");
-			}
+		if (dto.StartDate >= dto.EndDate)
+		{
+			ModelState.AddModelError("StartDate", "Ngày bắt đầu phải nhỏ hơn ngày kết thúc.");
+			ModelState.AddModelError("EndDate", "Ngày kết thúc phải lớn hơn ngày bắt đầu.");
+		}
 			// Validate DataAnnotation
 			if (!ModelState.IsValid)
 			{
@@ -51,11 +51,11 @@ namespace CondotelManagement.Controllers
 		[HttpPut("{id}")]
 		public async Task<IActionResult> UpdateVoucher(int id, [FromBody] VoucherCreateDTO dto)
 		{
-			if (dto.StartDate >= dto.EndDate)
-			{
-				ModelState.AddModelError("StartDate", "StartDate phải nhỏ hơn EndDate.");
-				ModelState.AddModelError("EndDate", "EndDate phải lớn hơn StartDate.");
-			}
+		if (dto.StartDate >= dto.EndDate)
+		{
+			ModelState.AddModelError("StartDate", "Ngày bắt đầu phải nhỏ hơn ngày kết thúc.");
+			ModelState.AddModelError("EndDate", "Ngày kết thúc phải lớn hơn ngày bắt đầu.");
+		}
 			// Validate DataAnnotation
 			if (!ModelState.IsValid)
 			{

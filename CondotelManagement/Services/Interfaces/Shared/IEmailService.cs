@@ -10,5 +10,16 @@
         Task SendPayoutConfirmationEmailAsync(string toEmail, string hostName, int bookingId, string condotelName, decimal amount, DateTime paidAt, string? bankName = null, string? accountNumber = null, string? accountHolderName = null);
         Task SendPayoutAccountErrorEmailAsync(string toEmail, string hostName, int bookingId, string condotelName, decimal amount, string? currentBankName = null, string? currentAccountNumber = null, string? currentAccountHolderName = null, string? errorMessage = null);
         Task SendPayoutRejectionEmailAsync(string toEmail, string hostName, int bookingId, string condotelName, decimal amount, string reason);
+        Task SendVoucherNotificationEmailAsync(string toEmail, string customerName, int bookingId, List<VoucherInfo> vouchers);
+    }
+
+    public class VoucherInfo
+    {
+        public string Code { get; set; } = null!;
+        public string CondotelName { get; set; } = null!;
+        public decimal? DiscountAmount { get; set; }
+        public decimal? DiscountPercentage { get; set; }
+        public DateOnly StartDate { get; set; }
+        public DateOnly EndDate { get; set; }
     }
 }

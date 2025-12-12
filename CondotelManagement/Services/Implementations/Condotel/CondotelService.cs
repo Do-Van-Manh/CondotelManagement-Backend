@@ -2,6 +2,7 @@
 using CondotelManagement.Models;
 using CondotelManagement.Repositories;
 using CondotelManagement.Data;
+using CondotelManagement.Helpers;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -409,6 +410,144 @@ public class CondotelService : ICondotelService
 				})
 				.FirstOrDefault()
 		});
+	}
+
+	public PagedResult<CondotelDTO> GetCondtelsByHostPaged(int hostId, int pageNumber, int pageSize)
+	{
+		var today = DateOnly.FromDateTime(DateTime.UtcNow);
+		var (totalCount, condotels) = _condotelRepo.GetCondtelsByHostPaged(hostId, pageNumber, pageSize);
+		
+		var items = condotels.Select(c => new CondotelDTO
+		{
+			CondotelId = c.CondotelId,
+			Name = c.Name,
+			PricePerNight = c.PricePerNight,
+			Beds = c.Beds,
+			Bathrooms = c.Bathrooms,
+			Status = c.Status,
+			ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
+			ResortName = c.Resort?.Name,
+			HostName = c.Host?.User?.FullName,
+			ReviewCount = c.Reviews?.Count ?? 0,
+			ReviewRate = c.Reviews != null && c.Reviews.Count > 0 
+				? Math.Round(c.Reviews.Average(r => r.Rating), 1)
+				: 0,
+			ActivePromotion = c.Promotions
+				.Where(p => p.Status == "Active" 
+					&& p.StartDate <= today 
+					&& p.EndDate >= today)
+				.OrderByDescending(p => p.DiscountPercentage)
+				.Select(p => new PromotionDTO
+				{
+					PromotionId = p.PromotionId,
+					Name = p.Name,
+					StartDate = p.StartDate,
+					EndDate = p.EndDate,
+					DiscountPercentage = p.DiscountPercentage,
+					TargetAudience = p.TargetAudience,
+					Status = p.Status,
+					CondotelId = p.CondotelId
+				})
+				.FirstOrDefault(),
+			ActivePrice = c.CondotelPrices
+				.Where(p => p.Status == "Active"
+					&& p.StartDate <= today
+					&& p.EndDate >= today)
+				.OrderByDescending(p => p.BasePrice)
+				.Select(p => new CondotelPriceDTO
+				{
+					PriceId = p.PriceId,
+					StartDate = p.StartDate,
+					EndDate = p.EndDate,
+					PriceType = p.PriceType,
+					BasePrice = p.BasePrice,
+					Description = p.Description
+				})
+				.FirstOrDefault()
+		}).ToList();
+
+		return new PagedResult<CondotelDTO>
+		{
+			Items = items,
+			TotalCount = totalCount,
+			PageNumber = pageNumber,
+			PageSize = pageSize
+		};
+	}
+
+	public PagedResult<CondotelDTO> GetCondotelsByFiltersPaged(
+		string? name,
+		string? location,
+		int? locationId,
+		DateOnly? fromDate,
+		DateOnly? toDate,
+		decimal? minPrice,
+		decimal? maxPrice,
+		int? beds,
+		int? bathrooms,
+		int pageNumber,
+		int pageSize)
+	{
+		var today = DateOnly.FromDateTime(DateTime.UtcNow);
+		var (totalCount, condotels) = _condotelRepo.GetCondotelsByFiltersPaged(
+			name, location, locationId, fromDate, toDate, minPrice, maxPrice, beds, bathrooms, pageNumber, pageSize);
+		
+		var items = condotels.Select(c => new CondotelDTO
+		{
+			CondotelId = c.CondotelId,
+			Name = c.Name,
+			PricePerNight = c.PricePerNight,
+			Beds = c.Beds,
+			Bathrooms = c.Bathrooms,
+			Status = c.Status,
+			ThumbnailUrl = c.CondotelImages?.FirstOrDefault()?.ImageUrl,
+			ResortName = c.Resort?.Name,
+			HostName = c.Host?.User?.FullName,
+			ReviewCount = c.Reviews?.Count ?? 0,
+			ReviewRate = c.Reviews != null && c.Reviews.Count > 0 
+				? Math.Round(c.Reviews.Average(r => r.Rating), 1)
+				: 0,
+			ActivePromotion = c.Promotions
+				.Where(p => p.Status == "Active" 
+					&& p.StartDate <= today 
+					&& p.EndDate >= today)
+				.OrderByDescending(p => p.DiscountPercentage)
+				.Select(p => new PromotionDTO
+				{
+					PromotionId = p.PromotionId,
+					Name = p.Name,
+					StartDate = p.StartDate,
+					EndDate = p.EndDate,
+					DiscountPercentage = p.DiscountPercentage,
+					TargetAudience = p.TargetAudience,
+					Status = p.Status,
+					CondotelId = p.CondotelId
+				})
+				.FirstOrDefault(),
+			ActivePrice = c.CondotelPrices
+				.Where(p => p.Status == "Active"
+					&& p.StartDate <= today
+					&& p.EndDate >= today)
+				.OrderByDescending(p => p.BasePrice)
+				.Select(p => new CondotelPriceDTO
+				{
+					PriceId = p.PriceId,
+					StartDate = p.StartDate,
+					EndDate = p.EndDate,
+					PriceType = p.PriceType,
+					BasePrice = p.BasePrice,
+					Description = p.Description
+				})
+				.FirstOrDefault()
+		}).ToList();
+
+		return new PagedResult<CondotelDTO>
+		{
+			Items = items,
+			TotalCount = totalCount,
+			PageNumber = pageNumber,
+			PageSize = pageSize
+		};
 	}
 
     public CondotelUpdateDTO UpdateCondotel(CondotelUpdateDTO dto)

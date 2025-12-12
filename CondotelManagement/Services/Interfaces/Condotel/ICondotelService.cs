@@ -20,5 +20,18 @@ namespace CondotelManagement.Services
 	        decimal? maxPrice,
 	        int? beds,
 	        int? bathrooms);
+		PagedResult<CondotelDTO> GetCondtelsByHostPaged(int hostId, int pageNumber, int pageSize);
+		PagedResult<CondotelDTO> GetCondotelsByFiltersPaged(
+			string? name,
+			string? location,
+			int? locationId,
+			DateOnly? fromDate,
+			DateOnly? toDate,
+			decimal? minPrice,
+			decimal? maxPrice,
+			int? beds,
+			int? bathrooms,
+			int pageNumber,
+			int pageSize);
 	}
 }

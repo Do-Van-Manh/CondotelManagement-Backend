@@ -32,6 +32,10 @@ namespace CondotelManagement.DTOs.Host
         public string? BankName { get; set; } // Tên ngân hàng của host
         public string? AccountNumber { get; set; } // Số tài khoản ngân hàng của host
         public string? AccountHolderName { get; set; } // Tên chủ tài khoản của host
+        
+        // Thông tin từ chối (nếu có)
+        public DateTime? RejectedAt { get; set; } // Ngày giờ từ chối
+        public string? RejectionReason { get; set; } // Lý do từ chối
     }
 }
 

@@ -174,6 +174,42 @@ namespace CondotelManagement.Controllers.Admin
                 return StatusCode(500, new { message = "Lỗi khi nhận được khoản thanh toán", error = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Lấy danh sách booking đã bị từ chối thanh toán (Admin xem tất cả hoặc lọc theo host)
+        /// GET /api/admin/payouts/rejected?hostId=1&fromDate=2025-01-01&toDate=2025-12-31
+        /// </summary>
+        [HttpGet("rejected")]
+        public async Task<IActionResult> GetRejectedPayouts(
+            [FromQuery] int? hostId = null,
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null)
+        {
+            try
+            {
+                var rejectedPayouts = await _payoutService.GetRejectedPayoutsAsync(hostId, fromDate, toDate);
+                
+                var totalAmount = rejectedPayouts.Sum(p => p.Amount);
+                
+                return Ok(new
+                {
+                    success = true,
+                    data = rejectedPayouts,
+                    total = rejectedPayouts.Count,
+                    totalAmount = totalAmount,
+                    summary = new
+                    {
+                        totalBookings = rejectedPayouts.Count,
+                        totalAmount = totalAmount,
+                        averageAmount = rejectedPayouts.Count > 0 ? totalAmount / rejectedPayouts.Count : 0
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi lấy danh sách payout đã từ chối", error = ex.Message });
+            }
+        }
     }
 }
 

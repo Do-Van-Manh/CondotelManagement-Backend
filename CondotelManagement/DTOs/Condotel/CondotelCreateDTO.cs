@@ -52,13 +52,17 @@ namespace CondotelManagement.DTOs
 		public string? Caption { get; set; }
 	}
 
+    [DateRangeValidation(
+        StartDatePropertyName = "StartDate",
+        EndDatePropertyName = "EndDate",
+        ErrorMessage = "Ngày bắt đầu phải nhỏ hơn ngày kết thúc.")]
     public class PriceDTO
     {
         public int PriceId { get; set; }
-		[Required(ErrorMessage = "StartDate không được để trống.")]
+		[Required(ErrorMessage = "Ngày bắt đầu không được để trống.")]
 		public DateOnly StartDate { get; set; }
 
-		[Required(ErrorMessage = "EndDate không được để trống.")]
+		[Required(ErrorMessage = "Ngày kết thúc không được để trống.")]
 		public DateOnly EndDate { get; set; }
 
 		[Required(ErrorMessage = "BasePrice không được để trống.")]

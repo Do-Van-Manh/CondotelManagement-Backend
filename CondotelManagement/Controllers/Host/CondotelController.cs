@@ -29,18 +29,38 @@ namespace CondotelManagement.Controllers.Host
             _context = context;
         }
 
-        //GET /api/condotel
+        //GET /api/host/condotel?pageNumber=1&pageSize=10
         [HttpGet]
-        public ActionResult<IEnumerable<CondotelDTO>> GetAllCondotelByHost()
+        public ActionResult<object> GetAllCondotelByHost([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             //current host login
             var host = _hostService.GetByUserId(User.GetUserId());
             if (host == null)
                 return Unauthorized(ApiResponse<object>.Fail("Không tìm thấy host. Vui lòng đăng ký làm host trước."));
             
+            // Validate pagination parameters
+            if (pageNumber < 1)
+                pageNumber = 1;
+            if (pageSize < 1 || pageSize > 100)
+                pageSize = 10; // Default 10, max 100
+
             var hostId = host.HostId;
-            var condotels = _condotelService.GetCondtelsByHost(hostId);
-            return Ok(ApiResponse<object>.SuccessResponse(condotels));
+            var result = _condotelService.GetCondtelsByHostPaged(hostId, pageNumber, pageSize);
+            
+            return Ok(new
+            {
+                success = true,
+                data = result.Items,
+                pagination = new
+                {
+                    pageNumber = result.PageNumber,
+                    pageSize = result.PageSize,
+                    totalCount = result.TotalCount,
+                    totalPages = result.TotalPages,
+                    hasPreviousPage = result.HasPreviousPage,
+                    hasNextPage = result.HasNextPage
+                }
+            });
         }
 
         //GET /api/condotel/{id}
@@ -70,8 +90,8 @@ namespace CondotelManagement.Controllers.Host
 					// Check Start < End
 					if (price.StartDate >= price.EndDate)
 					{
-						ModelState.AddModelError($"Prices[{i}].StartDate", "StartDate phải nhỏ hơn EndDate.");
-						ModelState.AddModelError($"Prices[{i}].EndDate", "EndDate phải lớn hơn StartDate.");
+						ModelState.AddModelError($"Prices[{i}].StartDate", "Ngày bắt đầu phải nhỏ hơn ngày kết thúc.");
+						ModelState.AddModelError($"Prices[{i}].EndDate", "Ngày kết thúc phải lớn hơn ngày bắt đầu.");
 					}
 				}
 			}
@@ -159,8 +179,8 @@ namespace CondotelManagement.Controllers.Host
 					// Check Start < End
 					if (price.StartDate >= price.EndDate)
 					{
-						ModelState.AddModelError($"Prices[{i}].StartDate", "StartDate phải nhỏ hơn EndDate.");
-						ModelState.AddModelError($"Prices[{i}].EndDate", "EndDate phải lớn hơn StartDate.");
+						ModelState.AddModelError($"Prices[{i}].StartDate", "Ngày bắt đầu phải nhỏ hơn ngày kết thúc.");
+						ModelState.AddModelError($"Prices[{i}].EndDate", "Ngày kết thúc phải lớn hơn ngày bắt đầu.");
 					}
 				}
 			}

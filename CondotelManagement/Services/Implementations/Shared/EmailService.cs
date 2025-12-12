@@ -681,6 +681,124 @@ namespace CondotelManagement.Services.Implementations.Shared
             await smtp.SendAsync(email);
             await smtp.DisconnectAsync(true);
         }
+
+        public async Task SendVoucherNotificationEmailAsync(string toEmail, string customerName, int bookingId, List<CondotelManagement.Services.Interfaces.Shared.VoucherInfo> vouchers)
+        {
+            var email = new MimeMessage();
+            email.From.Add(new MailboxAddress(
+                _config["EmailSettings:SenderName"],
+                _config["EmailSettings:SenderEmail"]));
+            email.To.Add(MailboxAddress.Parse(toEmail));
+            email.Subject = $"🎁 Bạn đã nhận được {vouchers.Count} voucher từ booking #{bookingId} - Condotel Management";
+
+            // Tạo danh sách voucher HTML
+            var vouchersHtml = "";
+            foreach (var voucher in vouchers)
+            {
+                var discountText = voucher.DiscountAmount.HasValue && voucher.DiscountAmount > 0
+                    ? $"{voucher.DiscountAmount:N0} VNĐ"
+                    : voucher.DiscountPercentage.HasValue && voucher.DiscountPercentage > 0
+                        ? $"{voucher.DiscountPercentage}%"
+                        : "Không có giảm giá";
+
+                vouchersHtml += $@"
+                <div style='background: white; padding: 20px; border-radius: 8px; margin: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 4px solid #4caf50;'>
+                    <h3 style='margin-top: 0; color: #4caf50;'>{voucher.CondotelName}</h3>
+                    <table style='width: 100%; border-collapse: collapse;'>
+                        <tr>
+                            <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>Mã voucher:</strong></td>
+                            <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong style='color: #4caf50; font-size: 18px;'>{voucher.Code}</strong></td>
+                        </tr>
+                        <tr>
+                            <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>Giảm giá:</strong></td>
+                            <td style='padding: 8px; border-bottom: 1px solid #eee;'><span style='color: #d32f2f; font-weight: bold;'>{discountText}</span></td>
+                        </tr>
+                        <tr>
+                            <td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>Hiệu lực từ:</strong></td>
+                            <td style='padding: 8px; border-bottom: 1px solid #eee;'>{voucher.StartDate:dd/MM/yyyy}</td>
+                        </tr>
+                        <tr>
+                            <td style='padding: 8px;'><strong>Hết hạn:</strong></td>
+                            <td style='padding: 8px;'>{voucher.EndDate:dd/MM/yyyy}</td>
+                        </tr>
+                    </table>
+                </div>";
+            }
+
+            var htmlBody = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+        .voucher-icon {{ font-size: 48px; margin-bottom: 20px; }}
+        .info-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
+        .highlight {{ background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4caf50; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <div class='voucher-icon'>🎁</div>
+            <h1>Chúc mừng! Bạn đã nhận được voucher</h1>
+        </div>
+        <div class='content'>
+            <p>Xin chào <strong>{customerName}</strong>,</p>
+            
+            <p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi! Chúng tôi xin gửi tặng bạn <strong>{vouchers.Count} voucher</strong> như một phần thưởng cho booking <strong>#{bookingId}</strong> đã hoàn thành.</p>
+            
+            <div class='highlight'>
+                <p style='margin: 0;'><strong>💡 Lưu ý:</strong> Bạn có thể sử dụng các voucher này cho các booking tiếp theo tại các condotel tương ứng. Hãy nhập mã voucher khi đặt phòng để nhận được ưu đãi!</p>
+            </div>
+
+            <h2 style='color: #4caf50; margin-top: 30px;'>Chi tiết voucher:</h2>
+            {vouchersHtml}
+            
+            <p><strong>Cách sử dụng:</strong></p>
+            <ol>
+                <li>Khi đặt phòng, nhập mã voucher vào ô "Mã giảm giá"</li>
+                <li>Hệ thống sẽ tự động áp dụng giảm giá cho booking của bạn</li>
+                <li>Mỗi voucher chỉ có thể sử dụng một lần</li>
+                <li>Voucher có thời hạn sử dụng, vui lòng sử dụng trước ngày hết hạn</li>
+            </ol>
+            
+            <p>Chúc bạn có những trải nghiệm tuyệt vời với dịch vụ của chúng tôi!</p>
+            
+            <p>Trân trọng,<br>
+            <strong>Đội ngũ Condotel Management</strong></p>
+            
+            <div class='footer'>
+                <p>Email này được gửi tự động, vui lòng không trả lời email này.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
+
+            var body = new BodyBuilder
+            {
+                HtmlBody = htmlBody
+            };
+            email.Body = body.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            await smtp.ConnectAsync(
+                _config["EmailSettings:SmtpServer"],
+                int.Parse(_config["EmailSettings:Port"]),
+                SecureSocketOptions.StartTls);
+
+            await smtp.AuthenticateAsync(
+                _config["EmailSettings:SenderEmail"],
+                _config["EmailSettings:Password"]);
+
+            await smtp.SendAsync(email);
+            await smtp.DisconnectAsync(true);
+        }
     }
 }
 

@@ -297,6 +297,139 @@ namespace CondotelManagement.Repositories
 	return query.ToList();
 	}
 
+	public (int TotalCount, IEnumerable<Condotel> Items) GetCondtelsByHostPaged(int hostId, int pageNumber, int pageSize)
+	{
+		var query = _context.Condotels
+			.Where(c => c.HostId == hostId && c.Status == "Active")
+			.Include(c => c.Resort)
+			.Include(c => c.Host)
+			.Include(c => c.CondotelImages)
+			.Include(c => c.Promotions)
+			.Include(c => c.CondotelPrices)
+			.Include(c => c.Reviews);
+
+		var totalCount = query.Count();
+		var items = query
+			.OrderByDescending(c => c.CondotelId) // Sắp xếp mới nhất trước
+			.Skip((pageNumber - 1) * pageSize)
+			.Take(pageSize)
+			.ToList();
+
+		return (totalCount, items);
+	}
+
+	public (int TotalCount, IEnumerable<Condotel> Items) GetCondotelsByFiltersPaged(
+		string? name,
+		string? location,
+		int? locationId,
+		DateOnly? fromDate,
+		DateOnly? toDate,
+		decimal? minPrice,
+		decimal? maxPrice,
+		int? beds,
+		int? bathrooms,
+		int pageNumber,
+		int pageSize)
+	{
+		// Validate date range trước
+		if (fromDate.HasValue && toDate.HasValue && fromDate.Value > toDate.Value)
+		{
+			throw new ArgumentException("FromDate cannot be greater than ToDate");
+		}
+
+		// Bắt đầu với query cơ bản
+		var query = _context.Condotels.AsQueryable().Where(c => c.Status == "Active");
+
+		// Lọc theo tên condotel
+		if (!string.IsNullOrWhiteSpace(name))
+		{
+			query = query.Where(c => c.Name.Contains(name));
+		}
+
+		// Lọc theo locationId (ưu tiên hơn location string)
+		if (locationId.HasValue)
+		{
+			query = query.Where(c => 
+				c.ResortId != null &&
+				_context.Resorts.Any(r => 
+					r.ResortId == c.ResortId && 
+					r.LocationId == locationId.Value));
+		}
+		// Lọc theo location string (nếu không có locationId)
+		else if (!string.IsNullOrWhiteSpace(location))
+		{
+			query = query.Where(c => 
+				c.ResortId != null &&
+				_context.Resorts.Any(r => 
+					r.ResortId == c.ResortId && 
+					r.Location != null &&
+					r.Location.Name.Contains(location)));
+		}
+
+		// Lọc theo khoảng ngày - chỉ lấy condotel không có booking trong khoảng thời gian đó
+		if (fromDate.HasValue && toDate.HasValue)
+		{
+			var fromDateValue = fromDate.Value;
+			var toDateValue = toDate.Value;
+
+			// Lấy danh sách CondotelId đã bị booking (chỉ tính booking chưa bị hủy)
+			var bookedCondotelIds = _context.Bookings
+				.Where(b => 
+					b.Status != "Cancelled" &&
+					b.StartDate <= toDateValue &&
+					b.EndDate >= fromDateValue)
+				.Select(b => b.CondotelId)
+				.Distinct()
+				.ToList();
+
+			// Loại bỏ các condotel đã bị booking
+			if (bookedCondotelIds.Any())
+			{
+				query = query.Where(c => !bookedCondotelIds.Contains(c.CondotelId));
+			}
+		}
+
+		// Lọc theo PricePerNight
+		if (minPrice.HasValue)
+			query = query.Where(c => c.PricePerNight >= minPrice.Value);
+
+		if (maxPrice.HasValue)
+			query = query.Where(c => c.PricePerNight <= maxPrice.Value);
+
+		// Lọc theo Beds & Bathrooms
+		if (beds.HasValue)
+		{
+			query = query.Where(c => c.Beds >= beds.Value);
+		}
+
+		if (bathrooms.HasValue)
+		{
+			query = query.Where(c => c.Bathrooms >= bathrooms.Value);
+		}
+
+		// Include các navigation properties sau khi đã filter
+		query = query
+			.Include(c => c.Resort)
+				.ThenInclude(r => r.Location)
+			.Include(c => c.Host)
+			.Include(c => c.CondotelImages)
+			.Include(c => c.Promotions)
+			.Include(c => c.CondotelPrices)
+			.Include(c => c.Reviews);
+
+		// Đếm tổng số trước khi pagination
+		var totalCount = query.Count();
+
+		// Áp dụng pagination
+		var items = query
+			.OrderByDescending(c => c.CondotelId) // Sắp xếp mới nhất trước
+			.Skip((pageNumber - 1) * pageSize)
+			.Take(pageSize)
+			.ToList();
+
+		return (totalCount, items);
+	}
+
 	public bool ResortExists(int? resortId)
 	{
 		if (!resortId.HasValue) return true; // ResortId là optional
