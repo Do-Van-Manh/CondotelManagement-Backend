@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using CondotelManagement.Data;
 using CondotelManagement.Services.Interfaces.Shared;
-using CondotelManagement.Services.Interfaces.Voucher;
 
 namespace CondotelManagement.Services.Background
 {

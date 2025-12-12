@@ -761,7 +761,7 @@ namespace CondotelManagement.Services.Implementations.Shared
             
             <p><strong>Cách sử dụng:</strong></p>
             <ol>
-                <li>Khi đặt phòng, nhập mã voucher vào ô 'Mã giảm giá'</li>
+                <li>Khi đặt phòng, nhập mã voucher vào ô \"Mã giảm giá\"</li>
                 <li>Hệ thống sẽ tự động áp dụng giảm giá cho booking của bạn</li>
                 <li>Mỗi voucher chỉ có thể sử dụng một lần</li>
                 <li>Voucher có thời hạn sử dụng, vui lòng sử dụng trước ngày hết hạn</li>
