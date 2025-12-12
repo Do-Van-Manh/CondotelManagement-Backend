@@ -20,5 +20,6 @@ namespace CondotelManagement.Services.Interfaces.Blog
         Task<BlogCategoryDto?> AdminCreateCategoryAsync(BlogCategoryDto dto);
         Task<BlogCategoryDto?> AdminUpdateCategoryAsync(int categoryId, BlogCategoryDto dto);
         Task<bool> AdminDeleteCategoryAsync(int categoryId);
+        Task<IEnumerable<BlogPostSummaryDto>> AdminGetAllPostsAsync(bool includeDrafts = true);
     }
 }
