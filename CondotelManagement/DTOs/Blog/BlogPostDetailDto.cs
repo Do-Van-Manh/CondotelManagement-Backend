@@ -4,5 +4,8 @@
     public class BlogPostDetailDto : BlogPostSummaryDto
     {
         public string Content { get; set; } = null!;
+        public int? CategoryId { get; set; }
+        public string Status { get; set; } = null!;
+
     }
 }
