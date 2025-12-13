@@ -108,6 +108,28 @@ namespace CondotelManagement.Repositories
 				.Where(b => b.Status == "Completed")
 				.CountAsync();
 
+			// ======== TÍNH TỔNG KHÁCH HÀNG (UNIQUE) ========
+			int totalCustomers = await bookings
+				.Select(b => b.CustomerId)
+				.Distinct()
+				.CountAsync();
+
+			// ======== TÍNH GIÁ TRỊ TRUNG BÌNH MỖI ĐẶT PHÒNG ========
+			// Tính từ các booking đã hoàn thành
+			decimal averageBookingValue = completedBookings > 0 
+				? Math.Round(revenue / completedBookings, 2) 
+				: 0m;
+
+			// ======== TÍNH SỐ BOOKING ĐANG XỬ LÝ ========
+			int pendingBookings = await bookings
+				.Where(b => b.Status == "Pending")
+				.CountAsync();
+
+			// ======== TÍNH SỐ BOOKING ĐÃ XÁC NHẬN ========
+			int confirmedBookings = await bookings
+				.Where(b => b.Status == "Confirmed")
+				.CountAsync();
+
 			return new HostReportDTO
 			{
 				Revenue = Math.Round(revenue, 2),
@@ -116,7 +138,11 @@ namespace CondotelManagement.Repositories
 				OccupancyRate = Math.Round(occupancyRate, 2),
 				TotalBookings = totalBookings,
 				TotalCancellations = totalCancellations,
-				CompletedBookings = completedBookings
+				CompletedBookings = completedBookings,
+				TotalCustomers = totalCustomers,
+				AverageBookingValue = averageBookingValue,
+				PendingBookings = pendingBookings,
+				ConfirmedBookings = confirmedBookings
 			};
         }
 

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using CondotelManagement.DTOs;
+using CondotelManagement.DTOs.Booking;
 using CondotelManagement.Models;
 
 namespace CondotelManagement.Repositories
@@ -13,6 +14,7 @@ namespace CondotelManagement.Repositories
         void UpdateBooking(Booking booking);
         bool SaveChanges();
         IEnumerable<HostBookingDTO> GetBookingsByHost(int hostId);
+        IEnumerable<HostBookingDTO> GetBookingsByHost(int hostId, BookingFilterDTO? filter);
         IEnumerable<HostBookingDTO> GetBookingsByHostAndCustomer(int hostId, int customerId);
     }
 }

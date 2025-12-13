@@ -1329,6 +1329,11 @@ namespace CondotelManagement.Services
             return _bookingRepo.GetBookingsByHost(hostId);
         }
 
+        public IEnumerable<HostBookingDTO> GetBookingsByHost(int hostId, DTOs.Booking.BookingFilterDTO? filter)
+        {
+            return _bookingRepo.GetBookingsByHost(hostId, filter);
+        }
+
         public IEnumerable<HostBookingDTO> GetBookingsByHostAndCustomer(int hostId, int customerId)
         {
             return _bookingRepo.GetBookingsByHostAndCustomer(hostId, customerId);
