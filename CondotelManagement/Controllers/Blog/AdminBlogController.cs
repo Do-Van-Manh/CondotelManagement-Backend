@@ -73,5 +73,11 @@ namespace CondotelManagement.Controllers.Admin
             }
             return Ok(new { message = "Xóa bài viết thành công." });
         }
+        [HttpGet("posts")]
+        public async Task<IActionResult> AdminGetAllPosts([FromQuery] bool includeDrafts = true)
+        {
+            var posts = await _blogService.AdminGetAllPostsAsync(includeDrafts);
+            return Ok(posts);
+        }
     }
 }

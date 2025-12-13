@@ -66,7 +66,9 @@ namespace CondotelManagement.Services.Implementations.Blog
                     FeaturedImageUrl = p.FeaturedImageUrl,
                     PublishedAt = p.PublishedAt,
                     AuthorName = p.AuthorUser.FullName,
-                    CategoryName = p.Category != null ? p.Category.Name : "Uncategorized"
+                    CategoryName = p.Category != null ? p.Category.Name : "Uncategorized",
+                    CategoryId = p.CategoryId, // Thêm
+                    Status = p.Status
                 })
                 .FirstOrDefaultAsync();
         }
@@ -102,11 +104,37 @@ namespace CondotelManagement.Services.Implementations.Blog
                    FeaturedImageUrl = p.FeaturedImageUrl,
                    PublishedAt = p.PublishedAt,
                    AuthorName = p.AuthorUser.FullName,
-                   CategoryName = p.Category != null ? p.Category.Name : "Uncategorized"
+                   CategoryName = p.Category != null ? p.Category.Name : "Uncategorized",
+                   CategoryId = p.CategoryId, 
+                   Status = p.Status
                })
                .FirstOrDefaultAsync();
         }
+        public async Task<IEnumerable<BlogPostSummaryDto>> AdminGetAllPostsAsync(bool includeDrafts = true)
+        {
+            var query = _context.BlogPosts.AsQueryable();
 
+            if (!includeDrafts)
+            {
+                query = query.Where(p => p.Status == "Published");
+            }
+
+            return await query
+                .Include(p => p.AuthorUser)
+                .Include(p => p.Category)
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new BlogPostSummaryDto
+                {
+                    PostId = p.PostId,
+                    Title = p.Title,
+                    Slug = p.Slug,
+                    FeaturedImageUrl = p.FeaturedImageUrl,
+                    PublishedAt = p.PublishedAt,
+                    AuthorName = p.AuthorUser.FullName,
+                    CategoryName = p.Category != null ? p.Category.Name : "Uncategorized"
+                })
+                .ToListAsync();
+        }
         public async Task<BlogPostDetailDto?> AdminCreatePostAsync(AdminBlogCreateDto dto, int authorUserId)
         {
             // Sửa: Dùng _context thay vì _categoryRepo.GetByIdAsync

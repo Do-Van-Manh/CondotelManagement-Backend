@@ -29,10 +29,12 @@ namespace CondotelManagement.Repositories.Implementations.Admin
                 .Include(u => u.Role)
                 .CountAsync(u => u.Role.RoleName == "Customer");
 
+            // Tổng số booking
             var totalBookings = await _context.Bookings.CountAsync();
 
-            // Tổng doanh thu (tính từ Booking.TotalPrice)
+            // Tổng doanh thu (chỉ tính booking Completed)
             var totalRevenue = await _context.Bookings
+                .Where(b => b.Status == "Completed")
                 .SumAsync(b => (decimal?)(b.TotalPrice ?? 0)) ?? 0;
 
             return new AdminOverviewDto
