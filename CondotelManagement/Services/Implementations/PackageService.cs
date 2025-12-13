@@ -85,49 +85,103 @@ namespace CondotelManagement.Services.Implementations
 
         public async Task<HostPackageDetailsDto> PurchaseOrUpgradePackageAsync(int hostId, int packageId)
         {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            // ---------------------------------------------------------
+            // 1. LẤY THÔNG TIN GÓI KHÁCH MUỐN MUA
+            // ---------------------------------------------------------
             var packageToBuy = await _context.Packages
                 .FirstOrDefaultAsync(p => p.PackageId == packageId && p.Status == "Active");
 
             if (packageToBuy == null)
                 throw new Exception("Gói dịch vụ không hợp lệ hoặc đã ngừng hoạt động.");
 
-            var durationDays = ParseDuration(packageToBuy.Duration ?? "30 days");
+            // ---------------------------------------------------------
+            // 2. VALIDATION: KIỂM TRA GÓI ĐANG ACTIVE CỦA HOST
+            // ---------------------------------------------------------
+            // Tìm gói đang Active và chưa hết hạn của Host này
+            var currentActivePackage = await _context.HostPackages
+                .Include(hp => hp.Package)
+                .Where(hp => hp.HostId == hostId
+                             && hp.Status == "Active"
+                             && (hp.EndDate == null || hp.EndDate >= today))
+                .OrderByDescending(hp => hp.Package.Price) // Lấy gói xịn nhất nếu có nhiều
+                .FirstOrDefaultAsync();
 
-            // Mark all old active packages as Inactive instead of deleting
-            var oldPackages = await _context.HostPackages
-                .Where(hp => hp.HostId == hostId && hp.Status == "Active")
-                .ToListAsync();
-
-            foreach (var old in oldPackages)
+            if (currentActivePackage != null)
             {
-                old.Status = "Inactive";
+                // CASE A: Khách mua đúng gói đang dùng -> CHẶN
+                if (currentActivePackage.PackageId == packageId)
+                {
+                    throw new Exception($"Bạn đang sử dụng gói {currentActivePackage.Package.Name} (Hết hạn: {currentActivePackage.EndDate}). Bạn không thể mua lại khi gói chưa hết hạn.");
+                }
+
+                // CASE B: Khách mua gói rẻ hơn hoặc bằng tiền -> CHẶN (Chỉ cho nâng cấp)
+                if (packageToBuy.Price <= currentActivePackage.Package.Price)
+                {
+                    throw new Exception($"Bạn đang dùng gói {currentActivePackage.Package.Name}. Bạn chỉ có thể nâng cấp lên gói cao cấp hơn.");
+                }
             }
 
-            // Create OrderCode
+            // ---------------------------------------------------------
+            // [ĐÃ XÓA] BƯỚC 3: KHÔNG ĐƯỢC SET INACTIVE GÓI CŨ TẠI ĐÂY
+            // ---------------------------------------------------------
+
+            // ---------------------------------------------------------
+            // 4. TẠO MÃ ĐƠN HÀNG (ORDER CODE)
+            // ---------------------------------------------------------
             var randomPart = new Random().Next(100000, 999999);
             var orderCode = (long)hostId * 1_000_000_000L + (long)packageId * 1_000_000L + randomPart;
 
+            // Đảm bảo OrderCode không quá lớn (giới hạn của long/PayOS)
             while (orderCode > 99999999999999L)
             {
                 randomPart = new Random().Next(100000, 999999);
                 orderCode = (long)hostId * 1_000_000_000L + (long)packageId * 1_000_000L + randomPart;
             }
 
-            // Create new record with auto-increment HostPackageId
-            var newHostPackage = new HostPackage
-            {
-                HostId = hostId,
-                PackageId = packageId,
-                Status = "PendingPayment",
-                DurationDays = durationDays,
-                OrderCode = orderCode.ToString(),
-                StartDate = null,  // Will be set after successful payment
-                EndDate = null
-            };
+            // Giả sử hàm ParseDuration đã có sẵn trong class của bạn
+            var durationDays = ParseDuration(packageToBuy.Duration ?? "30 days");
 
-            _context.HostPackages.Add(newHostPackage);
+            // ---------------------------------------------------------
+            // 5. UPSERT (UPDATE HOẶC INSERT) VỚI TRẠNG THÁI "PendingPayment"
+            // ---------------------------------------------------------
+            // Tìm xem trong DB đã từng có dòng {HostId, PackageId} này chưa
+            var existingHostPackage = await _context.HostPackages
+                .FirstOrDefaultAsync(hp => hp.HostId == hostId && hp.PackageId == packageId);
+
+            if (existingHostPackage != null)
+            {
+                // === UPDATE: Đã từng mua gói này (có thể là Cancelled hoặc Expired) ===
+                // Reset lại trạng thái để chờ thanh toán
+                existingHostPackage.Status = "PendingPayment";
+                existingHostPackage.OrderCode = orderCode.ToString();
+                existingHostPackage.DurationDays = durationDays;
+                existingHostPackage.StartDate = null; // Chưa thanh toán chưa tính ngày
+                existingHostPackage.EndDate = null;
+            }
+            else
+            {
+                // === INSERT: Gói mới hoàn toàn ===
+                var newHostPackage = new HostPackage
+                {
+                    HostId = hostId,
+                    PackageId = packageId,
+                    Status = "PendingPayment", // Quan trọng: Chỉ là PendingPayment
+                    DurationDays = durationDays,
+                    OrderCode = orderCode.ToString(),
+                    StartDate = null,
+                    EndDate = null
+                };
+                _context.HostPackages.Add(newHostPackage);
+            }
+
+            // Lưu tất cả thay đổi
             await _context.SaveChangesAsync();
 
+            // ---------------------------------------------------------
+            // 6. TRẢ VỀ DTO
+            // ---------------------------------------------------------
             var currentListings = await _context.Condotels
                 .CountAsync(c => c.HostId == hostId && c.Status != "Deleted");
 
@@ -138,6 +192,7 @@ namespace CondotelManagement.Services.Implementations
                 StartDate = null,
                 EndDate = null,
                 CurrentListings = currentListings,
+                // Các thông tin features lấy từ Service
                 MaxListings = _featureService.GetMaxListingCount(packageId),
                 CanUseFeaturedListing = _featureService.CanUseFeaturedListing(packageId),
                 MaxBlogRequestsPerMonth = _featureService.GetMaxBlogRequestsPerMonth(packageId),
@@ -145,8 +200,9 @@ namespace CondotelManagement.Services.Implementations
                 IsVerifiedBadgeEnabled = _featureService.IsVerifiedBadgeEnabled(packageId),
                 DisplayColorTheme = _featureService.GetDisplayColorTheme(packageId),
                 PriorityLevel = _featureService.GetPriorityLevel(packageId),
-                Message = "Order created successfully! Redirecting to PayOS...",
-                PaymentUrl = null,
+
+                Message = "Đã tạo đơn hàng! Đang chuyển hướng thanh toán...",
+                PaymentUrl = null, // Controller sẽ điền link sau
                 OrderCode = orderCode,
                 Amount = packageToBuy.Price.GetValueOrDefault(0)
             };

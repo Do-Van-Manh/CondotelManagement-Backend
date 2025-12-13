@@ -41,123 +41,150 @@ namespace CondotelManagement.Services
 
         public async Task<HostRegistrationResponseDto> RegisterHostAsync(int userId, HostRegisterRequestDto dto)
         {
-            var user = await _context.Users.FindAsync(userId);
-            if (user == null)
+            // 0. KHỞI TẠO TRANSACTION (Bảo vệ dữ liệu toàn vẹn)
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
             {
-                throw new Exception("Không tìm thấy người dùng (UserID từ Token không tồn tại).");
-            }
-
-            // 2. Tìm Host và Wallet hiện tại
-            var existingHost = await _context.Hosts
-                .Include(h => h.Wallet)
-                .FirstOrDefaultAsync(h => h.UserId == userId);
-
-            // --- Khai báo biến cần thiết ---
-            HostModel hostToProcess;
-            Wallet walletToProcess = null;
-            bool isNewHost = existingHost == null;
-            bool isNewWallet = false;
-
-            // --- LOGIC: USER MỚI HOÀN TOÀN (existingHost == null) ---
-            if (isNewHost)
-            {
-                // 3. Tạo bản ghi Host mới
-                hostToProcess = new HostModel
+                // 1. Tìm User
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
                 {
-                    UserId = userId,
-                    PhoneContact = dto.PhoneContact,
-                    Address = dto.Address,
-                    CompanyName = dto.CompanyName,
-                    Status = "Active",
-                    // ❌ FIX: Đã XÓA 'RegistrationDate = DateTime.UtcNow'
-                    //Wallets = new System.Collections.Generic.List<CondotelManagement.Models.Wallet>()
-                };
-                _context.Hosts.Add(hostToProcess);
-
-                // 4. Tạo Wallet mới
-                walletToProcess = new Wallet
-                {
-                    // FIX: BỎ UserId để thỏa mãn CK_Wallet_OneOwner (Wallet chỉ có 1 FK)
-                    BankName = dto.BankName,
-                    AccountNumber = dto.AccountNumber,
-                    AccountHolderName = dto.AccountHolderName
-                };
-
-                isNewWallet = true;
-
-                // 5. Nâng cấp quyền    
-                user.RoleId = 3;
-            }
-            // --- LOGIC: USER ĐÃ LÀ HOST (existingHost != null) ---
-            else
-            {
-                hostToProcess = existingHost;
-
-                // Cập nhật thông tin Host
-                hostToProcess.PhoneContact = dto.PhoneContact;
-                hostToProcess.Address = dto.Address;
-                hostToProcess.CompanyName = dto.CompanyName;
-
-                var existingWallet = existingHost.Wallet;
-
-                if (existingWallet != null)
-                {
-                    // UPDATE Wallet
-                    walletToProcess = existingWallet;
-                    walletToProcess.BankName = dto.BankName;
-                    walletToProcess.AccountNumber = dto.AccountNumber;
-                    walletToProcess.AccountHolderName = dto.AccountHolderName;
+                    throw new Exception("Không tìm thấy người dùng (UserID từ Token không tồn tại).");
                 }
-                else
-                {
-                    // TẠO WALLET MỚI nếu Host đã có nhưng Wallet bị thiếu/inActive
-                    walletToProcess = new Wallet
-                    {
-                        // FIX: BỎ UserId để thỏa mãn CK_Wallet_OneOwner (Wallet chỉ có 1 FK)
-                        HostId = existingHost.HostId,
-                        BankName = dto.BankName,
-                        AccountNumber = dto.AccountNumber,
-                        AccountHolderName = dto.AccountHolderName
-                    };
-                    isNewWallet = true;
-                }
-            }
 
-            // 6. THỰC HIỆN THAO TÁC DB CHUNG: ADD WALLET
-            if (isNewWallet && walletToProcess != null)
-            {
+                // 2. Tìm Host và Wallet hiện tại
+                var existingHost = await _context.Hosts
+                    .Include(h => h.Wallet)
+                    .FirstOrDefaultAsync(h => h.UserId == userId);
+
+                // --- Khai báo biến ---
+                HostModel hostToProcess;
+                Wallet walletToProcess = null;
+                bool isNewHost = existingHost == null;
+                bool isNewWallet = false;
+
+                // --- LOGIC: USER MỚI (Chưa từng là Host) ---
                 if (isNewHost)
                 {
-                    // Gán vào Host Collection để EF Core xử lý chuỗi Insert (Host -> Wallet)
-                    //hostToProcess.Wallets.Add(walletToProcess);
+                    // 3. Tạo Host
+                    hostToProcess = new HostModel
+                    {
+                        UserId = userId,
+                        PhoneContact = dto.PhoneContact,
+                        Address = dto.Address,
+                        CompanyName = dto.CompanyName,
+                        Status = "Active", // Host mới thì Active luôn
+                                           // Khởi tạo List rỗng để tránh lỗi Null Reference sau này
+                        Condotels = new List<Condotel>(),
+                        HostPackages = new List<HostPackage>()
+                    };
+
+                    _context.Hosts.Add(hostToProcess);
+
+                    // 4. Tạo Wallet (Chưa gán HostId ngay được)
+                    walletToProcess = new Wallet
+                    {
+                        BankName = dto.BankName,
+                        AccountNumber = dto.AccountNumber,
+                        AccountHolderName = dto.AccountHolderName,
+
+                        // --- FIX THEO SQL CỦA BẠN ---
+                        IsDefault = true,   // Ví đầu tiên nên mặc định là True
+                        Status = "Active"   // Gán trạng thái hoạt động
+                                            // Bỏ UserId để tránh conflict constraint (vì đây là ví của Host)
+                    };
+
+                    isNewWallet = true;
+
+                    // 5. Nâng quyền User
+                    user.RoleId = 3;
                 }
+                // --- LOGIC: USER ĐÃ LÀ HOST (Update thông tin) ---
                 else
                 {
-                    // Host cũ đã có HostId, chỉ cần Add Wallet vào DbContext
-                    _context.Wallets.Add(walletToProcess);
+                    hostToProcess = existingHost;
+
+                    // Update info Host
+                    hostToProcess.PhoneContact = dto.PhoneContact;
+                    hostToProcess.Address = dto.Address;
+                    hostToProcess.CompanyName = dto.CompanyName;
+
+                    var existingWallet = existingHost.Wallet;
+
+                    if (existingWallet != null)
+                    {
+                        // Update Wallet có sẵn
+                        walletToProcess = existingWallet;
+                        walletToProcess.BankName = dto.BankName;
+                        walletToProcess.AccountNumber = dto.AccountNumber;
+                        walletToProcess.AccountHolderName = dto.AccountHolderName;
+                        // Không cần sửa Status hay IsDefault khi update
+                    }
+                    else
+                    {
+                        // Tạo Wallet mới cho Host cũ (nếu bị thiếu)
+                        walletToProcess = new Wallet
+                        {
+                            HostId = existingHost.HostId, // Đã có ID rồi
+                            BankName = dto.BankName,
+                            AccountNumber = dto.AccountNumber,
+                            AccountHolderName = dto.AccountHolderName,
+
+                            // --- FIX THEO SQL ---
+                            IsDefault = true,
+                            Status = "Active"
+                        };
+                        isNewWallet = true;
+                    }
                 }
+
+                // 6. LƯU XUỐNG DB (Xử lý việc gán ID)
+
+                // TRƯỜNG HỢP A: HOST MỚI (Lưu 2 bước)
+                if (isNewHost)
+                {
+                    // Bước 1: Lưu Host để DB sinh ra HostId
+                    await _context.SaveChangesAsync();
+
+                    // Bước 2: Lấy HostId vừa sinh ra gán cho Wallet
+                    if (isNewWallet && walletToProcess != null)
+                    {
+                        walletToProcess.HostId = hostToProcess.HostId; // Quan trọng nhất
+                        _context.Wallets.Add(walletToProcess);
+
+                        // Lưu tiếp Wallet
+                        await _context.SaveChangesAsync();
+                    }
+                }
+                // TRƯỜNG HỢP B: HOST CŨ (Lưu 1 bước)
+                else
+                {
+                    if (isNewWallet && walletToProcess != null)
+                    {
+                        // HostId đã có sẵn, chỉ cần Add ví
+                        _context.Wallets.Add(walletToProcess);
+                    }
+                    // Update/Add xong xuôi thì Save 1 lần
+                    await _context.SaveChangesAsync();
+                }
+
+                // 7. COMMIT TRANSACTION
+                await transaction.CommitAsync();
+
+                // 8. TRẢ VỀ
+                return new HostRegistrationResponseDto
+                {
+                    HostId = hostToProcess.HostId,
+                    Message = isNewHost ? "Đăng ký làm Host thành công!" : "Cập nhật thông tin thành công!"
+                };
             }
-
-            // 7. COMMIT TẤT CẢ
-            // Nếu bạn có vấn đề về update RoleId, bạn có thể tách SaveChangesAsync thành 2 lần
-            // Nhưng hiện tại giữ nguyên 1 lần commit là hiệu quả nhất.
-            await _context.SaveChangesAsync();
-
-            if (isNewHost && isNewWallet && walletToProcess != null)
+            catch (Exception)
             {
-                walletToProcess.HostId = hostToProcess.HostId;  // ← Cứu cả thế giới
-                _context.Wallets.Add(walletToProcess);
+                // Có lỗi thì hoàn tác sạch sẽ
+                await transaction.RollbackAsync();
+                throw;
             }
-
-            // 8. LƯU LẦN CUỐI
-            await _context.SaveChangesAsync();
-
-            // 9. TRẢ VỀ
-            return new HostRegistrationResponseDto
-            {
-                HostId = hostToProcess.HostId,
-                Message = isNewHost ? "Đăng ký làm Host thành công!" : "Cập nhật thông tin thành công!"
-            };
         }
 
         public HostModel GetByUserId(int userId)
