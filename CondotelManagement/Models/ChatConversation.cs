@@ -9,7 +9,10 @@
 
         // Thêm 2 user cho direct chat
         public int? UserAId { get; set; }
+        public User UserA { get; set; } = null!; 
+
         public int? UserBId { get; set; }
+        public User UserB { get; set; } = null!; 
 
         public ICollection<ChatMessage> Messages { get; set; } = new List<ChatMessage>();
     }
