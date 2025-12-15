@@ -1,4 +1,5 @@
-﻿using CondotelManagement.Models;
+﻿using CondotelManagement.Data;
+using CondotelManagement.Models;
 using CondotelManagement.Repositories.Interfaces.Chat;
 using CondotelManagement.Services.Interfaces.Chat;
 using Microsoft.EntityFrameworkCore;
@@ -8,9 +9,10 @@ namespace CondotelManagement.Services.Implementations.Chat
     public class ChatService : IChatService
     {
         private readonly IChatRepository _repo;
-        public ChatService(IChatRepository repo) => _repo = repo;
+        private readonly CondotelDbVer1Context _ctx;
+        public ChatService(IChatRepository repo, CondotelDbVer1Context ctx) { _repo = repo; _ctx = ctx; }
 
-        // Các method cũ giữ nguyên...
+
         public async Task<ChatConversation> GetOrCreateDirectConversationAsync(int meUserId, int otherUserId)
         {
             var conv = await _repo.GetDirectConversationAsync(meUserId, otherUserId);
@@ -60,7 +62,16 @@ namespace CondotelManagement.Services.Implementations.Chat
         }
 
         public async Task<IEnumerable<ChatMessage>> GetMessagesAsync(int conversationId, int take = 100)
-            => await _repo.GetMessagesAsync(conversationId, take);
+        {
+            return await _ctx.ChatMessages
+                .Include(m => m.Sender) 
+                .Where(m => m.ConversationId == conversationId)
+                .OrderBy(m => m.SentAt)
+                .ThenBy(m => m.MessageId)
+                .Take(take)
+                .ToListAsync();
+        }
+
 
         public async Task<IEnumerable<ChatConversation>> GetMyConversationsAsync(int userId)
             => await _repo.GetUserConversationsAsync(userId);
@@ -68,35 +79,50 @@ namespace CondotelManagement.Services.Implementations.Chat
         // ← METHOD CHỈNH LẠI, KHÔNG LỖI int? → int VÀ ?? NỮA
         public async Task<IEnumerable<ConversationListItem>> GetMyConversationsWithDetailsAsync(int userId)
         {
+            // 1. Lấy conversations (đã Include UserA + UserB ở repo)
             var conversations = await _repo.GetUserConversationsAsync(userId);
+
             var result = new List<ConversationListItem>();
 
             foreach (var conv in conversations)
             {
-                // Lấy đủ tin nhắn để tính last + unread (có thể tối ưu sau)
+                // 2. Lấy danh sách message
                 var messages = await _repo.GetMessagesAsync(conv.ConversationId, 1000);
-                var lastMsg = messages
-    .OrderByDescending(m => m.SentAt)
-    .ThenByDescending(m => m.MessageId) // ✅ Thêm cái này
-    .FirstOrDefault();
 
+                var lastMsg = messages
+                    .OrderByDescending(m => m.SentAt)
+                    .ThenByDescending(m => m.MessageId)
+                    .FirstOrDefault();
+
+                // 3. Xác định người còn lại trong conversation
+                var otherUser = conv.UserAId == userId
+                    ? conv.UserB         
+                    : conv.UserA;
+
+                var otherUserName = otherUser?.FullName ?? "Unknown";
+
+                // 4. Tính unread
                 var unreadCount = messages.Count(m => m.SenderId != userId);
 
+                // 5. Add vào result
                 result.Add(new ConversationListItem
                 {
                     ConversationId = conv.ConversationId,
-                    UserAId = conv.UserAId ?? 0,     // ← FIX int? → int
-                    UserBId = conv.UserBId ?? 0,     // ← FIX int? → int
+                    UserAId = conv.UserAId ?? 0,
+                    UserBId = conv.UserBId ?? 0,
+
+                    OtherUserName = otherUserName, 
                     LastMessage = lastMsg,
                     UnreadCount = unreadCount
                 });
             }
 
-            // ← FIX lỗi ?? không áp dụng được cho DateTime? và int
+            // 6. Sắp xếp theo tin nhắn mới nhất
             return result.OrderByDescending(x =>
                 x.LastMessage?.SentAt ?? DateTime.MinValue
             );
         }
+
         public async Task AddMessageAsync(ChatMessage message)
         {
             // Gọi thẳng repo để lưu (có SaveChangesAsync bên trong)

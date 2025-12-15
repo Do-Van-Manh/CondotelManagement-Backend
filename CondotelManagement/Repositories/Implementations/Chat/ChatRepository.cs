@@ -52,9 +52,12 @@ namespace CondotelManagement.Repositories.Implementations.Chat
         public async Task<IEnumerable<ChatConversation>> GetUserConversationsAsync(int userId)
         {
             return await _ctx.ChatConversations
+                .Include(c => c.UserA) 
+                .Include(c => c.UserB) 
                 .Where(c => c.UserAId == userId || c.UserBId == userId)
                 .ToListAsync();
         }
+
 
         // THÊM 2 METHOD MỚI – CẬP NHẬT LAST ACTIVITY + UNREAD COUNT
         // BỎ HOÀN TOÀN method này đi cũng được, hoặc để lại thì để trống

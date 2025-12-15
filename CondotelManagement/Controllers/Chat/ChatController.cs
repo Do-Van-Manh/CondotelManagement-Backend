@@ -16,7 +16,6 @@ namespace CondotelManagement.Controllers.Chat
             _chatService = chatService;
         }
 
-        // HÀM LẤY USER ID AN TOÀN – KHÔNG BAO GIỜ BỊ NULL
         private int GetCurrentUserId()
         {
             var claim = User.FindFirst("nameid")
@@ -34,7 +33,7 @@ namespace CondotelManagement.Controllers.Chat
         {
             try
             {
-                var userId = GetCurrentUserId(); // Dùng hàm này → không còn NullReference
+                var userId = GetCurrentUserId(); 
 
                 var conversations = await _chatService.GetMyConversationsWithDetailsAsync(userId);
 
@@ -43,6 +42,7 @@ namespace CondotelManagement.Controllers.Chat
                     conversationId = c.ConversationId,
                     userAId = c.UserAId,
                     userBId = c.UserBId,
+                    otherUserName = c.OtherUserName,
                     lastMessage = c.LastMessage != null ? new
                     {
                         content = c.LastMessage.Content,
@@ -70,9 +70,8 @@ namespace CondotelManagement.Controllers.Chat
                 m.MessageId,
                 m.ConversationId,
                 m.SenderId,
+                senderName = m.Sender.FullName,
                 m.Content,
-                // Dòng này sẽ thêm chữ 'Z' vào cuối (VD: 05:40Z)
-                // Trình duyệt thấy chữ Z sẽ tự hiểu là UTC và cộng 7 tiếng thành 12:40
                 SentAt = DateTime.SpecifyKind(m.SentAt, DateTimeKind.Utc)
             });
 
