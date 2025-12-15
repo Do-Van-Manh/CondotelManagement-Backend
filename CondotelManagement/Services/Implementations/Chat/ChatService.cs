@@ -1,5 +1,6 @@
 ﻿using CondotelManagement.Data;
 using CondotelManagement.Models;
+using CondotelManagement.Repositories.Implementations.Chat;
 using CondotelManagement.Repositories.Interfaces.Chat;
 using CondotelManagement.Services.Interfaces.Chat;
 using Microsoft.EntityFrameworkCore;
@@ -127,6 +128,10 @@ namespace CondotelManagement.Services.Implementations.Chat
         {
             // Gọi thẳng repo để lưu (có SaveChangesAsync bên trong)
             await _repo.AddMessageAsync(message);
+        }
+        public async Task<int> GetOtherUserIdInConversationAsync(int conversationId, int currentUserId)
+        {
+            return await _repo.GetOtherUserIdInConversationAsync(conversationId, currentUserId);
         }
     }
 }

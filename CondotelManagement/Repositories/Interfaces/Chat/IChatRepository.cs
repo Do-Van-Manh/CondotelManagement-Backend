@@ -12,6 +12,6 @@ namespace CondotelManagement.Repositories.Interfaces.Chat
         Task<IEnumerable<ChatConversation>> GetUserConversationsAsync(int userId);
         Task UpdateConversationLastActivityAsync(int conversationId, int lastMessageId);
         Task IncrementUnreadCountAsync(int conversationId, int senderId); // tăng unread cho người còn lại
-        
+        Task<int> GetOtherUserIdInConversationAsync(int conversationId, int currentUserId);
     }
 }

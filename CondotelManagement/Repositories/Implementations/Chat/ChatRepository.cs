@@ -83,7 +83,25 @@ namespace CondotelManagement.Repositories.Implementations.Chat
             // Nếu KHÔNG CÓ bảng participants → dùng cách đơn giản: TÍNH LẠI KHI LOAD
             // → Không cần làm gì ở đây cả! unreadCount sẽ được tính trong GetMyConversationsWithDetailsAsync
         }
+        // Thêm vào cuối class ChatRepository, trước dấu đóng ngoặc }
+        // Trong file CondotelManagement/Repositories/Implementations/Chat/ChatRepository.cs
 
-        
+        public async Task<int> GetOtherUserIdInConversationAsync(int conversationId, int currentUserId)
+        {
+            var conv = await _ctx.ChatConversations
+                .Where(c => c.ConversationId == conversationId)
+                .Select(c => new { c.UserAId, c.UserBId })
+                .FirstOrDefaultAsync();
+
+            if (conv == null) return 0;
+
+            // SỬA LỖI Ở ĐÂY:
+            // Kiểm tra logic để lấy ID người kia
+            int? otherId = (conv.UserAId == currentUserId) ? conv.UserBId : conv.UserAId;
+
+            // Dùng '?? 0' để xử lý lỗi "int? to int"
+            return otherId ?? 0;
+        }
+
     }
 }
