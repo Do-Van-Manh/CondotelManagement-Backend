@@ -12,7 +12,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(e => {
+    e.EnableDetailedErrors = true; // <--- THÊM DÒNG NÀY
+});
 
 // ====================== DB ======================
 builder.Services.AddDbContext<CondotelDbVer1Context>(options =>

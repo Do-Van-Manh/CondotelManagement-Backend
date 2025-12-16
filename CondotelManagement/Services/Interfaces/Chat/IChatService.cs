@@ -12,6 +12,7 @@ namespace CondotelManagement.Services.Interfaces.Chat
 
         // ← CHỈNH LẠI: Dùng class riêng ở ngoài, không nằm trong ChatService
         Task<IEnumerable<ConversationListItem>> GetMyConversationsWithDetailsAsync(int userId);
+        Task<int> GetOtherUserIdInConversationAsync(int conversationId, int currentUserId);
         Task AddMessageAsync(ChatMessage message);
     }
 
@@ -21,6 +22,7 @@ namespace CondotelManagement.Services.Interfaces.Chat
         public int ConversationId { get; set; }
         public int UserAId { get; set; }
         public int UserBId { get; set; }
+        public string OtherUserName { get; set; } = string.Empty;
         public ChatMessage? LastMessage { get; set; }
         public int UnreadCount { get; set; }
         // Thông tin user đối phương

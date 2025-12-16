@@ -1,7 +1,7 @@
-﻿using CondotelManagement.Models;
+﻿using CondotelManagement.Data;
+using CondotelManagement.Models;
 using CondotelManagement.Repositories.Interfaces.Chat;
 using CondotelManagement.Services.Interfaces.Chat;
-using CondotelManagement.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace CondotelManagement.Services.Implementations.Chat
@@ -10,13 +10,13 @@ namespace CondotelManagement.Services.Implementations.Chat
     {
         private readonly IChatRepository _repo;
         private readonly CondotelDbVer1Context _context;
+        
         public ChatService(IChatRepository repo, CondotelDbVer1Context context)
         {
             _repo = repo;
             _context = context;
         }
 
-        // Các method cũ giữ nguyên...
         public async Task<ChatConversation> GetOrCreateDirectConversationAsync(int meUserId, int otherUserId)
         {
             var conv = await _repo.GetDirectConversationAsync(meUserId, otherUserId);
@@ -68,36 +68,39 @@ namespace CondotelManagement.Services.Implementations.Chat
         public async Task<IEnumerable<ChatMessage>> GetMessagesAsync(int conversationId, int take = 100)
             => await _repo.GetMessagesAsync(conversationId, take);
 
+
         public async Task<IEnumerable<ChatConversation>> GetMyConversationsAsync(int userId)
             => await _repo.GetUserConversationsAsync(userId);
 
         // ← METHOD CHỈNH LẠI, KHÔNG LỖI int? → int VÀ ?? NỮA
         public async Task<IEnumerable<ConversationListItem>> GetMyConversationsWithDetailsAsync(int userId)
         {
+            // 1. Lấy conversations (đã Include UserA + UserB ở repo)
             var conversations = await _repo.GetUserConversationsAsync(userId);
+
             var result = new List<ConversationListItem>();
 
             foreach (var conv in conversations)
             {
-                // Lấy đủ tin nhắn để tính last + unread (có thể tối ưu sau)
+                // 2. Lấy danh sách message
                 var messages = await _repo.GetMessagesAsync(conv.ConversationId, 1000);
                 var lastMsg = messages
                     .OrderByDescending(m => m.SentAt)
-                    .ThenByDescending(m => m.MessageId) // ✅ Thêm cái này
+                    .ThenByDescending(m => m.MessageId)
                     .FirstOrDefault();
 
+                // 3. Xác định user đối phương từ conversation (đã được Include)
+                var otherUser = conv.UserAId == userId
+                    ? conv.UserB         
+                    : conv.UserA;
+
+                // 4. Xác định otherUserId
+                var otherUserId = conv.UserAId == userId ? conv.UserBId : conv.UserAId;
+
+                // 5. Tính unread
                 var unreadCount = messages.Count(m => m.SenderId != userId);
 
-                // Xác định user đối phương
-                var otherUserId = conv.UserAId == userId ? conv.UserBId : conv.UserAId;
-                
-                // Lấy thông tin user đối phương
-                User? otherUser = null;
-                if (otherUserId.HasValue)
-                {
-                    otherUser = await _context.Users.FindAsync(otherUserId.Value);
-                }
-
+                // 6. Add vào result
                 result.Add(new ConversationListItem
                 {
                     ConversationId = conv.ConversationId,
@@ -111,15 +114,20 @@ namespace CondotelManagement.Services.Implementations.Chat
                 });
             }
 
-            // ← FIX lỗi ?? không áp dụng được cho DateTime? và int
+            // 6. Sắp xếp theo tin nhắn mới nhất
             return result.OrderByDescending(x =>
                 x.LastMessage?.SentAt ?? DateTime.MinValue
             );
         }
+
         public async Task AddMessageAsync(ChatMessage message)
         {
             // Gọi thẳng repo để lưu (có SaveChangesAsync bên trong)
             await _repo.AddMessageAsync(message);
+        }
+        public async Task<int> GetOtherUserIdInConversationAsync(int conversationId, int currentUserId)
+        {
+            return await _repo.GetOtherUserIdInConversationAsync(conversationId, currentUserId);
         }
     }
 }

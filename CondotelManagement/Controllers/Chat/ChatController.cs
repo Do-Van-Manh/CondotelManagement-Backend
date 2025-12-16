@@ -20,7 +20,6 @@ namespace CondotelManagement.Controllers.Chat
             _context = context;
         }
 
-        // HÀM LẤY USER ID AN TOÀN – KHÔNG BAO GIỜ BỊ NULL
         private int GetCurrentUserId()
         {
             var claim = User.FindFirst("nameid")
@@ -38,7 +37,7 @@ namespace CondotelManagement.Controllers.Chat
         {
             try
             {
-                var userId = GetCurrentUserId(); // Dùng hàm này → không còn NullReference
+                var userId = GetCurrentUserId(); 
 
                 var conversations = await _chatService.GetMyConversationsWithDetailsAsync(userId);
 

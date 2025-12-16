@@ -663,6 +663,17 @@ public partial class CondotelDbVer1Context : DbContext
             b.Property(c => c.Name).HasMaxLength(255);
             b.Property(c => c.ConversationType).HasMaxLength(20).IsRequired();
             b.Property(c => c.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            
+            b.HasOne(c => c.UserA)
+             .WithMany()
+             .HasForeignKey(c => c.UserAId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            
+            b.HasOne(c => c.UserB)
+             .WithMany()
+             .HasForeignKey(c => c.UserBId)
+             .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<ChatMessage>(b =>
         {
@@ -673,7 +684,10 @@ public partial class CondotelDbVer1Context : DbContext
              .WithMany(c => c.Messages)
              .HasForeignKey(m => m.ConversationId)
              .OnDelete(DeleteBehavior.Cascade);
-
+            b.HasOne(m => m.Sender)
+   .WithMany()
+   .HasForeignKey(m => m.SenderId)
+   .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<User>(entity =>
