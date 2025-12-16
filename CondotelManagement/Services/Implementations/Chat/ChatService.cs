@@ -1,6 +1,7 @@
 ﻿using CondotelManagement.Models;
 using CondotelManagement.Repositories.Interfaces.Chat;
 using CondotelManagement.Services.Interfaces.Chat;
+using CondotelManagement.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace CondotelManagement.Services.Implementations.Chat
@@ -8,7 +9,12 @@ namespace CondotelManagement.Services.Implementations.Chat
     public class ChatService : IChatService
     {
         private readonly IChatRepository _repo;
-        public ChatService(IChatRepository repo) => _repo = repo;
+        private readonly CondotelDbVer1Context _context;
+        public ChatService(IChatRepository repo, CondotelDbVer1Context context)
+        {
+            _repo = repo;
+            _context = context;
+        }
 
         // Các method cũ giữ nguyên...
         public async Task<ChatConversation> GetOrCreateDirectConversationAsync(int meUserId, int otherUserId)
@@ -76,19 +82,32 @@ namespace CondotelManagement.Services.Implementations.Chat
                 // Lấy đủ tin nhắn để tính last + unread (có thể tối ưu sau)
                 var messages = await _repo.GetMessagesAsync(conv.ConversationId, 1000);
                 var lastMsg = messages
-    .OrderByDescending(m => m.SentAt)
-    .ThenByDescending(m => m.MessageId) // ✅ Thêm cái này
-    .FirstOrDefault();
+                    .OrderByDescending(m => m.SentAt)
+                    .ThenByDescending(m => m.MessageId) // ✅ Thêm cái này
+                    .FirstOrDefault();
 
                 var unreadCount = messages.Count(m => m.SenderId != userId);
+
+                // Xác định user đối phương
+                var otherUserId = conv.UserAId == userId ? conv.UserBId : conv.UserAId;
+                
+                // Lấy thông tin user đối phương
+                User? otherUser = null;
+                if (otherUserId.HasValue)
+                {
+                    otherUser = await _context.Users.FindAsync(otherUserId.Value);
+                }
 
                 result.Add(new ConversationListItem
                 {
                     ConversationId = conv.ConversationId,
-                    UserAId = conv.UserAId ?? 0,     // ← FIX int? → int
-                    UserBId = conv.UserBId ?? 0,     // ← FIX int? → int
+                    UserAId = conv.UserAId ?? 0,
+                    UserBId = conv.UserBId ?? 0,
                     LastMessage = lastMsg,
-                    UnreadCount = unreadCount
+                    UnreadCount = unreadCount,
+                    OtherUserId = otherUserId,
+                    OtherUserName = otherUser?.FullName,
+                    OtherUserImageUrl = otherUser?.ImageUrl
                 });
             }
 

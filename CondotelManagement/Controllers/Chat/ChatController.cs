@@ -1,7 +1,9 @@
 ﻿using CondotelManagement.Services.Interfaces.Chat;
+using CondotelManagement.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 
 namespace CondotelManagement.Controllers.Chat
 {
@@ -11,9 +13,11 @@ namespace CondotelManagement.Controllers.Chat
     public class ChatController : ControllerBase
     {
         private readonly IChatService _chatService;
-        public ChatController(IChatService chatService)
+        private readonly CondotelDbVer1Context _context;
+        public ChatController(IChatService chatService, CondotelDbVer1Context context)
         {
             _chatService = chatService;
+            _context = context;
         }
 
         // HÀM LẤY USER ID AN TOÀN – KHÔNG BAO GIỜ BỊ NULL
@@ -43,6 +47,13 @@ namespace CondotelManagement.Controllers.Chat
                     conversationId = c.ConversationId,
                     userAId = c.UserAId,
                     userBId = c.UserBId,
+                    // Thông tin user đối phương
+                    otherUser = c.OtherUserId.HasValue ? new
+                    {
+                        userId = c.OtherUserId.Value,
+                        fullName = c.OtherUserName,
+                        imageUrl = c.OtherUserImageUrl
+                    } : null,
                     lastMessage = c.LastMessage != null ? new
                     {
                         content = c.LastMessage.Content,
@@ -65,15 +76,32 @@ namespace CondotelManagement.Controllers.Chat
         {
             var userId = GetCurrentUserId();
             var msgs = await _chatService.GetMessagesAsync(conversationId, take);
-            var result = msgs.Select(m => new
+            
+            // Lấy danh sách sender IDs để query User một lần
+            var senderIds = msgs.Select(m => m.SenderId).Distinct().ToList();
+            var users = await _context.Users
+                .Where(u => senderIds.Contains(u.UserId))
+                .ToDictionaryAsync(u => u.UserId, u => new { u.FullName, u.ImageUrl });
+
+            var result = msgs.Select(m =>
             {
-                m.MessageId,
-                m.ConversationId,
-                m.SenderId,
-                m.Content,
-                // Dòng này sẽ thêm chữ 'Z' vào cuối (VD: 05:40Z)
-                // Trình duyệt thấy chữ Z sẽ tự hiểu là UTC và cộng 7 tiếng thành 12:40
-                SentAt = DateTime.SpecifyKind(m.SentAt, DateTimeKind.Utc)
+                var sender = users.ContainsKey(m.SenderId) ? users[m.SenderId] : null;
+                return new
+                {
+                    m.MessageId,
+                    m.ConversationId,
+                    m.SenderId,
+                    sender = sender != null ? new
+                    {
+                        userId = m.SenderId,
+                        fullName = sender.FullName,
+                        imageUrl = sender.ImageUrl
+                    } : null,
+                    m.Content,
+                    // Dòng này sẽ thêm chữ 'Z' vào cuối (VD: 05:40Z)
+                    // Trình duyệt thấy chữ Z sẽ tự hiểu là UTC và cộng 7 tiếng thành 12:40
+                    SentAt = DateTime.SpecifyKind(m.SentAt, DateTimeKind.Utc)
+                };
             });
 
             return Ok(result);

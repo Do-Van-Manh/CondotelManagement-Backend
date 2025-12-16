@@ -767,13 +767,9 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasConstraintName("FK_Wallet_User");
 
 			entity.HasOne(w => w.Host)
-		        .WithOne(h => h.Wallet)
-		        .HasForeignKey<Wallet>(w => w.HostId)
+		        .WithMany(h => h.Wallets) // One-to-Many: một Host có thể có nhiều Wallet
+		        .HasForeignKey(w => w.HostId)
 		        .OnDelete(DeleteBehavior.Restrict);
-
-			//(HostID UNIQUE)
-			entity.HasIndex(w => w.HostId)
-				.IsUnique();
 		});
 
 		modelBuilder.Entity<HostVoucherSetting>(entity =>

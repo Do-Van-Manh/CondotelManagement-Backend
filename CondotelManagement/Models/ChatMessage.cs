@@ -14,5 +14,8 @@ namespace CondotelManagement.Models
         public DateTime SentAt { get; set; } = DateTime.Now;
 
         public ChatConversation Conversation { get; set; } = null!;
+        
+        // Navigation property để lấy thông tin sender (không có FK trong DB, sẽ query riêng)
+        // Hoặc có thể thêm Sender navigation property nếu cần
     }
 }

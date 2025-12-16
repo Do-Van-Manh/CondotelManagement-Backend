@@ -49,7 +49,7 @@ namespace CondotelManagement.Services
 
             // 2. Tìm Host và Wallet hiện tại
             var existingHost = await _context.Hosts
-                .Include(h => h.Wallet)
+                .Include(h => h.Wallets)
                 .FirstOrDefaultAsync(h => h.UserId == userId);
 
             // --- Khai báo biến cần thiết ---
@@ -98,7 +98,7 @@ namespace CondotelManagement.Services
                 hostToProcess.Address = dto.Address;
                 hostToProcess.CompanyName = dto.CompanyName;
 
-                var existingWallet = existingHost.Wallet;
+                var existingWallet = existingHost.Wallets?.FirstOrDefault();
 
                 if (existingWallet != null)
                 {
@@ -199,13 +199,13 @@ namespace CondotelManagement.Services
                     EndDate = hp.EndDate
                 }).ToList(),
 
-                Wallet = new WalletDTO
+                Wallet = host.Wallets?.FirstOrDefault(w => w.IsDefault) != null ? new WalletDTO
                 {
-                    WalletID = host.Wallet.WalletId,
-                    BankName = host.Wallet.BankName,
-                    AccountNumber = host.Wallet.AccountNumber,
-                    AccountHolderName = host.Wallet.AccountHolderName
-                }
+                    WalletID = host.Wallets.FirstOrDefault(w => w.IsDefault).WalletId,
+                    BankName = host.Wallets.FirstOrDefault(w => w.IsDefault).BankName,
+                    AccountNumber = host.Wallets.FirstOrDefault(w => w.IsDefault).AccountNumber,
+                    AccountHolderName = host.Wallets.FirstOrDefault(w => w.IsDefault).AccountHolderName
+                } : null
             };
         }
 
@@ -227,10 +227,14 @@ namespace CondotelManagement.Services
             host.User.Address = dto.UserAddress;
             host.User.ImageUrl = dto.ImageUrl;
 
-            // Update Wallet
-            host.Wallet.BankName = dto.BankName;
-            host.Wallet.AccountNumber = dto.AccountNumber;
-            host.Wallet.AccountHolderName = dto.AccountHolderName;
+            // Update Wallet (lấy default wallet hoặc wallet đầu tiên)
+            var defaultWallet = host.Wallets?.FirstOrDefault(w => w.IsDefault) ?? host.Wallets?.FirstOrDefault();
+            if (defaultWallet != null)
+            {
+                defaultWallet.BankName = dto.BankName;
+                defaultWallet.AccountNumber = dto.AccountNumber;
+                defaultWallet.AccountHolderName = dto.AccountHolderName;
+            }
 
             await _hostRepo.UpdateHostAsync(host);
             return true;

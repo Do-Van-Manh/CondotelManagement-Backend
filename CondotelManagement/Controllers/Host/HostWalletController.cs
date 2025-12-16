@@ -1,6 +1,7 @@
 using CondotelManagement.DTOs.Wallet;
 using CondotelManagement.Services.Interfaces.Wallet;
 using CondotelManagement.Services.Interfaces.Host;
+using CondotelManagement.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -47,19 +48,51 @@ namespace CondotelManagement.Controllers.Host
         [HttpPost]
         public async Task<IActionResult> CreateWallet([FromBody] WalletCreateDTO dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(new { success = false, message = "Invalid data", errors = ModelState });
-
-            var hostId = GetHostId();
-            dto.HostId = hostId; // Set hostId từ token
-
-            var created = await _walletService.CreateWalletAsync(dto);
-            return CreatedAtAction(nameof(GetMyWallets), null, new
+            try
             {
-                success = true,
-                message = "Wallet created successfully",
-                data = created
-            });
+                if (!ModelState.IsValid)
+                    return BadRequest(new { success = false, message = "Invalid data", errors = ModelState });
+
+                var host = _hostService.GetByUserId(User.GetUserId());
+                if (host == null)
+                    return Unauthorized(new { success = false, message = "Host not found" });
+
+                // Chỉ set HostId, không set UserId (vì CHECK constraint CK_Wallet_OneOwner yêu cầu chỉ một trong hai)
+                dto.HostId = host.HostId;
+                dto.UserId = null; // Không set UserId cho wallet của host
+
+                var created = await _walletService.CreateWalletAsync(dto);
+                return CreatedAtAction(nameof(GetMyWallets), null, new
+                {
+                    success = true,
+                    message = "Wallet created successfully",
+                    data = created
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                // Xử lý lỗi database constraint
+                var errorMessage = "Failed to create wallet. ";
+                if (ex.InnerException != null)
+                {
+                    if (ex.InnerException.Message.Contains("UNIQUE") || ex.InnerException.Message.Contains("duplicate"))
+                        errorMessage += "A wallet with this information already exists.";
+                    else
+                        errorMessage += ex.InnerException.Message;
+                }
+                else
+                    errorMessage += ex.Message;
+
+                return StatusCode(500, new { success = false, message = errorMessage });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "An error occurred while creating wallet", error = ex.Message });
+            }
         }
 
         /// <summary>
@@ -77,8 +110,8 @@ namespace CondotelManagement.Controllers.Host
                 return NotFound(new { success = false, message = "Wallet not found" });
 
             var hostId = GetHostId();
-            if (wallet.HostId != hostId)
-                return Forbid();
+            if (!wallet.HostId.HasValue || wallet.HostId.Value != hostId)
+                return StatusCode(403, new { success = false, message = "Wallet does not belong to this host" });
 
             var updated = await _walletService.UpdateWalletAsync(id, dto);
             if (!updated)
@@ -99,8 +132,8 @@ namespace CondotelManagement.Controllers.Host
                 return NotFound(new { success = false, message = "Wallet not found" });
 
             var hostId = GetHostId();
-            if (wallet.HostId != hostId)
-                return Forbid();
+            if (!wallet.HostId.HasValue || wallet.HostId.Value != hostId)
+                return StatusCode(403, new { success = false, message = "Wallet does not belong to this host" });
 
             var deleted = await _walletService.DeleteWalletAsync(id);
             if (!deleted)
@@ -116,19 +149,43 @@ namespace CondotelManagement.Controllers.Host
         [HttpPost("{id}/set-default")]
         public async Task<IActionResult> SetDefaultWallet(int id)
         {
-            var wallet = await _walletService.GetWalletByIdAsync(id);
-            if (wallet == null)
-                return NotFound(new { success = false, message = "Wallet not found" });
+            try
+            {
+                var wallet = await _walletService.GetWalletByIdAsync(id);
+                if (wallet == null)
+                    return NotFound(new { success = false, message = "Wallet not found" });
 
-            var hostId = GetHostId();
-            if (wallet.HostId != hostId)
-                return Forbid();
+                var hostId = GetHostId();
+                
+                // Kiểm tra wallet có thuộc về host này không
+                if (!wallet.HostId.HasValue || wallet.HostId.Value != hostId)
+                    return StatusCode(403, new { success = false, message = "Wallet does not belong to this host" });
 
-            var result = await _walletService.SetDefaultWalletAsync(id, null, hostId);
-            if (!result)
-                return BadRequest(new { success = false, message = "Failed to set default wallet" });
+                // Kiểm tra wallet có đang là default chưa
+                if (wallet.IsDefault)
+                    return BadRequest(new { success = false, message = "Wallet is already set as default" });
 
-            return Ok(new { success = true, message = "Default wallet set successfully" });
+                // Chỉ truyền hostId (không truyền userId vì wallet của host chỉ có HostId)
+                var result = await _walletService.SetDefaultWalletAsync(id, null, hostId);
+                if (!result)
+                {
+                    // Có thể do: wallet không thuộc về host, hoặc có lỗi khi save
+                    return BadRequest(new { 
+                        success = false, 
+                        message = "Failed to set default wallet. Please ensure the wallet belongs to this host and try again." 
+                    });
+                }
+
+                return Ok(new { success = true, message = "Default wallet set successfully" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "An error occurred while setting default wallet", error = ex.Message });
+            }
         }
 
         private int GetHostId()

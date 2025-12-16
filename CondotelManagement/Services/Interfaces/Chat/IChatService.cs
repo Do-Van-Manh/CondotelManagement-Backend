@@ -23,5 +23,9 @@ namespace CondotelManagement.Services.Interfaces.Chat
         public int UserBId { get; set; }
         public ChatMessage? LastMessage { get; set; }
         public int UnreadCount { get; set; }
+        // Thông tin user đối phương
+        public int? OtherUserId { get; set; }
+        public string? OtherUserName { get; set; }
+        public string? OtherUserImageUrl { get; set; }
     }
 }

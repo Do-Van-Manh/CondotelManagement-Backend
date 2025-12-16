@@ -25,6 +25,9 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        // Converter cho DateOnly
+        options.JsonSerializerOptions.Converters.Add(new CondotelManagement.Helpers.DateOnlyJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new CondotelManagement.Helpers.NullableDateOnlyJsonConverter());
         // Nếu dòng này không có, BE mặc định mong đợi camelCase.
         //options.JsonSerializerOptions.PropertyNamingPolicy = null;
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -152,6 +155,10 @@ app.UseCors("AllowFrontend");
 //});
 app.MapHub<ChatHub>("/hubs/chat");
 app.UseHttpsRedirection();
+
+// Enable static files để serve file từ wwwroot
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

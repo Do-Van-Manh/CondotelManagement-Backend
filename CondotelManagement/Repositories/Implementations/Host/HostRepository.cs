@@ -17,7 +17,7 @@ namespace CondotelManagement.Repositories
 		{
 			return await _context.Hosts
 			.Include(h => h.User)
-			.Include(h => h.Wallet)
+			.Include(h => h.Wallets)
 			.Include(h => h.HostPackages)
 				.ThenInclude(hp => hp.Package)
 			.FirstOrDefaultAsync(h => h.UserId == userId);
@@ -31,7 +31,7 @@ namespace CondotelManagement.Repositories
 		{
 			_context.Hosts.Update(host);
 			_context.Users.Update(host.User);
-			_context.Wallets.Update(host.Wallet);
+			// Wallets sẽ được update tự động khi update host
 			await _context.SaveChangesAsync();
 		}
 	}

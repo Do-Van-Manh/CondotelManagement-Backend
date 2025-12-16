@@ -124,8 +124,8 @@ namespace CondotelManagement.Services
 			if (dto.EndDate < DateOnly.FromDateTime(DateTime.Now))
 				return ResponseDTO<Promotion>.Fail("The end date cannot be in the pastứ.");
 
-			// Kiểm tra trùng hoặc chồng thời gian
-			bool hasOverlap = await _promotionRepo.CheckOverlapAsync(dto.CondotelId, dto.StartDate, dto.EndDate);
+			// Kiểm tra trùng hoặc chồng thời gian (loại trừ promotion hiện tại đang update)
+			bool hasOverlap = await _promotionRepo.CheckOverlapAsync(dto.CondotelId, dto.StartDate, dto.EndDate, id);
 			if (hasOverlap)
 				return ResponseDTO<Promotion>.Fail("Promotion period overlaps or overlaps with another promotion.");
 

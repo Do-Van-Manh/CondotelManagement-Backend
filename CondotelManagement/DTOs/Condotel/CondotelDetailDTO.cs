@@ -6,6 +6,7 @@ namespace CondotelManagement.DTOs
     {
         public int CondotelId { get; set; }
         public int HostId { get; set; }
+        public int? ResortId { get; set; } // Resort ID để hiển thị khi edit
         public ResortDTO? Resort { get; set; }
         public string Name { get; set; }
         public string? Description { get; set; }

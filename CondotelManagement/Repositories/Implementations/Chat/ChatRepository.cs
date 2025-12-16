@@ -52,6 +52,7 @@ namespace CondotelManagement.Repositories.Implementations.Chat
         public async Task<IEnumerable<ChatConversation>> GetUserConversationsAsync(int userId)
         {
             return await _ctx.ChatConversations
+                .Include(c => c.Messages.OrderByDescending(m => m.SentAt).Take(1)) // Include last message để tối ưu
                 .Where(c => c.UserAId == userId || c.UserBId == userId)
                 .ToListAsync();
         }
