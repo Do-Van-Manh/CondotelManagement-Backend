@@ -39,5 +39,10 @@ namespace CondotelManagement.Models
 
         [ForeignKey("ProcessedByUserId")]
         public virtual User? ProcessedByUser { get; set; }
+        [StringLength(500)] // Thêm độ dài tùy ý
+        public string? FeaturedImageUrl { get; set; }
+        public int? CategoryId { get; set; }
+        [ForeignKey("CategoryId")]
+        public virtual BlogCategory BlogCategory { get; set; }
     }
 }

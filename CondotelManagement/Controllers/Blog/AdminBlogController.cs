@@ -79,5 +79,42 @@ namespace CondotelManagement.Controllers.Admin
             var posts = await _blogService.AdminGetAllPostsAsync(includeDrafts);
             return Ok(posts);
         }
+
+        // 1. Lấy danh sách bài đang chờ duyệt
+        [HttpGet("requests")]
+        public async Task<IActionResult> GetPendingRequests()
+        {
+            var requests = await _blogService.GetPendingRequestsAsync();
+            return Ok(requests);
+        }
+
+        // 2. Duyệt bài (Approve)
+        [HttpPost("requests/{requestId}/approve")]
+        public async Task<IActionResult> ApproveRequest(int requestId)
+        {
+            // Lấy ID Admin đang đăng nhập
+            var user = await _authService.GetCurrentUserAsync();
+            if (user == null) return Unauthorized();
+
+            var success = await _blogService.ApproveBlogRequestAsync(requestId, user.UserId);
+
+            if (!success) return BadRequest(new { message = "Duyệt thất bại (Bài không tồn tại hoặc đã xử lý)." });
+
+            return Ok(new { message = "Đã duyệt bài thành công! Bài viết đã xuất hiện trên trang chủ." });
+        }
+
+        // 3. Từ chối bài (Reject)
+        [HttpPost("requests/{requestId}/reject")]
+        public async Task<IActionResult> RejectRequest(int requestId, [FromBody] string reason)
+        {
+            var user = await _authService.GetCurrentUserAsync();
+            if (user == null) return Unauthorized();
+
+            var success = await _blogService.RejectBlogRequestAsync(requestId, user.UserId, reason);
+
+            if (!success) return BadRequest(new { message = "Thao tác thất bại." });
+
+            return Ok(new { message = "Đã từ chối bài viết." });
+        }
     }
 }

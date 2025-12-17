@@ -1,4 +1,5 @@
-﻿using CondotelManagement.DTOs.Blog;
+﻿using CondotelManagement.DTOs;
+using CondotelManagement.DTOs.Blog;
 using CondotelManagement.Models;
 
 namespace CondotelManagement.Services.Interfaces.Blog
@@ -21,5 +22,14 @@ namespace CondotelManagement.Services.Interfaces.Blog
         Task<BlogCategoryDto?> AdminUpdateCategoryAsync(int categoryId, BlogCategoryDto dto);
         Task<bool> AdminDeleteCategoryAsync(int categoryId);
         Task<IEnumerable<BlogPostSummaryDto>> AdminGetAllPostsAsync(bool includeDrafts = true);
+        //host
+        Task<BlogRequestResultDto> CreateHostBlogRequestAsync(int userId, HostBlogRequestDto dto);
+        // === ADMIN APPROVAL ===
+        Task<IEnumerable<BlogRequestDetailDto>> GetPendingRequestsAsync(); // Xem danh sách chờ
+        Task<bool> ApproveBlogRequestAsync(int requestId, int adminUserId); // Duyệt bài
+        Task<bool> RejectBlogRequestAsync(int requestId, int adminUserId, string reason); // Từ chối
+        Task<List<HostBlogSummaryDto>> GetHostRequestsAsync(int hostId);
+        Task<ServiceResult> ResubmitBlogRequestAsync(int hostId, int requestId, HostBlogRequestDto dto);
+        Task<ServiceResult> DeleteBlogRequestAsync(int hostId, int requestId);
     }
 }
