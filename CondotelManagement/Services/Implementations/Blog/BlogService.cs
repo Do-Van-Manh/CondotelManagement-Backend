@@ -436,6 +436,7 @@ namespace CondotelManagement.Services.Implementations.Blog
                 Title = dto.Title,
                 Content = dto.Content,
                 FeaturedImageUrl = dto.FeaturedImageUrl,
+                CategoryId = dto.CategoryId,
                 Status = "Pending",
                 RequestDate = DateTime.UtcNow
                 // ProcessedDate, ProcessedByUserId để null
@@ -592,6 +593,7 @@ namespace CondotelManagement.Services.Implementations.Blog
             request.Title = dto.Title;
             request.Content = dto.Content;
             request.FeaturedImageUrl = dto.FeaturedImageUrl;
+            request.CategoryId = dto.CategoryId;
 
             // QUAN TRỌNG: Reset trạng thái để Admin duyệt lại
             request.Status = "Pending";
@@ -624,6 +626,38 @@ namespace CondotelManagement.Services.Implementations.Blog
             await _context.SaveChangesAsync();
 
             return new ServiceResult(true, "Đã xóa bài viết thành công.");
+        }
+        public async Task<ServiceResult> GetHostBlogRequestDetailAsync(int hostId, int requestId)
+        {
+            var request = await _context.BlogRequests
+                .Where(r => r.BlogRequestId == requestId && r.HostId == hostId)
+                .Select(r => new HostBlogRequestDto
+                {
+                    Title = r.Title,
+                    Content = r.Content,
+                    FeaturedImageUrl = r.FeaturedImageUrl,
+                    CategoryId = r.CategoryId
+                })
+                .FirstOrDefaultAsync();
+
+            if (request == null)
+            {
+                return new ServiceResult(false, "Không tìm thấy yêu cầu hoặc bạn không có quyền truy cập.");
+            }
+
+            // Kiểm tra trạng thái: không cho edit nếu đã Approved
+            var status = await _context.BlogRequests
+                .Where(r => r.BlogRequestId == requestId)
+                .Select(r => r.Status)
+                .FirstOrDefaultAsync();
+
+            if (status == "Approved")
+            {
+                return new ServiceResult(false, "Bài viết đã được duyệt, không thể chỉnh sửa.");
+            }
+
+            // Thành công → trả về data
+            return new ServiceResult(true, "Thành công", request);
         }
     }
 }
