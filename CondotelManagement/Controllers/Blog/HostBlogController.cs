@@ -118,5 +118,30 @@ namespace CondotelManagement.Controllers.Host
 
             return Ok(new { success = true, message = result.Message });
         }
+        // GET: api/host/blog/requests/{id}
+        [HttpGet("requests/{id}")]
+        public async Task<IActionResult> GetRequestDetail(int id)
+        {
+            var user = await _authService.GetCurrentUserAsync();
+            if (user == null) return Unauthorized();
+
+            var host = await _context.Hosts
+                .FirstOrDefaultAsync(h => h.UserId == user.UserId);
+
+            if (host == null)
+                return BadRequest(new { message = "Không tìm thấy thông tin Host." });
+
+            var result = await _blogService.GetHostBlogRequestDetailAsync(host.HostId, id);
+
+            if (!result.Success)
+            {
+                if (result.Message.Contains("không tìm thấy") || result.Message.Contains("quyền"))
+                    return NotFound(new { message = result.Message });
+                return BadRequest(new { message = result.Message });
+            }
+
+            // Thành công → trả về Data (là HostBlogRequestDto)
+            return Ok(result.Data);
+        }
     }
 }

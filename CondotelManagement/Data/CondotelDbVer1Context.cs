@@ -434,6 +434,14 @@ public partial class CondotelDbVer1Context : DbContext
 
             entity.Property(e => e.ProcessedByUserId)
                 .HasColumnName("ProcessedByUserID");
+            entity.Property(e => e.CategoryId)
+        .HasColumnName("CategoryID");
+
+            // ←← THÊM RELATIONSHIP VỚI BLOG CATEGORIES
+            entity.HasOne(d => d.BlogCategory)
+                .WithMany(c => c.BlogRequests)  // nếu BlogCategory có ICollection<BlogRequest>
+                .HasForeignKey(d => d.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             // Relationships
             entity.HasOne(d => d.Host)

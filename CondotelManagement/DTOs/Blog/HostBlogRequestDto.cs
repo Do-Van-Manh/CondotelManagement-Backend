@@ -5,6 +5,7 @@
         public string Title { get; set; } = null!;
         public string Content { get; set; } = null!;
         public string? FeaturedImageUrl { get; set; }
+        public int? CategoryId { get; set; }
     }
 
     // DTO trả về kết quả (để hiển thị còn bao nhiêu lượt)

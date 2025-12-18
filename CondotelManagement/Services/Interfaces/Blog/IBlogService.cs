@@ -31,5 +31,6 @@ namespace CondotelManagement.Services.Interfaces.Blog
         Task<List<HostBlogSummaryDto>> GetHostRequestsAsync(int hostId);
         Task<ServiceResult> ResubmitBlogRequestAsync(int hostId, int requestId, HostBlogRequestDto dto);
         Task<ServiceResult> DeleteBlogRequestAsync(int hostId, int requestId);
+        Task<ServiceResult> GetHostBlogRequestDetailAsync(int hostId, int requestId);
     }
 }
