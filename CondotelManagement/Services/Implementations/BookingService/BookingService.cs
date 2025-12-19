@@ -635,6 +635,16 @@ namespace CondotelManagement.Services
             if (booking == null || booking.CustomerId != customerId)
                 return false;
 
+            // Kiểm tra điều kiện hủy: phải trước ít nhất 2 ngày so với ngày check-in
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var daysUntilCheckIn = (booking.StartDate.ToDateTime(TimeOnly.MinValue) - today.ToDateTime(TimeOnly.MinValue)).Days;
+            
+            if (daysUntilCheckIn < 2)
+            {
+                // Không đủ 2 ngày trước check-in
+                throw new InvalidOperationException($"Không thể hủy booking. Phải hủy trước ít nhất 2 ngày so với ngày check-in (còn {daysUntilCheckIn} ngày).");
+            }
+
             // Nếu booking đã thanh toán (Confirmed/Completed), tự động refund
             if (booking.Status == "Confirmed" || booking.Status == "Completed")
             {
@@ -1672,6 +1682,102 @@ namespace CondotelManagement.Services
                     Status = "Rejected",
                     Reason = reason,
                     ProcessedAt = refundRequest.ProcessedAt
+                }
+            );
+        }
+
+        // ✅ Appeal refund request khi bị reject
+        public async Task<ServiceResultDTO> AppealRefundRequest(int refundRequestId, int customerId, string appealReason)
+        {
+            // ✅ Điều kiện 1: Validate input
+            if (string.IsNullOrWhiteSpace(appealReason) || appealReason.Length < 10)
+            {
+                return ServiceResultDTO.Fail("Vui lòng cung cấp lý do kháng cáo (tối thiểu 10 ký tự)");
+            }
+
+            if (appealReason.Length > 500)
+            {
+                return ServiceResultDTO.Fail("Lý do kháng cáo tối đa 500 ký tự");
+            }
+
+            // ✅ Tìm RefundRequest
+            var refundRequest = await _context.RefundRequests
+                .Include(r => r.Booking)
+                    .ThenInclude(b => b.Condotel)
+                .Include(r => r.Customer)
+                .FirstOrDefaultAsync(r => r.Id == refundRequestId);
+
+            if (refundRequest == null)
+            {
+                return ServiceResultDTO.Fail("Yêu cầu hoàn tiền không tồn tại");
+            }
+
+            // ✅ Điều kiện 2: Verify customer ownership
+            if (refundRequest.CustomerId != customerId)
+            {
+                return ServiceResultDTO.Fail("Bạn không có quyền kháng cáo");
+            }
+
+            // ✅ Điều kiện 3: Check status = "Rejected"
+            if (refundRequest.Status != "Rejected")
+            {
+                return ServiceResultDTO.Fail("Chỉ có thể kháng cáo nếu yêu cầu bị từ chối");
+            }
+
+            // ✅ Điều kiện 4: Check attempt number (chỉ được appeal 1 lần)
+            if (refundRequest.AttemptNumber >= 2)
+            {
+                return ServiceResultDTO.Fail("Bạn chỉ được kháng cáo 1 lần");
+            }
+
+            // ✅ Điều kiện 5: Check thời gian appeal (trong 3 ngày kể từ khi bị reject)
+            if (refundRequest.RejectedAt.HasValue)
+            {
+                var daysSinceRejection = (DateTime.UtcNow - refundRequest.RejectedAt.Value).TotalDays;
+                if (daysSinceRejection > 3)
+                {
+                    return ServiceResultDTO.Fail("Hạn kháng cáo đã hết (chỉ 3 ngày từ lúc bị từ chối)");
+                }
+            }
+
+            // ✅ Cập nhật status thành "Appealed"
+            refundRequest.Status = "Appealed";
+            refundRequest.AttemptNumber = 2;
+            refundRequest.AppealReason = appealReason;
+            refundRequest.AppealedAt = DateTime.UtcNow;
+            refundRequest.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            // 🔔 Gửi email thông báo cho admin về appeal
+            try
+            {
+                if (!string.IsNullOrEmpty(refundRequest.CustomerEmail))
+                {
+                    await _emailService.SendRefundAppealEmailAsync(
+                        refundRequest.CustomerEmail,
+                        refundRequest.CustomerName,
+                        refundRequest.BookingId,
+                        refundRequest.RefundAmount,
+                        appealReason
+                    );
+                    Console.WriteLine($"[AppealRefundRequest] Appeal notification sent to {refundRequest.CustomerEmail} for refund request {refundRequestId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AppealRefundRequest] Error sending email: {ex.Message}");
+            }
+
+            return ServiceResultDTO.Ok(
+                "Yêu cầu kháng cáo đã được gửi. Admin sẽ xem xét lại.",
+                new
+                {
+                    RefundRequestId = refundRequest.Id,
+                    BookingId = refundRequest.BookingId,
+                    Status = "Appealed",
+                    AppealReason = appealReason,
+                    AppealedAt = refundRequest.AppealedAt
                 }
             );
         }

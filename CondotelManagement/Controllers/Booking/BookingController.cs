@@ -176,19 +176,29 @@ namespace CondotelManagement.Controllers
             }
             
             // Nếu booking chưa thanh toán, chỉ cần cancel
-            var success = await _bookingService.CancelBooking(id, customerId);
-            if (!success)
+            try
+            {
+                var success = await _bookingService.CancelBooking(id, customerId);
+                if (!success)
+                {
+                    return BadRequest(new { 
+                        success = false, 
+                        message = "Failed to cancel booking. Please try again or contact support." 
+                    });
+                }
+                
+                return Ok(new { 
+                    success = true, 
+                    message = "Booking cancelled successfully." 
+                });
+            }
+            catch (InvalidOperationException ex)
             {
                 return BadRequest(new { 
                     success = false, 
-                    message = "Failed to cancel booking. Please try again or contact support." 
+                    message = ex.Message 
                 });
             }
-            
-            return Ok(new { 
-                success = true, 
-                message = "Booking cancelled successfully." 
-            });
         }
 
         // POST api/booking/{id}/cancel-payment - Hủy thanh toán (KHÔNG refund)
@@ -219,6 +229,31 @@ namespace CondotelManagement.Controllers
                     ? "Booking can be refunded. Refund button should be displayed." 
                     : "Booking cannot be refunded. Refund button should be hidden."
             });
+        }
+
+        /// <summary>
+        /// Kháng cáo yêu cầu hoàn tiền bị từ chối
+        /// POST /api/booking/refund-requests/{refundRequestId}/appeal
+        /// </summary>
+        [HttpPost("refund-requests/{refundRequestId}/appeal")]
+        public async Task<IActionResult> AppealRefundRequest(int refundRequestId, [FromBody] AppealRefundDTO dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            int customerId = GetCustomerId();
+            var result = await _bookingService.AppealRefundRequest(refundRequestId, customerId, dto.AppealReason);
+            
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+            else
+            {
+                return BadRequest(result);
+            }
         }
     }
 }
