@@ -51,7 +51,7 @@
                 Content = content.Trim(),
                 SentAt = DateTime.UtcNow
             };
-            await _chatService.AddMessageAsync(message);
+          
 
             // 2. Chuẩn bị DTO (Code cũ của bạn - Giữ nguyên)
             var messageDto = new
@@ -65,15 +65,10 @@
 
             // --- 3. PHẦN SỬA ĐỔI: GỬI ĐÍCH DANH (REALTIME) ---
 
-            // A. Tìm ID người nhận
-            var receiverId = await _chatService.GetOtherUserIdInConversationAsync(conversationId, senderId);
+          
 
             // B. Gửi cho người nhận (Nếu họ đang Online thì nhận được ngay)
-            if (receiverId > 0)
-            {
-                // Convert ID sang String vì SignalR dùng String cho UserID
-                await Clients.User(receiverId.ToString()).SendAsync("ReceiveMessage", messageDto);
-            }
+           
 
             // C. Gửi cho chính mình (Để đồng bộ nếu bạn đang mở 2 tab hoặc dùng điện thoại + web)
             await Clients.User(senderId.ToString()).SendAsync("ReceiveMessage", messageDto);

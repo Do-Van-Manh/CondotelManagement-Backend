@@ -76,7 +76,7 @@ namespace CondotelManagement.Controllers.Chat
             var userId = GetCurrentUserId();
             var msgs = await _chatService.GetMessagesAsync(conversationId, take);
             
-            // Lấy danh sách sender IDs để query User một lần
+
             var senderIds = msgs.Select(m => m.SenderId).Distinct().ToList();
             var users = await _context.Users
                 .Where(u => senderIds.Contains(u.UserId))
@@ -97,8 +97,6 @@ namespace CondotelManagement.Controllers.Chat
                         imageUrl = sender.ImageUrl
                     } : null,
                     m.Content,
-                    // Dòng này sẽ thêm chữ 'Z' vào cuối (VD: 05:40Z)
-                    // Trình duyệt thấy chữ Z sẽ tự hiểu là UTC và cộng 7 tiếng thành 12:40
                     SentAt = DateTime.SpecifyKind(m.SentAt, DateTimeKind.Utc)
                 };
             });
@@ -106,17 +104,35 @@ namespace CondotelManagement.Controllers.Chat
             return Ok(result);
         }
 
-        [HttpPost("messages/send-direct")]
-        public async Task<IActionResult> SendDirectMessage([FromBody] DirectMessageRequest request)
+        
+        [HttpPost("messages/send-to-host")]
+        public async Task<IActionResult> SendToCondotelHost([FromBody] SendMessageToCondotelHostRequest request)
         {
-            await _chatService.SendDirectMessageAsync(request.SenderId, request.ReceiverId, request.Content);
+            var senderId = GetCurrentUserId();
+
+            var condotel = await _context.Condotels
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.CondotelId == request.CondotelId);
+
+            if (condotel == null)
+                return NotFound("Condotel không tồn tại");
+
+            var hostId = condotel.HostId;
+
+            if (hostId == senderId)
+                return BadRequest("Không thể chat với chính mình");
+
+            await _chatService.SendDirectMessageAsync(
+                senderId,
+                hostId,
+                request.Content
+            );
+
             return Ok();
         }
-
-        public class DirectMessageRequest
+        public class SendMessageToCondotelHostRequest
         {
-            public int SenderId { get; set; }
-            public int ReceiverId { get; set; }
+            public int CondotelId { get; set; }
             public string Content { get; set; } = string.Empty;
         }
     }

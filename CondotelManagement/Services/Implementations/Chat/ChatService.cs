@@ -45,26 +45,6 @@ namespace CondotelManagement.Services.Implementations.Chat
             await _repo.AddMessageAsync(msg);
         }
 
-        public async Task SendMessageAsync(int conversationId, int senderId, string content)
-        {
-            var message = new ChatMessage
-            {
-                ConversationId = conversationId,
-                SenderId = senderId,
-                Content = content.Trim(),
-                SentAt = DateTime.UtcNow
-            };
-
-            // DÙNG REPO ĐỂ LƯU → CÓ SaveChangesAsync BÊN TRONG!
-            await _repo.AddMessageAsync(message);
-
-            // Cập nhật LastActivity + tăng unread count cho người nhận
-            await _repo.UpdateConversationLastActivityAsync(conversationId, message.MessageId);
-
-            // Tăng unread cho người nhận (người không phải sender)
-            await _repo.IncrementUnreadCountAsync(conversationId, senderId);
-        }
-
         public async Task<IEnumerable<ChatMessage>> GetMessagesAsync(int conversationId, int take = 100)
             => await _repo.GetMessagesAsync(conversationId, take);
 
@@ -120,14 +100,6 @@ namespace CondotelManagement.Services.Implementations.Chat
             );
         }
 
-        public async Task AddMessageAsync(ChatMessage message)
-        {
-            // Gọi thẳng repo để lưu (có SaveChangesAsync bên trong)
-            await _repo.AddMessageAsync(message);
-        }
-        public async Task<int> GetOtherUserIdInConversationAsync(int conversationId, int currentUserId)
-        {
-            return await _repo.GetOtherUserIdInConversationAsync(conversationId, currentUserId);
-        }
+      
     }
 }
