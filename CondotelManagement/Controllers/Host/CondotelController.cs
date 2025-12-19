@@ -118,7 +118,7 @@ namespace CondotelManagement.Controllers.Host
                         && hp.StartDate <= today
                         && hp.EndDate >= today)
                     .OrderByDescending(hp => hp.StartDate)
-                    .FirstOrDefault();
+                    .FirstOrDefault();//chuẩn 
 
                 var maxListings = activePackage != null
     ? _featureService.GetMaxListingCount(activePackage.PackageId)
