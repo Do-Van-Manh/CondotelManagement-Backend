@@ -54,12 +54,21 @@ namespace CondotelManagement.Repositories
             await _context.SaveChangesAsync();
         }
 
-		public async Task<bool> CheckOverlapAsync(int? condotelId, DateOnly startDate, DateOnly endDate)
+		public async Task<bool> CheckOverlapAsync(int? condotelId, DateOnly startDate, DateOnly endDate, int? excludePromotionId = null)
 		{
-			return await _context.Promotions.AnyAsync(p =>
+			var query = _context.Promotions.Where(p =>
 				p.CondotelId == condotelId &&
+				p.Status == "Active" && // Chỉ check overlap với promotion Active
 				p.StartDate <= endDate && p.EndDate >= startDate
 			);
+
+			// Loại trừ promotion hiện tại khi update
+			if (excludePromotionId.HasValue)
+			{
+				query = query.Where(p => p.PromotionId != excludePromotionId.Value);
+			}
+
+			return await query.AnyAsync();
 		}
 
 		public async Task<IEnumerable<Promotion>> GetAllByHostAsync(int hostId)

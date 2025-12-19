@@ -176,19 +176,29 @@ namespace CondotelManagement.Controllers
             }
             
             // Nếu booking chưa thanh toán, chỉ cần cancel
-            var success = await _bookingService.CancelBooking(id, customerId);
-            if (!success)
+            try
+            {
+                var success = await _bookingService.CancelBooking(id, customerId);
+                if (!success)
+                {
+                    return BadRequest(new { 
+                        success = false, 
+                        message = "Failed to cancel booking. Please try again or contact support." 
+                    });
+                }
+                
+                return Ok(new { 
+                    success = true, 
+                    message = "Booking cancelled successfully." 
+                });
+            }
+            catch (InvalidOperationException ex)
             {
                 return BadRequest(new { 
                     success = false, 
-                    message = "Failed to cancel booking. Please try again or contact support." 
+                    message = ex.Message 
                 });
             }
-            
-            return Ok(new { 
-                success = true, 
-                message = "Booking cancelled successfully." 
-            });
         }
 
         // POST api/booking/{id}/cancel-payment - Hủy thanh toán (KHÔNG refund)

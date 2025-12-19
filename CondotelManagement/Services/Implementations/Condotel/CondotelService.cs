@@ -71,9 +71,19 @@ public class CondotelService : ICondotelService
             _condotelRepo.AddCondotelImages(images);
         }
 
-        // Tạo Prices
+        // Tạo Prices - Validate StartDate < EndDate
         if (dto.Prices != null && dto.Prices.Any())
         {
+            // Validate từng price
+            for (int i = 0; i < dto.Prices.Count; i++)
+            {
+                var price = dto.Prices[i];
+                if (price.StartDate >= price.EndDate)
+                {
+                    throw new ArgumentException($"Prices[{i}]: Ngày bắt đầu ({price.StartDate:yyyy-MM-dd}) phải nhỏ hơn ngày kết thúc ({price.EndDate:yyyy-MM-dd}).");
+                }
+            }
+
             var prices = dto.Prices.Select(p => new CondotelPrice
             {
                 CondotelId = condotelId,
@@ -210,6 +220,7 @@ public class CondotelService : ICondotelService
 		{
             CondotelId = c.CondotelId,
             HostId = c.HostId,
+            ResortId = c.ResortId, // Resort ID để hiển thị khi edit
             Resort = c.Resort != null ? new ResortDTO
             {
                 ResortId = c.Resort.ResortId,
@@ -594,15 +605,23 @@ public class CondotelService : ICondotelService
                     ImageUrl = i.ImageUrl.Trim(),
                     Caption = i.Caption?.Trim()
                 }).ToList(),
-            CondotelPrices = dto.Prices?.Select(p => new CondotelPrice
+            CondotelPrices = dto.Prices?.Select(p => 
             {
-                CondotelId = dto.CondotelId,
-                StartDate = p.StartDate,
-                EndDate = p.EndDate,
-                BasePrice = p.BasePrice,
-                PriceType = p.PriceType?.Trim() ?? "Thường",
-                Description = p.Description?.Trim(),
-                Status = "Active"
+                // Validate StartDate < EndDate
+                if (p.StartDate >= p.EndDate)
+                {
+                    throw new ArgumentException($"Ngày bắt đầu ({p.StartDate:yyyy-MM-dd}) phải nhỏ hơn ngày kết thúc ({p.EndDate:yyyy-MM-dd}).");
+                }
+                return new CondotelPrice
+                {
+                    CondotelId = dto.CondotelId,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate,
+                    BasePrice = p.BasePrice,
+                    PriceType = p.PriceType?.Trim() ?? "Thường",
+                    Description = p.Description?.Trim(),
+                    Status = "Active"
+                };
             }).ToList(),
             CondotelDetails = dto.Details?.Select(d => new CondotelDetail
             {
