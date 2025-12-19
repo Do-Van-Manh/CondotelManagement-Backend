@@ -497,14 +497,17 @@ namespace CondotelManagement.Services
             // Lấy tất cả condotels của các hosts này
             var hostIds = hosts.Select(h => h.HostId).ToList();
             var condotels = await _context.Condotels
-                .Where(c => hostIds.Contains(c.HostId))
+                // Chỉ tính các condotel còn Active (tránh tính rating cho condotel đã bị Inactive/ẩn)
+                .Where(c => hostIds.Contains(c.HostId) && c.Status == "Active")
                 .Select(c => new { c.HostId, c.CondotelId })
                 .ToListAsync();
 
             // Lấy tất cả reviews Visible của các condotels này
             var condotelIds = condotels.Select(c => c.CondotelId).ToList();
             var reviews = await _context.Reviews
-                .Where(r => condotelIds.Contains(r.CondotelId) && r.Status == "Visible")
+                // Thực tế trong hệ thống: review "bị xóa" dùng Status = "Deleted"
+                // Nên top host sẽ tính tất cả review không bị xóa (bao gồm cả NULL/Visible/Active nếu DB có dữ liệu cũ)
+                .Where(r => condotelIds.Contains(r.CondotelId) && r.Status != "Deleted")
                 .Select(r => new { r.CondotelId, r.Rating })
                 .ToListAsync();
 
@@ -531,30 +534,35 @@ namespace CondotelManagement.Services
             foreach (var host in hosts)
             {
                 var stats = hostReviewStats.FirstOrDefault(s => s.HostId == host.HostId);
-                if (stats != null && stats.AllReviews.Any())
-                {
-                    var averageRating = stats.AllReviews.Average(r => (double)r.Rating);
-                    var totalReviews = stats.AllReviews.Count;
-                    var totalCondotels = condotels.Count(c => c.HostId == host.HostId);
+                var totalCondotels = condotels.Count(c => c.HostId == host.HostId);
 
-                    hostDTOs.Add(new TopHostDTO
-                    {
-                        HostId = host.HostId,
-                        CompanyName = host.CompanyName ?? string.Empty,
-                        FullName = host.User?.FullName,
-                        AvatarUrl = host.User?.ImageUrl,
-                        AverageRating = Math.Round(averageRating, 2),
-                        TotalReviews = totalReviews,
-                        TotalCondotels = totalCondotels,
-                        Rank = 0 // Sẽ set sau khi sort
-                    });
-                }
+                // Nếu host chưa có condotel active thì không đưa vào "top"
+                if (totalCondotels <= 0) continue;
+
+                var totalReviews = stats?.AllReviews.Count ?? 0;
+                var averageRating = totalReviews > 0
+                    ? stats!.AllReviews.Average(r => (double)r.Rating)
+                    : 0d;
+
+                hostDTOs.Add(new TopHostDTO
+                {
+                    HostId = host.HostId,
+                    CompanyName = host.CompanyName ?? string.Empty,
+                    FullName = host.User?.FullName,
+                    AvatarUrl = host.User?.ImageUrl,
+                    AverageRating = Math.Round(averageRating, 2),
+                    TotalReviews = totalReviews,
+                    TotalCondotels = totalCondotels,
+                    Rank = 0 // Sẽ set sau khi sort
+                });
             }
 
             // Sắp xếp theo AverageRating giảm dần, sau đó theo TotalReviews giảm dần
+            // Nếu chưa có review (AverageRating=0, TotalReviews=0) thì ưu tiên host có nhiều condotel hơn
             var sortedHosts = hostDTOs
                 .OrderByDescending(h => h.AverageRating)
                 .ThenByDescending(h => h.TotalReviews)
+                .ThenByDescending(h => h.TotalCondotels)
                 .Take(topCount)
                 .ToList();
 

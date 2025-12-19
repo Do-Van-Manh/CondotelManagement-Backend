@@ -31,7 +31,22 @@ namespace CondotelManagement.Models
 
         [Required]
         [StringLength(50)]
-        public string Status { get; set; } = "Pending"; // Pending, Completed, Refunded, Rejected
+        public string Status { get; set; } = "Pending"; // Pending, Completed, Refunded, Rejected, Appealed
+        
+        // Appeal info
+        public int AttemptNumber { get; set; } = 1; // Lần thứ mấy (1 lần đầu, 2 là appeal)
+
+        [StringLength(500)]
+        public string? AppealReason { get; set; }
+
+        [Column(TypeName = "datetime")]
+        public DateTime? RejectedAt { get; set; }
+
+        [Column(TypeName = "datetime")]
+        public DateTime? AppealedAt { get; set; }
+
+        [StringLength(500)]
+        public string? RejectionReason { get; set; }
         
         // Thông tin ngân hàng
         [StringLength(50)]
