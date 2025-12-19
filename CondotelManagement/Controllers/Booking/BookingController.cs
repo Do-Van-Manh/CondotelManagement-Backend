@@ -230,30 +230,5 @@ namespace CondotelManagement.Controllers
                     : "Booking cannot be refunded. Refund button should be hidden."
             });
         }
-
-        /// <summary>
-        /// Kháng cáo yêu cầu hoàn tiền bị từ chối
-        /// POST /api/booking/refund-requests/{refundRequestId}/appeal
-        /// </summary>
-        [HttpPost("refund-requests/{refundRequestId}/appeal")]
-        public async Task<IActionResult> AppealRefundRequest(int refundRequestId, [FromBody] AppealRefundDTO dto)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            int customerId = GetCustomerId();
-            var result = await _bookingService.AppealRefundRequest(refundRequestId, customerId, dto.AppealReason);
-            
-            if (result.Success)
-            {
-                return Ok(result);
-            }
-            else
-            {
-                return BadRequest(result);
-            }
-        }
     }
 }

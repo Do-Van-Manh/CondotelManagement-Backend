@@ -29,6 +29,5 @@ namespace CondotelManagement.Services.Interfaces.BookingService
         Task<List<RefundRequestDTO>> GetRefundRequestsAsync(string? searchTerm = null, string? status = "all", DateTime? startDate = null, DateTime? endDate = null, int? condotelTypeId = null);
         Task<ServiceResultDTO> ConfirmRefundManually(int bookingId);
         Task<ServiceResultDTO> RejectRefundRequest(int refundRequestId, string reason);
-        Task<ServiceResultDTO> AppealRefundRequest(int refundRequestId, int customerId, string appealReason);
     }
 }
