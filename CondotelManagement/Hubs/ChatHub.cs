@@ -41,9 +41,9 @@
         public async Task SendMessage(int conversationId, string content)
         {
             if (string.IsNullOrWhiteSpace(content)) return;
+
             var senderId = GetCurrentUserId();
 
-            // 1. Tạo và Lưu (Code cũ của bạn - Giữ nguyên)
             var message = new ChatMessage
             {
                 ConversationId = conversationId,
@@ -51,9 +51,9 @@
                 Content = content.Trim(),
                 SentAt = DateTime.UtcNow
             };
+
             await _chatService.AddMessageAsync(message);
 
-            // 2. Chuẩn bị DTO (Code cũ của bạn - Giữ nguyên)
             var messageDto = new
             {
                 messageId = message.MessageId,
@@ -63,19 +63,13 @@
                 sentAt = message.SentAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
             };
 
-            // --- 3. PHẦN SỬA ĐỔI: GỬI ĐÍCH DANH (REALTIME) ---
-
-            // A. Tìm ID người nhận
             var receiverId = await _chatService.GetOtherUserIdInConversationAsync(conversationId, senderId);
 
-            // B. Gửi cho người nhận (Nếu họ đang Online thì nhận được ngay)
-            if (receiverId > 0)
+            if (receiverId > 0 && receiverId != senderId)
             {
-                // Convert ID sang String vì SignalR dùng String cho UserID
                 await Clients.User(receiverId.ToString()).SendAsync("ReceiveMessage", messageDto);
             }
 
-            // C. Gửi cho chính mình (Để đồng bộ nếu bạn đang mở 2 tab hoặc dùng điện thoại + web)
             await Clients.User(senderId.ToString()).SendAsync("ReceiveMessage", messageDto);
         }
 

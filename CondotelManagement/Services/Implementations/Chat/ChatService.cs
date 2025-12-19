@@ -1,6 +1,5 @@
 ﻿using CondotelManagement.Data;
 using CondotelManagement.Models;
-using CondotelManagement.Repositories.Implementations.Chat;
 using CondotelManagement.Repositories.Interfaces.Chat;
 using CondotelManagement.Services.Interfaces.Chat;
 using Microsoft.EntityFrameworkCore;
@@ -10,40 +9,57 @@ namespace CondotelManagement.Services.Implementations.Chat
     public class ChatService : IChatService
     {
         private readonly IChatRepository _repo;
-        private readonly CondotelDbVer1Context _ctx;
-        public ChatService(IChatRepository repo, CondotelDbVer1Context ctx) { _repo = repo; _ctx = ctx; }
+        private readonly CondotelDbVer1Context _context;
 
-
-        public async Task<ChatConversation> GetOrCreateDirectConversationAsync(int meUserId, int otherUserId)
+        public ChatService(IChatRepository repo, CondotelDbVer1Context context)
         {
-            var conv = await _repo.GetDirectConversationAsync(meUserId, otherUserId);
+            _repo = repo;
+            _context = context;
+        }
+
+        // CHUẨN HÓA: Luôn UserAId < UserBId để tránh duplicate
+        public async Task<ChatConversation> GetOrCreateDirectConversationAsync(int user1Id, int user2Id)
+        {
+            if (user1Id == user2Id)
+                throw new InvalidOperationException("Không thể tạo conversation với chính mình");
+
+            int aId = Math.Min(user1Id, user2Id);
+            int bId = Math.Max(user1Id, user2Id);
+
+            var conv = await _repo.GetDirectConversationAsync(aId, bId);
             if (conv != null) return conv;
 
             var newConv = new ChatConversation
             {
                 ConversationType = "direct",
-                UserAId = meUserId,
-                UserBId = otherUserId,
+                UserAId = aId,
+                UserBId = bId,
                 CreatedAt = DateTime.UtcNow
             };
+
             return await _repo.CreateConversationAsync(newConv);
+        }
+
+        public async Task<int> GetOrCreateDirectConversationIdAsync(int user1Id, int user2Id)
+        {
+            var conv = await GetOrCreateDirectConversationAsync(user1Id, user2Id);
+            return conv.ConversationId;
         }
 
         public async Task SendDirectMessageAsync(int senderId, int receiverId, string content)
         {
-            var conv = await GetOrCreateDirectConversationAsync(senderId, receiverId);
-            var msg = new ChatMessage
-            {
-                ConversationId = conv.ConversationId,
-                SenderId = senderId,
-                Content = content.Trim(),
-                SentAt = DateTime.UtcNow
-            };
-            await _repo.AddMessageAsync(msg);
+            if (senderId == receiverId)
+                throw new InvalidOperationException("Không thể gửi tin nhắn cho chính mình");
+
+            var convId = await GetOrCreateDirectConversationIdAsync(senderId, receiverId);
+
+            await SendMessageAsync(convId, senderId, content);
         }
 
         public async Task SendMessageAsync(int conversationId, int senderId, string content)
         {
+            if (string.IsNullOrWhiteSpace(content)) return;
+
             var message = new ChatMessage
             {
                 ConversationId = conversationId,
@@ -52,86 +68,60 @@ namespace CondotelManagement.Services.Implementations.Chat
                 SentAt = DateTime.UtcNow
             };
 
-            // DÙNG REPO ĐỂ LƯU → CÓ SaveChangesAsync BÊN TRONG!
             await _repo.AddMessageAsync(message);
-
-            // Cập nhật LastActivity + tăng unread count cho người nhận
-            await _repo.UpdateConversationLastActivityAsync(conversationId, message.MessageId);
-
-            // Tăng unread cho người nhận (người không phải sender)
-            await _repo.IncrementUnreadCountAsync(conversationId, senderId);
         }
 
         public async Task<IEnumerable<ChatMessage>> GetMessagesAsync(int conversationId, int take = 100)
-        {
-            return await _ctx.ChatMessages
-                .Include(m => m.Sender) 
-                .Where(m => m.ConversationId == conversationId)
-                .OrderBy(m => m.SentAt)
-                .ThenBy(m => m.MessageId)
-                .Take(take)
-                .ToListAsync();
-        }
-
+            => await _repo.GetMessagesAsync(conversationId, take);
 
         public async Task<IEnumerable<ChatConversation>> GetMyConversationsAsync(int userId)
             => await _repo.GetUserConversationsAsync(userId);
 
-        // ← METHOD CHỈNH LẠI, KHÔNG LỖI int? → int VÀ ?? NỮA
         public async Task<IEnumerable<ConversationListItem>> GetMyConversationsWithDetailsAsync(int userId)
         {
-            // 1. Lấy conversations (đã Include UserA + UserB ở repo)
             var conversations = await _repo.GetUserConversationsAsync(userId);
-
             var result = new List<ConversationListItem>();
 
             foreach (var conv in conversations)
             {
-                // 2. Lấy danh sách message
-                var messages = await _repo.GetMessagesAsync(conv.ConversationId, 1000);
+                // Bỏ qua nếu conversation lỗi (AId == BId)
+                if (conv.UserAId == conv.UserBId || conv.UserAId == null || conv.UserBId == null)
+                    continue;
 
+                var messages = await _repo.GetMessagesAsync(conv.ConversationId, 1000);
                 var lastMsg = messages
                     .OrderByDescending(m => m.SentAt)
                     .ThenByDescending(m => m.MessageId)
                     .FirstOrDefault();
 
-                // 3. Xác định người còn lại trong conversation
-                var otherUser = conv.UserAId == userId
-                    ? conv.UserB         
-                    : conv.UserA;
+                var otherUserId = conv.UserAId == userId ? conv.UserBId : conv.UserAId;
+                if (otherUserId == userId || otherUserId == null)
+                    continue; // Tránh hiển thị chat với chính mình
 
-                var otherUserName = otherUser?.FullName ?? "Unknown";
+                var otherUser = conv.UserAId == userId ? conv.UserB : conv.UserA;
 
-                // 4. Tính unread
                 var unreadCount = messages.Count(m => m.SenderId != userId);
 
-                // 5. Add vào result
                 result.Add(new ConversationListItem
                 {
                     ConversationId = conv.ConversationId,
-                    UserAId = conv.UserAId ?? 0,
-                    UserBId = conv.UserBId ?? 0,
-
-                    OtherUserName = otherUserName, 
+                    UserAId = conv.UserAId.Value,
+                    UserBId = conv.UserBId.Value,
                     LastMessage = lastMsg,
-                    UnreadCount = unreadCount
+                    UnreadCount = unreadCount,
+                    OtherUserId = otherUserId,
+                    OtherUserName = otherUser?.FullName,
+                    OtherUserImageUrl = otherUser?.ImageUrl
                 });
             }
 
-            // 6. Sắp xếp theo tin nhắn mới nhất
-            return result.OrderByDescending(x =>
-                x.LastMessage?.SentAt ?? DateTime.MinValue
-            );
+            return result.OrderByDescending(x => x.LastMessage?.SentAt ?? DateTime.MinValue);
         }
 
         public async Task AddMessageAsync(ChatMessage message)
-        {
-            // Gọi thẳng repo để lưu (có SaveChangesAsync bên trong)
-            await _repo.AddMessageAsync(message);
-        }
+            => await _repo.AddMessageAsync(message);
+
         public async Task<int> GetOtherUserIdInConversationAsync(int conversationId, int currentUserId)
-        {
-            return await _repo.GetOtherUserIdInConversationAsync(conversationId, currentUserId);
-        }
+            => await _repo.GetOtherUserIdInConversationAsync(conversationId, currentUserId);
     }
 }
