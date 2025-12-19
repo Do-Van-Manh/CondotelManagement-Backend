@@ -109,10 +109,15 @@ namespace CondotelManagement.Controllers.Host
                     return Unauthorized(ApiResponse<object>.Fail("Không tìm thấy host. Vui lòng đăng ký làm host trước."));
 
                 // LẤY GÓI HIỆN TẠI CỦA HOST
+                var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
                 var activePackage = _context.HostPackages
                     .Include(hp => hp.Package)
-                    .Where(hp => hp.HostId == host.HostId && hp.Status == "Active")
-                    .OrderByDescending(hp => hp.EndDate)
+                    .Where(hp => hp.HostId == host.HostId
+                        && hp.Status == "Active"
+                        && hp.StartDate <= today
+                        && hp.EndDate >= today)
+                    .OrderByDescending(hp => hp.StartDate)
                     .FirstOrDefault();
 
                 var maxListings = activePackage != null
