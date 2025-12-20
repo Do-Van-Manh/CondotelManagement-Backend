@@ -111,6 +111,10 @@ namespace CondotelManagement.Configurations
             services.AddScoped<IHostReportRepository, HostReportRepository>();
             services.AddScoped<IHostReportService, HostReportService>();
 
+            // --- Admin Report ---
+            services.AddScoped<IAdminReportRepository, AdminReportRepository>();
+            services.AddScoped<IAdminReportService, AdminReportService>();
+
 			// --- Voucher ---
 			services.AddScoped<IVoucherRepository, VoucherRepository>();
 			services.AddScoped<IVoucherService, VoucherService>();

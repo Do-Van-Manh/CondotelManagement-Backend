@@ -73,56 +73,74 @@ namespace CondotelManagement.Services.Implementations.Wallet
 
         public async Task<WalletDTO> CreateWalletAsync(WalletCreateDTO dto)
         {
-            // Nếu set làm default, bỏ default của các wallet khác
-            if (dto.IsDefault)
+            try
             {
-                if (dto.UserId.HasValue)
+                // Validate: Phải có ít nhất UserId hoặc HostId, nhưng không được cả hai (CHECK constraint CK_Wallet_OneOwner)
+                if (!dto.UserId.HasValue && !dto.HostId.HasValue)
+                    throw new ArgumentException("Wallet must belong to either user or host");
+                
+                if (dto.UserId.HasValue && dto.HostId.HasValue)
+                    throw new ArgumentException("Wallet cannot belong to both user and host. It must be either user wallet or host wallet.");
+
+                // Nếu set làm default, bỏ default của các wallet khác
+                if (dto.IsDefault)
                 {
-                    var userWallets = await _context.Wallets
-                        .Where(w => w.UserId == dto.UserId && w.IsDefault)
-                        .ToListAsync();
-                    foreach (var w in userWallets)
+                    // Bỏ default của các wallet có cùng UserId
+                    if (dto.UserId.HasValue)
                     {
-                        w.IsDefault = false;
+                        var userWallets = await _context.Wallets
+                            .Where(w => w.UserId == dto.UserId && w.WalletId != 0 && w.IsDefault)
+                            .ToListAsync();
+                        foreach (var w in userWallets)
+                        {
+                            w.IsDefault = false;
+                        }
+                    }
+
+                    // Bỏ default của các wallet có cùng HostId
+                    if (dto.HostId.HasValue)
+                    {
+                        var hostWallets = await _context.Wallets
+                            .Where(w => w.HostId == dto.HostId && w.WalletId != 0 && w.IsDefault)
+                            .ToListAsync();
+                        foreach (var w in hostWallets)
+                        {
+                            w.IsDefault = false;
+                        }
                     }
                 }
-                else if (dto.HostId.HasValue)
+
+                var wallet = new Models.Wallet
                 {
-                    var hostWallets = await _context.Wallets
-                        .Where(w => w.HostId == dto.HostId && w.IsDefault)
-                        .ToListAsync();
-                    foreach (var w in hostWallets)
-                    {
-                        w.IsDefault = false;
-                    }
-                }
+                    UserId = dto.UserId,
+                    HostId = dto.HostId,
+                    BankName = dto.BankName,
+                    AccountNumber = dto.AccountNumber,
+                    AccountHolderName = dto.AccountHolderName,
+                    Status = "Active",
+                    IsDefault = dto.IsDefault
+                };
+
+                _context.Wallets.Add(wallet);
+                await _context.SaveChangesAsync();
+
+                return new WalletDTO
+                {
+                    WalletId = wallet.WalletId,
+                    UserId = wallet.UserId,
+                    HostId = wallet.HostId,
+                    BankName = wallet.BankName,
+                    AccountNumber = wallet.AccountNumber,
+                    AccountHolderName = wallet.AccountHolderName,
+                    Status = wallet.Status,
+                    IsDefault = wallet.IsDefault
+                };
             }
-
-            var wallet = new Models.Wallet
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
             {
-                UserId = dto.UserId,
-                HostId = dto.HostId,
-                BankName = dto.BankName,
-                AccountNumber = dto.AccountNumber,
-                AccountHolderName = dto.AccountHolderName,
-                Status = "Active",
-                IsDefault = dto.IsDefault
-            };
-
-            _context.Wallets.Add(wallet);
-            await _context.SaveChangesAsync();
-
-            return new WalletDTO
-            {
-                WalletId = wallet.WalletId,
-                UserId = wallet.UserId,
-                HostId = wallet.HostId,
-                BankName = wallet.BankName,
-                AccountNumber = wallet.AccountNumber,
-                AccountHolderName = wallet.AccountHolderName,
-                Status = wallet.Status,
-                IsDefault = wallet.IsDefault
-            };
+                // Re-throw với message rõ ràng hơn
+                throw new InvalidOperationException($"Database error while creating wallet: {ex.InnerException?.Message ?? ex.Message}", ex);
+            }
         }
 
         public async Task<bool> UpdateWalletAsync(int walletId, WalletUpdateDTO dto)
@@ -188,34 +206,68 @@ namespace CondotelManagement.Services.Implementations.Wallet
 
         public async Task<bool> SetDefaultWalletAsync(int walletId, int? userId = null, int? hostId = null)
         {
-            var wallet = await _context.Wallets.FindAsync(walletId);
-            if (wallet == null) return false;
-
-            // Bỏ default của các wallet khác
-            if (userId.HasValue)
+            try
             {
-                var userWallets = await _context.Wallets
-                    .Where(w => w.UserId == userId && w.WalletId != walletId)
-                    .ToListAsync();
-                foreach (var w in userWallets)
-                {
-                    w.IsDefault = false;
-                }
-            }
-            else if (hostId.HasValue)
-            {
-                var hostWallets = await _context.Wallets
-                    .Where(w => w.HostId == hostId && w.WalletId != walletId)
-                    .ToListAsync();
-                foreach (var w in hostWallets)
-                {
-                    w.IsDefault = false;
-                }
-            }
+                var wallet = await _context.Wallets.FindAsync(walletId);
+                if (wallet == null) return false;
 
-            wallet.IsDefault = true;
-            await _context.SaveChangesAsync();
-            return true;
+                // Validate wallet thuộc về user hoặc host được chỉ định
+                bool isValid = false;
+
+                if (userId.HasValue)
+                {
+                    // Wallet của user chỉ có UserId, không có HostId
+                    if (wallet.UserId.HasValue && wallet.UserId.Value == userId.Value && !wallet.HostId.HasValue)
+                        isValid = true;
+                }
+
+                if (hostId.HasValue)
+                {
+                    // Wallet của host chỉ có HostId, không có UserId
+                    if (wallet.HostId.HasValue && wallet.HostId.Value == hostId.Value && !wallet.UserId.HasValue)
+                        isValid = true;
+                }
+
+                if (!isValid)
+                    return false;
+
+                // Nếu wallet đã là default, không cần làm gì
+                if (wallet.IsDefault)
+                    return true;
+
+                // Bỏ default của các wallet khác
+                if (userId.HasValue)
+                {
+                    // Bỏ default của các wallet có cùng UserId
+                    var userWallets = await _context.Wallets
+                        .Where(w => w.UserId == userId && w.WalletId != walletId && w.IsDefault)
+                        .ToListAsync();
+                    foreach (var w in userWallets)
+                    {
+                        w.IsDefault = false;
+                    }
+                }
+                else if (hostId.HasValue)
+                {
+                    // Bỏ default của các wallet có cùng HostId
+                    var hostWallets = await _context.Wallets
+                        .Where(w => w.HostId == hostId && w.WalletId != walletId && w.IsDefault)
+                        .ToListAsync();
+                    foreach (var w in hostWallets)
+                    {
+                        w.IsDefault = false;
+                    }
+                }
+
+                wallet.IsDefault = true;
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // Log exception nếu cần
+                return false;
+            }
         }
     }
 }

@@ -314,15 +314,15 @@ namespace CondotelManagement.Services
                 if (condotel.Status == "Inactive")
                     return ServiceResultDTO.Fail("Condotel này hiện không hoạt động.");
 
-
                 // Kiểm tra host không được đặt căn hộ của chính mình
-                var host = _context.Hosts
-                    .Include(h => h.User)
-                    .FirstOrDefault(h => h.HostId == condotel.HostId);
+                var hostUserId = await _context.Hosts
+                    .Where(h => h.HostId == condotel.HostId)
+                    .Select(h => h.UserId)
+                    .FirstOrDefaultAsync();
 
-                if (host != null && host.UserId == customerId)
+                if (hostUserId == customerId)
                 {
-                    return ServiceResultDTO.Fail("Chủ căn hộ không thể tự đặt của chính mình.");
+                    return ServiceResultDTO.Fail("Chủ căn hộ không thể tự đặt căn hộ của chính mình.");
                 }
 
 
@@ -634,6 +634,16 @@ namespace CondotelManagement.Services
             var booking = _bookingRepo.GetBookingById(bookingId);
             if (booking == null || booking.CustomerId != customerId)
                 return false;
+
+            // Kiểm tra điều kiện hủy: phải trước ít nhất 2 ngày so với ngày check-in
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var daysUntilCheckIn = (booking.StartDate.ToDateTime(TimeOnly.MinValue) - today.ToDateTime(TimeOnly.MinValue)).Days;
+            
+            if (daysUntilCheckIn < 2)
+            {
+                // Không đủ 2 ngày trước check-in
+                throw new InvalidOperationException($"Không thể hủy booking. Phải hủy trước ít nhất 2 ngày so với ngày check-in (còn {daysUntilCheckIn} ngày).");
+            }
 
             // Nếu booking đã thanh toán (Confirmed/Completed), tự động refund
             if (booking.Status == "Confirmed" || booking.Status == "Completed")
@@ -1679,3 +1689,4 @@ namespace CondotelManagement.Services
       
     }
 }
+

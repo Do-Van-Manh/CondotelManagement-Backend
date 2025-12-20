@@ -30,6 +30,16 @@ namespace CondotelManagement.Helpers
             return new ApiResponse<T> { Success = false, Message = message };
         }
 
+		public static ApiResponse<T> Fail(string message, Dictionary<string, string[]>? errors = null)
+		{
+			return new ApiResponse<T>
+			{
+				Success = false,
+				Message = message,
+				Errors = errors
+			};
+		}
+
 		public static ApiResponse<T> Fail(Dictionary<string, string[]> errors)
 		{
 			return new ApiResponse<T>

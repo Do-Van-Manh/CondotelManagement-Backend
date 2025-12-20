@@ -3,6 +3,7 @@ using CondotelManagement.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using CondotelManagement.Services.Interfaces;
+using CondotelManagement.Services.Interfaces.Admin;
 
 namespace CondotelManagement.Controllers.Host
 {
@@ -13,10 +14,19 @@ namespace CondotelManagement.Controllers.Host
     {
         private readonly IHostReportService _service;
         private readonly IHostService _hostService;
-        public ReportController(IHostReportService service, IHostService hostService)
+        private readonly IAdminReportService _adminReportService;
+        private readonly IWebHostEnvironment _env;
+        
+        public ReportController(
+            IHostReportService service, 
+            IHostService hostService,
+            IAdminReportService adminReportService,
+            IWebHostEnvironment env)
         {
             _service = service;
             _hostService = hostService;
+            _adminReportService = adminReportService;
+            _env = env;
         }
 
         [HttpGet]
@@ -86,5 +96,51 @@ namespace CondotelManagement.Controllers.Host
 
 			return Ok(ApiResponse<object>.SuccessResponse(result));
 		}
+
+        /// <summary>
+        /// Tải file báo cáo đã được tạo bởi admin
+        /// GET /api/host/report/download/{reportId}
+        /// </summary>
+        [HttpGet("download/{reportId}")]
+        public async Task<IActionResult> DownloadReport(int reportId)
+        {
+            try
+            {
+                // Lấy thông tin host hiện tại
+                var host = _hostService.GetByUserId(User.GetUserId());
+                if (host == null)
+                    return Unauthorized(ApiResponse<object>.Fail("Không tìm thấy host"));
+
+                // Lấy thông tin report từ admin report service
+                var report = await _adminReportService.GetReportByIdAsync(reportId);
+                
+                if (report == null)
+                    return NotFound(ApiResponse<object>.Fail("Không tìm thấy báo cáo"));
+
+                // Kiểm tra report có thuộc về host này không
+                if (!report.ReportType?.Contains($"HostReport_{host.HostId}") ?? true)
+                    return StatusCode(403, ApiResponse<object>.Fail("Báo cáo này không thuộc về host của bạn"));
+
+                // Lấy đường dẫn file
+                if (string.IsNullOrEmpty(report.FileUrl))
+                    return NotFound(ApiResponse<object>.Fail("File báo cáo không tồn tại"));
+
+                var webRootPath = _env.WebRootPath ?? _env.ContentRootPath;
+                var filePath = Path.Combine(webRootPath, report.FileUrl.TrimStart('/'));
+
+                if (!System.IO.File.Exists(filePath))
+                    return NotFound(ApiResponse<object>.Fail("File báo cáo không tồn tại trên server"));
+
+                // Trả về file
+                var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+                var fileName = report.FileName ?? $"report_{reportId}.xlsx";
+                
+                return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Fail($"Lỗi khi tải file: {ex.Message}"));
+            }
+        }
     }
 }

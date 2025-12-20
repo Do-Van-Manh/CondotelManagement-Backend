@@ -31,14 +31,14 @@ namespace CondotelManagement.Controllers.Payment
 
         // Backward compatibility endpoint
         [HttpPost("create")]
-        [Authorize(Roles = "Tenant")]
+        [Authorize] // Cho phép bất kỳ user đã đăng nhập nào (sẽ check ownership bên trong)
         public async Task<IActionResult> CreatePayment([FromBody] CreatePaymentRequest request)
         {
             return await CreatePayOSPayment(request);
         }
 
         [HttpPost("payos/create")]
-        [Authorize(Roles = "Tenant")]
+        [Authorize] // Cho phép bất kỳ user đã đăng nhập nào (sẽ check ownership bên trong)
         public async Task<IActionResult> CreatePayOSPayment([FromBody] CreatePaymentRequest request)
         {
             try
@@ -63,7 +63,7 @@ namespace CondotelManagement.Controllers.Payment
 
                 if (booking.CustomerId != userId)
                 {
-                    return Forbid("Access denied");
+                    return StatusCode(403, new { success = false, message = "Access denied. You can only create payment for your own bookings." });
                 }
 
                 if (booking.Status != "Pending")
@@ -773,7 +773,7 @@ namespace CondotelManagement.Controllers.Payment
 
                 if (booking.CustomerId != userId)
                 {
-                    return Forbid("Access denied");
+                    return StatusCode(403, new { success = false, message = "Access denied. You can only cancel payment for your own bookings." });
                 }
 
                 // Try to cancel by OrderCode

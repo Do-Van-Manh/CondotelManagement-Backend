@@ -55,119 +55,87 @@ namespace CondotelManagement.Services
 
                 // 2. Tìm Host và Wallet hiện tại
                 var existingHost = await _context.Hosts
-                    .Include(h => h.Wallet)
+                    .Include(h => h.Wallets)
                     .FirstOrDefaultAsync(h => h.UserId == userId);
 
-                // --- Khai báo biến ---
+                // --- Khai báo biến cần thiết ---
                 HostModel hostToProcess;
                 Wallet walletToProcess = null;
                 bool isNewHost = existingHost == null;
                 bool isNewWallet = false;
 
-                // --- LOGIC: USER MỚI (Chưa từng là Host) ---
+                // --- LOGIC: USER MỚI HOÀN TOÀN (existingHost == null) ---
                 if (isNewHost)
                 {
-                    // 3. Tạo Host
+                    // 3. Tạo bản ghi Host mới
                     hostToProcess = new HostModel
                     {
                         UserId = userId,
                         PhoneContact = dto.PhoneContact,
                         Address = dto.Address,
                         CompanyName = dto.CompanyName,
-                        Status = "Active", // Host mới thì Active luôn
-                                           // Khởi tạo List rỗng để tránh lỗi Null Reference sau này
-                        Condotels = new List<Condotel>(),
-                        HostPackages = new List<HostPackage>()
+                        Status = "Active"
                     };
-
                     _context.Hosts.Add(hostToProcess);
 
-                    // 4. Tạo Wallet (Chưa gán HostId ngay được)
+                    // 4. Lưu Host để lấy HostId
+                    await _context.SaveChangesAsync();
+
+                    // 5. Tạo Wallet mới với HostId
                     walletToProcess = new Wallet
                     {
+                        HostId = hostToProcess.HostId,
                         BankName = dto.BankName,
                         AccountNumber = dto.AccountNumber,
                         AccountHolderName = dto.AccountHolderName,
-
-                        // --- FIX THEO SQL CỦA BẠN ---
-                        IsDefault = true,   // Ví đầu tiên nên mặc định là True
-                        Status = "Active"   // Gán trạng thái hoạt động
-                                            // Bỏ UserId để tránh conflict constraint (vì đây là ví của Host)
+                        IsDefault = true,
+                        Status = "Active"
                     };
-
+                    _context.Wallets.Add(walletToProcess);
                     isNewWallet = true;
 
-                    // 5. Nâng quyền User
+                    // 6. Nâng cấp quyền    
                     user.RoleId = 3;
                 }
-                // --- LOGIC: USER ĐÃ LÀ HOST (Update thông tin) ---
+                // --- LOGIC: USER ĐÃ LÀ HOST (existingHost != null) ---
                 else
                 {
                     hostToProcess = existingHost;
 
-                    // Update info Host
+                    // Cập nhật thông tin Host
                     hostToProcess.PhoneContact = dto.PhoneContact;
                     hostToProcess.Address = dto.Address;
                     hostToProcess.CompanyName = dto.CompanyName;
 
-                    var existingWallet = existingHost.Wallet;
+                    var existingWallet = existingHost.Wallets?.FirstOrDefault(w => w.IsDefault) ?? existingHost.Wallets?.FirstOrDefault();
 
                     if (existingWallet != null)
                     {
-                        // Update Wallet có sẵn
+                        // UPDATE Wallet
                         walletToProcess = existingWallet;
                         walletToProcess.BankName = dto.BankName;
                         walletToProcess.AccountNumber = dto.AccountNumber;
                         walletToProcess.AccountHolderName = dto.AccountHolderName;
-                        // Không cần sửa Status hay IsDefault khi update
                     }
                     else
                     {
                         // Tạo Wallet mới cho Host cũ (nếu bị thiếu)
                         walletToProcess = new Wallet
                         {
-                            HostId = existingHost.HostId, // Đã có ID rồi
+                            HostId = existingHost.HostId,
                             BankName = dto.BankName,
                             AccountNumber = dto.AccountNumber,
                             AccountHolderName = dto.AccountHolderName,
-
-                            // --- FIX THEO SQL ---
                             IsDefault = true,
                             Status = "Active"
                         };
+                        _context.Wallets.Add(walletToProcess);
                         isNewWallet = true;
                     }
                 }
 
-                // 6. LƯU XUỐNG DB (Xử lý việc gán ID)
-
-                // TRƯỜNG HỢP A: HOST MỚI (Lưu 2 bước)
-                if (isNewHost)
-                {
-                    // Bước 1: Lưu Host để DB sinh ra HostId
-                    await _context.SaveChangesAsync();
-
-                    // Bước 2: Lấy HostId vừa sinh ra gán cho Wallet
-                    if (isNewWallet && walletToProcess != null)
-                    {
-                        walletToProcess.HostId = hostToProcess.HostId; // Quan trọng nhất
-                        _context.Wallets.Add(walletToProcess);
-
-                        // Lưu tiếp Wallet
-                        await _context.SaveChangesAsync();
-                    }
-                }
-                // TRƯỜNG HỢP B: HOST CŨ (Lưu 1 bước)
-                else
-                {
-                    if (isNewWallet && walletToProcess != null)
-                    {
-                        // HostId đã có sẵn, chỉ cần Add ví
-                        _context.Wallets.Add(walletToProcess);
-                    }
-                    // Update/Add xong xuôi thì Save 1 lần
-                    await _context.SaveChangesAsync();
-                }
+                // 7. LƯU XUỐNG DB
+                await _context.SaveChangesAsync();
 
                 // 7. COMMIT TRANSACTION
                 await transaction.CommitAsync();
@@ -226,13 +194,13 @@ namespace CondotelManagement.Services
                     EndDate = hp.EndDate
                 }).ToList(),
 
-                Wallet = new WalletDTO
+                Wallet = host.Wallets?.FirstOrDefault(w => w.IsDefault) != null ? new WalletDTO
                 {
-                    WalletID = host.Wallet.WalletId,
-                    BankName = host.Wallet.BankName,
-                    AccountNumber = host.Wallet.AccountNumber,
-                    AccountHolderName = host.Wallet.AccountHolderName
-                }
+                    WalletID = host.Wallets.FirstOrDefault(w => w.IsDefault).WalletId,
+                    BankName = host.Wallets.FirstOrDefault(w => w.IsDefault).BankName,
+                    AccountNumber = host.Wallets.FirstOrDefault(w => w.IsDefault).AccountNumber,
+                    AccountHolderName = host.Wallets.FirstOrDefault(w => w.IsDefault).AccountHolderName
+                } : null
             };
         }
 
@@ -254,10 +222,14 @@ namespace CondotelManagement.Services
             host.User.Address = dto.UserAddress;
             host.User.ImageUrl = dto.ImageUrl;
 
-            // Update Wallet
-            host.Wallet.BankName = dto.BankName;
-            host.Wallet.AccountNumber = dto.AccountNumber;
-            host.Wallet.AccountHolderName = dto.AccountHolderName;
+            // Update Wallet (lấy default wallet hoặc wallet đầu tiên)
+            var defaultWallet = host.Wallets?.FirstOrDefault(w => w.IsDefault) ?? host.Wallets?.FirstOrDefault();
+            if (defaultWallet != null)
+            {
+                defaultWallet.BankName = dto.BankName;
+                defaultWallet.AccountNumber = dto.AccountNumber;
+                defaultWallet.AccountHolderName = dto.AccountHolderName;
+            }
 
             await _hostRepo.UpdateHostAsync(host);
             return true;
@@ -525,14 +497,17 @@ namespace CondotelManagement.Services
             // Lấy tất cả condotels của các hosts này
             var hostIds = hosts.Select(h => h.HostId).ToList();
             var condotels = await _context.Condotels
-                .Where(c => hostIds.Contains(c.HostId))
+                // Chỉ tính các condotel còn Active (tránh tính rating cho condotel đã bị Inactive/ẩn)
+                .Where(c => hostIds.Contains(c.HostId) && c.Status == "Active")
                 .Select(c => new { c.HostId, c.CondotelId })
                 .ToListAsync();
 
             // Lấy tất cả reviews Visible của các condotels này
             var condotelIds = condotels.Select(c => c.CondotelId).ToList();
             var reviews = await _context.Reviews
-                .Where(r => condotelIds.Contains(r.CondotelId) && r.Status == "Visible")
+                // Thực tế trong hệ thống: review "bị xóa" dùng Status = "Deleted"
+                // Nên top host sẽ tính tất cả review không bị xóa (bao gồm cả NULL/Visible/Active nếu DB có dữ liệu cũ)
+                .Where(r => condotelIds.Contains(r.CondotelId) && r.Status != "Deleted")
                 .Select(r => new { r.CondotelId, r.Rating })
                 .ToListAsync();
 
@@ -559,30 +534,35 @@ namespace CondotelManagement.Services
             foreach (var host in hosts)
             {
                 var stats = hostReviewStats.FirstOrDefault(s => s.HostId == host.HostId);
-                if (stats != null && stats.AllReviews.Any())
-                {
-                    var averageRating = stats.AllReviews.Average(r => (double)r.Rating);
-                    var totalReviews = stats.AllReviews.Count;
-                    var totalCondotels = condotels.Count(c => c.HostId == host.HostId);
+                var totalCondotels = condotels.Count(c => c.HostId == host.HostId);
 
-                    hostDTOs.Add(new TopHostDTO
-                    {
-                        HostId = host.HostId,
-                        CompanyName = host.CompanyName ?? string.Empty,
-                        FullName = host.User?.FullName,
-                        AvatarUrl = host.User?.ImageUrl,
-                        AverageRating = Math.Round(averageRating, 2),
-                        TotalReviews = totalReviews,
-                        TotalCondotels = totalCondotels,
-                        Rank = 0 // Sẽ set sau khi sort
-                    });
-                }
+                // Nếu host chưa có condotel active thì không đưa vào "top"
+                if (totalCondotels <= 0) continue;
+
+                var totalReviews = stats?.AllReviews.Count ?? 0;
+                var averageRating = totalReviews > 0
+                    ? stats!.AllReviews.Average(r => (double)r.Rating)
+                    : 0d;
+
+                hostDTOs.Add(new TopHostDTO
+                {
+                    HostId = host.HostId,
+                    CompanyName = host.CompanyName ?? string.Empty,
+                    FullName = host.User?.FullName,
+                    AvatarUrl = host.User?.ImageUrl,
+                    AverageRating = Math.Round(averageRating, 2),
+                    TotalReviews = totalReviews,
+                    TotalCondotels = totalCondotels,
+                    Rank = 0 // Sẽ set sau khi sort
+                });
             }
 
             // Sắp xếp theo AverageRating giảm dần, sau đó theo TotalReviews giảm dần
+            // Nếu chưa có review (AverageRating=0, TotalReviews=0) thì ưu tiên host có nhiều condotel hơn
             var sortedHosts = hostDTOs
                 .OrderByDescending(h => h.AverageRating)
                 .ThenByDescending(h => h.TotalReviews)
+                .ThenByDescending(h => h.TotalCondotels)
                 .Take(topCount)
                 .ToList();
 

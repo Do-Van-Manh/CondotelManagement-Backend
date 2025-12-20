@@ -9,19 +9,19 @@ namespace CondotelManagement.Repositories.Implementations.Admin
 {
     public class UserRepository : Repository<User>, IUserRepository
     {
-        // Tên DbContext lấy từ thông báo lỗi của bạn
-        private readonly CondotelDbVer1Context _context;
-
         // SỬA LỖI CS7036: Thêm ": base(context)"
         public UserRepository(CondotelDbVer1Context context) : base(context)
         {
-            _context = context;
         }
 
-        // Phương thức này bây giờ sẽ hoạt động
-        public async Task<User?> GetByIdAsync(int userId)
+        // Phương thức này implement IUserRepository.GetByIdAsync (nullable return)
+        // và hide Repository<User>.GetByIdAsync (non-nullable return)
+        // Dùng 'new' để tránh warning CS0108
+        // Warning CS8613 về nullability là do interface conflict (IRepository vs IUserRepository)
+        // - không phải lỗi, có thể bỏ qua
+        public new async Task<User?> GetByIdAsync(int userId)
         {
-            // .Include() sẽ được tìm thấy do có using ở trên
+            // Sử dụng _context từ base class (protected field)
             return await _context.Users
                 .Include(u => u.Role)
                 .FirstOrDefaultAsync(u => u.UserId == userId);

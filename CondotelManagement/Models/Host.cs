@@ -36,7 +36,7 @@ public partial class Host
     [ForeignKey("UserId")]
     public virtual User User { get; set; } = null!;
 
-    public virtual Wallet Wallet { get; set; }
+    public virtual ICollection<Wallet> Wallets { get; set; } = new List<Wallet>();
 
 	public virtual ICollection<ServicePackage> ServicePackages { get; set; }
     
