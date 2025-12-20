@@ -135,9 +135,11 @@ namespace CondotelManagement.Controllers.Chat
                 return StatusCode(500, new { error = "Lỗi gửi tin nhắn", message = ex.Message });
             }
         }
-        public class SendMessageToCondotelHostRequest
+
+        public class DirectMessageRequest
         {
-            public int CondotelId { get; set; }
+            public int SenderId { get; set; }
+            public int ReceiverId { get; set; }
             public string Content { get; set; } = string.Empty;
         }
 
@@ -187,5 +189,5 @@ namespace CondotelManagement.Controllers.Chat
             public int CondotelId { get; set; }
             public string Content { get; set; } = string.Empty;
         }
-    }//commit 
-}
+    }
+}//commit again 
