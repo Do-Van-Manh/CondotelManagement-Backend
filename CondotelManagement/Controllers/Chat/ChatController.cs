@@ -116,25 +116,25 @@ namespace CondotelManagement.Controllers.Chat
         /// <summary>
         /// Gửi tin nhắn trực tiếp đến một user khác (dùng từ frontend nếu cần)
         /// </summary>
-        [HttpPost("messages/send-direct")]
-        public async Task<IActionResult> SendDirectMessage([FromBody] DirectMessageRequest request)
-        {
-            try
-            {
-                var senderId = GetCurrentUserId();
+        //[HttpPost("messages/send-direct")]
+        //public async Task<IActionResult> SendDirectMessage([FromBody] DirectMessageRequest request)
+        //{
+        //    try
+        //    {
+        //        var senderId = GetCurrentUserId();
 
-                // Bảo mật: Không cho gửi từ ID khác
-                if (senderId != request.SenderId)
-                    return BadRequest(new { error = "SenderId không hợp lệ" });
+        //        // Bảo mật: Không cho gửi từ ID khác
+        //        if (senderId != request.SenderId)
+        //            return BadRequest(new { error = "SenderId không hợp lệ" });
 
-                await _chatService.SendDirectMessageAsync(senderId, request.ReceiverId, request.Content);
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = "Lỗi gửi tin nhắn", message = ex.Message });
-            }
-        }
+        //        await _chatService.SendDirectMessageAsync(senderId, request.ReceiverId, request.Content);
+        //        return Ok();
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new { error = "Lỗi gửi tin nhắn", message = ex.Message });
+        //    }
+        //}
         public class SendMessageToCondotelHostRequest
         {
             public int CondotelId { get; set; }
@@ -182,10 +182,6 @@ namespace CondotelManagement.Controllers.Chat
             }
         }
 
-        public class SendMessageToCondotelHostRequest
-        {
-            public int CondotelId { get; set; }
-            public string Content { get; set; } = string.Empty;
-        }
+       
     }
 }

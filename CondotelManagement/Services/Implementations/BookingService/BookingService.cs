@@ -98,15 +98,18 @@ namespace CondotelManagement.Services
                     
                     else if (b.Status == "Confirmed")
                     {
+                        // Với booking "Confirmed": Phải hoàn tiền trước 2 ngày check-in
                         var now = DateTime.Now;
+                        var startDateTime = b.StartDate.ToDateTime(TimeOnly.MinValue);
+                        var daysBeforeCheckIn = (startDateTime - now).TotalDays;
                         
-                      
-                            // Với booking "Confirmed": Phải hủy trước 2 ngày check-in
-                            var startDateTime = b.StartDate.ToDateTime(TimeOnly.MinValue);
-                            var daysBeforeCheckIn = (startDateTime - now).TotalDays;
-                            
-                            canRefund = daysBeforeCheckIn >= 2; // Có thể refund nếu còn >= 2 ngày
-  
+                        canRefund = daysBeforeCheckIn >= 2; // Có thể refund nếu còn >= 2 ngày
+                    }
+                    // Nếu status là "Cancelled" + Rejected RefundRequest → có nút resubmit (no 2-day check)
+                    else if (b.Status == "Cancelled" && existingRefundRequest != null && existingRefundRequest.Status == "Rejected")
+                    {
+                        // ✅ RESUBMIT: Bỏ qua check 2 ngày - cho phép resubmit bất kỳ lúc nào
+                        canRefund = true;
                     }
                 }
 
@@ -644,7 +647,7 @@ namespace CondotelManagement.Services
                 // Không đủ 2 ngày trước check-in
                 throw new InvalidOperationException($"Không thể hủy booking. Phải hủy trước ít nhất 2 ngày so với ngày check-in (còn {daysUntilCheckIn} ngày).");
             }
-
+            
             // Nếu booking đã thanh toán (Confirmed/Completed), tự động refund
             if (booking.Status == "Confirmed" || booking.Status == "Completed")
             {
@@ -783,7 +786,7 @@ namespace CondotelManagement.Services
                 return ServiceResultDTO.Fail("Không thể hoàn tiền. Booking này đã được thanh toán cho chủ nhà.");
             }
 
-            // Kiểm tra xem đã có RefundRequest với status Completed/Refunded chưa
+            // Kiểm tra xem đã có RefundRequest chưa
             var existingRefundRequest = await _context.RefundRequests
                 .FirstOrDefaultAsync(r => r.BookingId == bookingId);
 
@@ -794,18 +797,27 @@ namespace CondotelManagement.Services
                 return ServiceResultDTO.Fail("Booking này đã được hoàn tiền rồi.");
             }
 
-            // Nếu status là "Cancelled" và chưa có RefundRequest → kiểm tra xem có phải cancel payment không
-            // Cancel payment: Status = "Cancelled", TotalPrice = 0 hoặc null, chưa thanh toán
-            // Cancel booking: Status = "Cancelled", TotalPrice > 0, đã thanh toán nhưng chưa có RefundRequest
-            if (booking.Status == "Cancelled" && existingRefundRequest == null)
+            // Nếu refund request bị reject, cho phép resubmit 1 lần
+            if (existingRefundRequest != null && existingRefundRequest.Status == "Rejected")
             {
-                // Kiểm tra TotalPrice để phân biệt cancel payment vs cancel booking
-                // Nếu TotalPrice <= 0 hoặc null → đây là cancel payment (chưa thanh toán) → không cho refund
-                if (booking.TotalPrice == null || booking.TotalPrice <= 0)
+                if (existingRefundRequest.ResubmissionCount >= 1)
                 {
+                    return ServiceResultDTO.Fail("Bạn đã vượt quá số lần gửi lại yêu cầu hoàn tiền (tối đa 1 lần). Vui lòng liên hệ admin.");
+                }
+                // Cho phép resubmit - sẽ xử lý ở ProcessRefund
+            }
+
+            // Nếu status là "Cancelled" → kiểm tra xem có phải cancel payment không
+            // Cancel payment: Status = "Cancelled", chưa có RefundRequest, TotalPrice <= 0
+            // Cancel booking: Status = "Cancelled", có RefundRequest hoặc TotalPrice > 0, đã thanh toán
+            if (booking.Status == "Cancelled")
+            {
+                if (existingRefundRequest == null && (booking.TotalPrice == null || booking.TotalPrice <= 0))
+                {
+                    // Cancel payment - chưa thanh toán
                     return ServiceResultDTO.Fail("Không thể hoàn tiền. Booking này đã bị hủy trước khi thanh toán, không có tiền để hoàn lại.");
                 }
-                // Nếu TotalPrice > 0 → đây là cancel booking (đã thanh toán) → cho phép tạo RefundRequest
+                // Nếu có existingRefundRequest hoặc TotalPrice > 0 → cho phép resubmit hoặc tạo RefundRequest
             }
 
             // Nếu status là "Completed" → KHÔNG cho phép hoàn tiền
@@ -826,7 +838,7 @@ namespace CondotelManagement.Services
             // Logic kiểm tra thời gian refund cho "Confirmed"
             if (booking.Status == "Confirmed")
             {
-                // Với booking "Confirmed" (chưa check-in): Phải hủy trước 2 ngày check-in
+                // Với booking "Confirmed" (chưa hủy): Phải hủy trước 2 ngày check-in
                 var startDateTime = booking.StartDate.ToDateTime(TimeOnly.MinValue);
                 var daysBeforeCheckIn = (startDateTime - now).TotalDays;
 
@@ -835,19 +847,24 @@ namespace CondotelManagement.Services
                     var daysRemaining = Math.Ceiling(daysBeforeCheckIn);
                     if (daysRemaining < 0)
                     {
-                        return ServiceResultDTO.Fail("Không thể hủy booking. Ngày check-in đã qua hoặc đang trong thời gian sử dụng.");
+                        return ServiceResultDTO.Fail("Không thể hoàn tiền. Ngày check-in đã qua hoặc đang trong thời gian sử dụng phòng.");
                     }
                     else if (daysRemaining == 0)
                     {
-                        return ServiceResultDTO.Fail("Không thể hủy booking. Bạn chỉ có thể hủy trước ít nhất 2 ngày so với ngày check-in. Hôm nay là ngày check-in.");
+                        return ServiceResultDTO.Fail("Không thể hoàn tiền. Bạn chỉ có thể hoàn tiền trước ít nhất 2 ngày so với ngày check-in. Hôm nay là ngày check-in.");
                     }
                     else
                     {
-                        return ServiceResultDTO.Fail($"Không thể hủy booking. Bạn chỉ có thể hủy trước ít nhất 2 ngày so với ngày check-in. Còn {daysRemaining} ngày nữa là đến ngày check-in ({booking.StartDate:dd/MM/yyyy}).");
+                        return ServiceResultDTO.Fail($"Không thể hoàn tiền. Bạn chỉ có thể hoàn tiền trước ít nhất 2 ngày so với ngày check-in. Còn {daysRemaining} ngày nữa là đến ngày check-in ({booking.StartDate:dd/MM/yyyy}).");
                     }
                 }
             }
-            // Với booking "Cancelled" (đã hủy sau khi thanh toán): Không cần check thời gian
+            else if (booking.Status == "Cancelled" && existingRefundRequest != null && existingRefundRequest.Status == "Rejected")
+            {
+                // ✅ RESUBMIT REFUND: Bỏ qua check 2 ngày
+                // Nếu refund bị reject, được phép resubmit mà không cần check 2 ngày
+                // Validation ResubmissionCount sẽ được kiểm tra ở trên
+            }
 
             return await ProcessRefund(booking, "Tenant", null, bankCode, accountNumber, accountHolder);
         }
@@ -965,6 +982,17 @@ namespace CondotelManagement.Services
                 {
                     // Cập nhật existing request - cập nhật bank info nếu có từ request
                     refundRequest = existingRefundRequest;
+                    
+                    // Nếu refund bị reject, cho phép resubmit 1 lần
+                    if (refundRequest.Status == "Rejected")
+                    {
+                        // Reset status về Pending để cho phép resubmit
+                        refundRequest.Status = "Pending";
+                        refundRequest.ResubmissionCount += 1; // Tăng số lần resubmit
+                        
+                        Console.WriteLine($"[ProcessRefund] RefundRequest {refundRequest.Id} is being resubmitted after rejection. ResubmissionCount: {refundRequest.ResubmissionCount}");
+                    }
+                    
                     if (!string.IsNullOrEmpty(bankCode))
                         refundRequest.BankCode = bankCode;
                     if (!string.IsNullOrEmpty(accountNumber))
@@ -1652,14 +1680,19 @@ namespace CondotelManagement.Services
             {
                 if (!string.IsNullOrEmpty(refundRequest.CustomerEmail))
                 {
+                    // Tạo message thông báo về cơ hội resubmit
+                    string resubmissionMessage = refundRequest.ResubmissionCount < 1
+                        ? "\n\n⚠️ Thông tin quan trọng: Bạn có thể sửa lại thông tin tài khoản ngân hàng và gửi lại yêu cầu hoàn tiền một lần. Để gửi lại, vui lòng vào chi tiết đơn đặt phòng và chọn 'Gửi lại yêu cầu hoàn tiền'."
+                        : ""; // Không có cơ hội resubmit nữa
+                    
                     await _emailService.SendRefundRejectionEmailAsync(
                         refundRequest.CustomerEmail,
                         refundRequest.CustomerName,
                         refundRequest.BookingId,
                         refundRequest.RefundAmount,
-                        reason
+                        reason + resubmissionMessage
                     );
-                    Console.WriteLine($"[RejectRefundRequest] Email sent successfully to {refundRequest.CustomerEmail} for refund request {refundRequestId}");
+                    Console.WriteLine($"[RejectRefundRequest] Email sent successfully to {refundRequest.CustomerEmail} for refund request {refundRequestId}. ResubmissionCount: {refundRequest.ResubmissionCount}");
                 }
                 else
                 {
