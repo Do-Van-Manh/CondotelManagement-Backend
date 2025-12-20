@@ -297,6 +297,93 @@ namespace CondotelManagement.Repositories
 	return query.ToList();
 	}
 
+	public bool ResortExists(int? resortId)
+	{
+		if (!resortId.HasValue) return true; // ResortId là optional
+		return _context.Resorts.Any(r => r.ResortId == resortId.Value);
+	}
+
+	public bool AmenitiesExist(List<int>? amenityIds)
+	{
+		if (amenityIds == null || !amenityIds.Any()) return true; // Optional
+		var existingCount = _context.Amenities.Count(a => amenityIds.Contains(a.AmenityId));
+		return existingCount == amenityIds.Count;
+	}
+
+	public bool UtilitiesExist(List<int>? utilityIds)
+	{
+		if (utilityIds == null || !utilityIds.Any()) return true; // Optional
+		var existingCount = _context.Utilities.Count(u => utilityIds.Contains(u.UtilityId));
+		return existingCount == utilityIds.Count;
+	}
+
+	public bool HostExists(int hostId)
+	{
+		return _context.Hosts.Any(h => h.HostId == hostId);
+	}
+
+	public void AddCondotelImages(IEnumerable<CondotelImage> images)
+	{
+		if (images != null && images.Any())
+		{
+			_context.CondotelImages.AddRange(images);
+		}
+	}
+
+	public void AddCondotelPrices(IEnumerable<CondotelPrice> prices)
+	{
+		if (prices != null && prices.Any())
+		{
+			_context.CondotelPrices.AddRange(prices);
+		}
+	}
+
+	public void AddCondotelDetails(IEnumerable<CondotelDetail> details)
+	{
+		if (details != null && details.Any())
+		{
+			_context.CondotelDetails.AddRange(details);
+		}
+	}
+
+	public void AddCondotelAmenities(IEnumerable<CondotelAmenity> amenities)
+	{
+		if (amenities != null && amenities.Any())
+		{
+			_context.CondotelAmenities.AddRange(amenities);
+		}
+	}
+
+	public void AddCondotelUtilities(IEnumerable<CondotelUtility> utilities)
+	{
+		if (utilities != null && utilities.Any())
+		{
+			_context.CondotelUtilities.AddRange(utilities);
+		}
+	}
+
+	public (int TotalCount, IEnumerable<Condotel> Items) GetCondtelsByHostPagedWithStatus(int hostId, string status, int pageNumber, int pageSize)
+	{
+		var query = _context.Condotels
+			.Where(c => c.HostId == hostId && c.Status == status)
+			.Include(c => c.Resort)
+			.Include(c => c.Host)
+				.ThenInclude(h => h.User)
+			.Include(c => c.CondotelImages)
+			.Include(c => c.Promotions)
+			.Include(c => c.CondotelPrices)
+			.Include(c => c.Reviews);
+
+		var totalCount = query.Count();
+		var items = query
+			.OrderByDescending(c => c.CondotelId) // Sắp xếp mới nhất trước
+			.Skip((pageNumber - 1) * pageSize)
+			.Take(pageSize)
+			.ToList();
+
+		return (totalCount, items);
+	}
+
 	public (int TotalCount, IEnumerable<Condotel> Items) GetCondtelsByHostPaged(int hostId, int pageNumber, int pageSize)
 	{
 		var query = _context.Condotels
@@ -310,7 +397,7 @@ namespace CondotelManagement.Repositories
 
 		var totalCount = query.Count();
 		var items = query
-			.OrderByDescending(c => c.CondotelId) // Sắp xếp mới nhất trước
+			.OrderByDescending(c => c.CondotelId)
 			.Skip((pageNumber - 1) * pageSize)
 			.Take(pageSize)
 			.ToList();
@@ -407,7 +494,7 @@ namespace CondotelManagement.Repositories
 			query = query.Where(c => c.Bathrooms >= bathrooms.Value);
 		}
 
-		// Include các navigation properties sau khi đã filter
+		// Include các navigation properties
 		query = query
 			.Include(c => c.Resort)
 				.ThenInclude(r => r.Location)
@@ -417,12 +504,9 @@ namespace CondotelManagement.Repositories
 			.Include(c => c.CondotelPrices)
 			.Include(c => c.Reviews);
 
-		// Đếm tổng số trước khi pagination
 		var totalCount = query.Count();
-
-		// Áp dụng pagination
 		var items = query
-			.OrderByDescending(c => c.CondotelId) // Sắp xếp mới nhất trước
+			.OrderByDescending(c => c.CondotelId)
 			.Skip((pageNumber - 1) * pageSize)
 			.Take(pageSize)
 			.ToList();
@@ -430,70 +514,13 @@ namespace CondotelManagement.Repositories
 		return (totalCount, items);
 	}
 
-	public bool ResortExists(int? resortId)
+	public void UpdateCondotelStatus(int condotelId, string status)
 	{
-		if (!resortId.HasValue) return true; // ResortId là optional
-		return _context.Resorts.Any(r => r.ResortId == resortId.Value);
-	}
-
-	public bool AmenitiesExist(List<int>? amenityIds)
-	{
-		if (amenityIds == null || !amenityIds.Any()) return true; // Optional
-		var existingCount = _context.Amenities.Count(a => amenityIds.Contains(a.AmenityId));
-		return existingCount == amenityIds.Count;
-	}
-
-	public bool UtilitiesExist(List<int>? utilityIds)
-	{
-		if (utilityIds == null || !utilityIds.Any()) return true; // Optional
-		var existingCount = _context.Utilities.Count(u => utilityIds.Contains(u.UtilityId));
-		return existingCount == utilityIds.Count;
-	}
-
-	public bool HostExists(int hostId)
-	{
-		return _context.Hosts.Any(h => h.HostId == hostId);
-	}
-
-	public void AddCondotelImages(IEnumerable<CondotelImage> images)
-	{
-		if (images != null && images.Any())
+		var condotel = _context.Condotels.FirstOrDefault(c => c.CondotelId == condotelId);
+		if (condotel != null)
 		{
-			_context.CondotelImages.AddRange(images);
+			condotel.Status = status;
 		}
 	}
-
-	public void AddCondotelPrices(IEnumerable<CondotelPrice> prices)
-	{
-		if (prices != null && prices.Any())
-		{
-			_context.CondotelPrices.AddRange(prices);
-		}
-	}
-
-	public void AddCondotelDetails(IEnumerable<CondotelDetail> details)
-	{
-		if (details != null && details.Any())
-		{
-			_context.CondotelDetails.AddRange(details);
-		}
-	}
-
-	public void AddCondotelAmenities(IEnumerable<CondotelAmenity> amenities)
-	{
-		if (amenities != null && amenities.Any())
-		{
-			_context.CondotelAmenities.AddRange(amenities);
-		}
-	}
-
-	public void AddCondotelUtilities(IEnumerable<CondotelUtility> utilities)
-	{
-		if (utilities != null && utilities.Any())
-		{
-			_context.CondotelUtilities.AddRange(utilities);
-		}
-	}
-
 	}
 }
