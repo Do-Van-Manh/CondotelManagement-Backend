@@ -187,5 +187,5 @@ namespace CondotelManagement.Controllers.Chat
             public int CondotelId { get; set; }
             public string Content { get; set; } = string.Empty;
         }
-    }
+    }//commit 
 }
