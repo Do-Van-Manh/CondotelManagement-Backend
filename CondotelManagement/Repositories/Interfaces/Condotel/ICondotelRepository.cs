@@ -24,6 +24,7 @@ namespace CondotelManagement.Repositories
 			int? beds,
 			int? bathrooms);
 		(int TotalCount, IEnumerable<Condotel> Items) GetCondtelsByHostPaged(int hostId, int pageNumber, int pageSize);
+		(int TotalCount, IEnumerable<Condotel> Items) GetCondtelsByHostPagedWithStatus(int hostId, string status, int pageNumber, int pageSize);
 		(int TotalCount, IEnumerable<Condotel> Items) GetCondotelsByFiltersPaged(
 			string? name,
 			string? location,
@@ -49,5 +50,8 @@ namespace CondotelManagement.Repositories
 		void AddCondotelDetails(IEnumerable<CondotelDetail> details);
 		void AddCondotelAmenities(IEnumerable<CondotelAmenity> amenities);
 		void AddCondotelUtilities(IEnumerable<CondotelUtility> utilities);
+		
+		// Method to update status only
+		void UpdateCondotelStatus(int condotelId, string status);
 	}
 }
