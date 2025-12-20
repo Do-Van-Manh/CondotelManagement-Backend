@@ -184,10 +184,6 @@ namespace CondotelManagement.Controllers.Chat
             }
         }
 
-        public class SendMessageToCondotelHostRequest
-        {
-            public int CondotelId { get; set; }
-            public string Content { get; set; } = string.Empty;
-        }
+       
     }
 }//commit again 
