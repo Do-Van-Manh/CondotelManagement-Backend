@@ -516,38 +516,11 @@ namespace CondotelManagement.Services.Implementations.Payment
 
                         // Không có conflict → confirm booking
                         booking.Status = "Confirmed";
-                        booking.CheckInToken = TokenHelper.GenerateCheckInToken(booking.BookingId);
-                        booking.CheckInTokenGeneratedAt = DateTime.Now;
-                        booking.CheckInTokenUsedAt = null;
 
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
 
-                        try
-                        {
-                            using var scope = _serviceProvider.CreateScope();
-                            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
-
-                            var checkInAt = booking.StartDate.ToDateTime(new TimeOnly(12, 0));
-                            var checkOutAt = booking.EndDate.ToDateTime(new TimeOnly(10, 0));
-
-                            await emailService.SendBookingConfirmedEmailAsync(
-                                toEmail: customer.Email,
-                                customerName: customer.FullName,
-                                bookingId: booking.BookingId,
-                                token: booking.CheckInToken,
-                                checkInAt: checkInAt,
-                                checkOutAt: checkOutAt
-                            );
-
-                            Console.WriteLine($"[EMAIL] Đã gửi mail token cho {customer.Email}");
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine("====== EMAIL ERROR ======");
-                            Console.WriteLine(ex.ToString());
-                            Console.WriteLine("=========================");
-                        }
+                      
 
                      
 

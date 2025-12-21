@@ -209,17 +209,7 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasConstraintName("FK_Booking_Voucher");
 
 
-            entity.Property(e => e.CheckInToken)
-    .HasMaxLength(20)
-    .IsUnicode(false);
-
-            entity.Property(e => e.CheckInTokenGeneratedAt)
-                .HasColumnType("datetime");
-
-            entity.Property(e => e.CheckInTokenUsedAt)
-                .HasColumnType("datetime");
-
-        });
+    
 
         modelBuilder.Entity<BookingDetail>(entity =>
         {

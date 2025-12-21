@@ -27,31 +27,7 @@ namespace CondotelManagement.Controllers
         {
             return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
         }
-        [HttpPost("dev/confirm-booking/{bookingId}")]
-        public async Task<IActionResult> DevConfirmBooking(int bookingId)
-        {
-            var booking = await _context.Bookings
-                .Include(b => b.Customer)
-                .FirstOrDefaultAsync(b => b.BookingId == bookingId);
 
-            if (booking == null)
-                return NotFound();
-
-            booking.Status = "Confirmed";
-            booking.CheckInToken = TokenHelper.GenerateCheckInToken(booking.BookingId);
-
-            booking.CheckInTokenGeneratedAt = DateTime.UtcNow;
-            booking.CheckInTokenUsedAt = null;
-
-            await _context.SaveChangesAsync();
-
-            return Ok(new
-            {
-                booking.BookingId,
-                booking.Status,
-                booking.CheckInToken
-            });
-        }
 
 
         [HttpGet("my")]
@@ -100,51 +76,8 @@ namespace CondotelManagement.Controllers
             return CreatedAtAction(nameof(GetBookingById), new { id = booking.BookingId }, result);
         }
         [HttpPost("check-in")]
-        public async Task<IActionResult> CheckIn([FromBody] CheckInRequestDTO dto)
-        {
-            if (dto.BookingId <= 0 || string.IsNullOrWhiteSpace(dto.Token))
-                return BadRequest("Thông tin check-in không hợp lệ.");
+       
 
-            var booking = await _context.Bookings
-                .Include(b => b.Customer)
-                .FirstOrDefaultAsync(b => b.BookingId == dto.BookingId);
-
-            if (booking == null)
-                return NotFound("Không tìm thấy booking.");
-
-            // 1️⃣ Phải đã thanh toán
-            if (booking.Status != "Confirmed")
-                return BadRequest("Booking chưa sẵn sàng để check-in.");
-
-            // 2️⃣ Check token
-            if (booking.CheckInToken != dto.Token)
-                return Unauthorized("Mã check-in không hợp lệ.");
-
-            // 3️⃣ Check ngày check-in (chỉ so sánh ngày)
-            var today = DateOnly.FromDateTime(DateTime.Now);
-
-            if (today != booking.StartDate)
-                return BadRequest("Chưa đến ngày check-in.");
-
-            // 4️⃣ Update trạng thái
-            booking.Status = "InStay";
-            booking.CheckInTokenUsedAt = DateTime.Now;
-
-            await _context.SaveChangesAsync();
-
-            return Ok(new
-            {
-                message = "Check-in thành công.",
-                bookingId = booking.BookingId,
-                customer = booking.Customer.FullName,
-                checkInTime = booking.CheckInTokenUsedAt
-            });
-        }
-        public class CheckInRequestDTO
-        {
-            public int BookingId { get; set; }
-            public string Token { get; set; } = null!;
-        }
 
 
 
