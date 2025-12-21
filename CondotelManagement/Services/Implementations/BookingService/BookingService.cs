@@ -264,8 +264,8 @@ namespace CondotelManagement.Services
                 .AsEnumerable()
                 .ToList();
 
-            var newCheckIn = checkIn.ToDateTime(new TimeOnly(12, 0));
-            var newCheckOut = checkOut.ToDateTime(new TimeOnly(10, 0));
+            var newCheckIn = checkIn.ToDateTime(new TimeOnly(14, 0));
+            var newCheckOut = checkOut.ToDateTime(new TimeOnly(12, 0));
 
             return !bookings.Any(b =>
             {
@@ -494,10 +494,10 @@ namespace CondotelManagement.Services
                     StartDate = booking.StartDate,
                     EndDate = booking.EndDate,
                     CheckInAt = booking.StartDate
-    .ToDateTime(new TimeOnly(12, 0)),
+    .ToDateTime(new TimeOnly(14, 0)),
 
                     CheckOutAt = booking.EndDate
-    .ToDateTime(new TimeOnly(10, 0)),
+    .ToDateTime(new TimeOnly(12, 0)),
                     TotalPrice = booking.TotalPrice,
                     Status = booking.Status,
                     PromotionId = booking.PromotionId,

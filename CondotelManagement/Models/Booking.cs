@@ -18,13 +18,7 @@ public partial class Booking
     public decimal? TotalPrice { get; set; }
 
     public string Status { get; set; } = null!;
-    public string? CheckInToken { get; set; }
-
-    public DateTime? CheckInTokenGeneratedAt { get; set; }
-
-    public DateTime? CheckInTokenUsedAt { get; set; }
-
-
+  
 
     public int? PromotionId { get; set; }
 
