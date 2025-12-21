@@ -8,7 +8,8 @@ namespace CondotelManagement.DTOs
     {
         public int BookingId { get; set; }
         public int CondotelId { get; set; }
-        public string CondotelName { get; set; }  
+        public string CondotelName { get; set; }
+        public string? ThumbnailImage { get; set; }  
         public int CustomerId { get; set; }
         public DateOnly StartDate { get; set; }
         public DateOnly EndDate { get; set; }

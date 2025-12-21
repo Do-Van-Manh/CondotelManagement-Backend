@@ -58,6 +58,7 @@ namespace CondotelManagement.Services
 
             var bookings = await _context.Bookings
      .Include(b => b.Condotel)
+         .ThenInclude(c => c.CondotelImages)
      .Where(b => b.CustomerId == customerId)
      .OrderByDescending(b => b.EndDate)
      .ToListAsync();
@@ -135,6 +136,7 @@ namespace CondotelManagement.Services
                     BookingId = b.BookingId,
                     CondotelId = b.CondotelId,
                     CondotelName = b.Condotel.Name,
+                    ThumbnailImage = b.Condotel.CondotelImages.FirstOrDefault()?.ImageUrl,
                     CustomerId = b.CustomerId,
                     StartDate = b.StartDate,
                     EndDate = b.EndDate,
@@ -167,6 +169,7 @@ namespace CondotelManagement.Services
             // Lấy booking với Include Condotel
             var b = await _context.Bookings
                 .Include(b => b.Condotel)
+                    .ThenInclude(c => c.CondotelImages)
                 .FirstOrDefaultAsync(b => b.BookingId == id);
             
             if (b == null) return null;
@@ -192,6 +195,7 @@ namespace CondotelManagement.Services
             var dto = ToDTO(b);
             dto.RefundStatus = refundStatus;
             dto.CondotelName = b.Condotel?.Name ?? "";
+            dto.ThumbnailImage = b.Condotel?.CondotelImages.FirstOrDefault()?.ImageUrl;
 
             // Set các field khác
             dto.CanReview = b.Status == "Completed"
