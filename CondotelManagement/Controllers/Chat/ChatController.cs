@@ -147,42 +147,42 @@ namespace CondotelManagement.Controllers.Chat
         /// MỚI: Gửi tin nhắn đến chủ condotel (dùng từ trang chi tiết condotel)
         /// Trả về conversationId để frontend mở chat chính xác
         /// </summary>
-        //[HttpPost("messages/send-to-host")]
-        //public async Task<IActionResult> SendToCondotelHost([FromBody] SendMessageToCondotelHostRequest request)
-        //{
-        //    try
-        //    {
-        //        var senderId = GetCurrentUserId();
+        [HttpPost("messages/send-to-host")]
+        public async Task<IActionResult> SendToCondotelHost([FromBody] SendMessageToCondotelHostRequest request)
+        {
+            try
+            {
+                var senderId = GetCurrentUserId();
 
-        //        // Lấy condotel và JOIN với bảng Host để lấy UserID thật của host
-        //        var condotel = await _context.Condotels
-        //            .AsNoTracking()
-        //            .Include(c => c.Host)  // Đảm bảo có navigation property Host trong model Condotel
-        //            .FirstOrDefaultAsync(c => c.CondotelId == request.CondotelId);
+                // Lấy condotel và JOIN với bảng Host để lấy UserID thật của host
+                var condotel = await _context.Condotels
+                    .AsNoTracking()
+                    .Include(c => c.Host)  // Đảm bảo có navigation property Host trong model Condotel
+                    .FirstOrDefaultAsync(c => c.CondotelId == request.CondotelId);
 
-        //        if (condotel == null)
-        //            return NotFound(new { error = "Condotel không tồn tại" });
+                if (condotel == null)
+                    return NotFound(new { error = "Condotel không tồn tại" });
 
-        //        // LẤY USERID THẬT CỦA HOST TỪ BẢNG HOST
-        //        var hostUserId = condotel.Host?.UserId;
+                // LẤY USERID THẬT CỦA HOST TỪ BẢNG HOST
+                var hostUserId = condotel.Host?.UserId;
 
-        //        if (hostUserId == null)
-        //            return NotFound(new { error = "Host của condotel không tồn tại" });
+                if (hostUserId == null)
+                    return NotFound(new { error = "Host của condotel không tồn tại" });
 
-        //        if (hostUserId == senderId)
-        //            return BadRequest(new { error = "Không thể chat với chính mình" });
+                if (hostUserId == senderId)
+                    return BadRequest(new { error = "Không thể chat với chính mình" });
 
-        //        // Dùng hostUserId (UserID thật) để tạo conversation và gửi tin
-        //        var conversationId = await _chatService.GetOrCreateDirectConversationIdAsync(senderId, hostUserId.Value);
-        //        await _chatService.SendMessageAsync(conversationId, senderId, request.Content);
+                // Dùng hostUserId (UserID thật) để tạo conversation và gửi tin
+                var conversationId = await _chatService.GetOrCreateDirectConversationIdAsync(senderId, hostUserId.Value);
+                await _chatService.SendMessageAsync(conversationId, senderId, request.Content);
 
-        //        return Ok(new { conversationId });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new { error = "Lỗi khi mở chat với host", message = ex.Message });
-        //    }
-        //}
+                return Ok(new { conversationId });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Lỗi khi mở chat với host", message = ex.Message });
+            }
+        }
 
         public class SendMessageToCondotelHostRequest
         {
