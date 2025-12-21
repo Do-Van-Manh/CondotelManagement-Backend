@@ -34,5 +34,7 @@ namespace CondotelManagement.Services
 			int? bathrooms,
 			int pageNumber,
 			int pageSize);
+		PagedResult<CondotelDTO> GetInactiveCondotelsByHostPaged(int hostId, int pageNumber, int pageSize);
+		bool ActivateCondotel(int condotelId);
 	}
 }

@@ -61,6 +61,10 @@ namespace CondotelManagement.Models
         [StringLength(50)]
         public string? PaymentMethod { get; set; } // 'Auto' (PayOS) hoặc 'Manual'
         
+        // Resubmission tracking
+        [Range(0, 1)]
+        public int ResubmissionCount { get; set; } = 0; // Số lần user resubmit sau khi reject (max 1)
+        
         // Timestamps
         [Required]
         [Column(TypeName = "datetime")]
