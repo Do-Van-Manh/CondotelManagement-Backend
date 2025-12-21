@@ -3,6 +3,7 @@ using CondotelManagement.Services.Interfaces.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace CondotelManagement.Controllers.Auth
 {
@@ -176,6 +177,26 @@ namespace CondotelManagement.Controllers.Auth
         public IActionResult Logout()
         {
             return Ok(new { message = "Đăng xuất thành công" });
+        }
+        [HttpPost("change-password")]
+        [Authorize] // BẮT BUỘC phải đăng nhập (có JWT token)
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            var validationResult = ValidateAndReturn();
+            if (validationResult != null) return validationResult;
+
+            // Lấy email từ token JWT
+            var emailClaim = User.FindFirst(ClaimTypes.Email)?.Value;
+            if (string.IsNullOrEmpty(emailClaim))
+                return Unauthorized(new { message = "Không xác thực được người dùng" });
+
+            var result = await _authService.ChangePasswordAsync(emailClaim, request.CurrentPassword, request.NewPassword);
+            if (!result.IsSuccess)
+            {
+                return BadRequest(new { message = result.Message });
+            }
+
+            return Ok(new { message = "Đổi mật khẩu thành công" });
         }
     }
 }
