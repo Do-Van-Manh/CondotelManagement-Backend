@@ -118,7 +118,7 @@ namespace CondotelManagement.Controllers.Host
                         && hp.StartDate <= today
                         && hp.EndDate >= today)
                     .OrderByDescending(hp => hp.StartDate)
-                    .FirstOrDefault();
+                    .FirstOrDefault();//chuẩn 
 
                 var maxListings = activePackage != null
     ? _featureService.GetMaxListingCount(activePackage.PackageId)
@@ -270,6 +270,83 @@ namespace CondotelManagement.Controllers.Host
             {
 				return StatusCode(500, ApiResponse<object>.Fail("Lỗi hệ thống: " + ex.Message));
 			}
+        }
+
+        //GET /api/host/condotel/inactive?pageNumber=1&pageSize=10
+        // Lấy danh sách các condotel không hoạt động (Inactive)
+        [HttpGet("inactive")]
+        public ActionResult<object> GetInactiveCondotels([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        {
+            try
+            {
+                var host = _hostService.GetByUserId(User.GetUserId());
+                if (host == null)
+                    return Unauthorized(ApiResponse<object>.Fail("Không tìm thấy host. Vui lòng đăng ký làm host trước."));
+
+                // Validate pagination parameters
+                if (pageNumber < 1)
+                    pageNumber = 1;
+                if (pageSize < 1 || pageSize > 100)
+                    pageSize = 10; // Default 10, max 100
+
+                var hostId = host.HostId;
+                var result = _condotelService.GetInactiveCondotelsByHostPaged(hostId, pageNumber, pageSize);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Danh sách condotel không hoạt động",
+                    data = result.Items,
+                    pagination = new
+                    {
+                        pageNumber = result.PageNumber,
+                        pageSize = result.PageSize,
+                        totalCount = result.TotalCount,
+                        totalPages = result.TotalPages,
+                        hasPreviousPage = result.HasPreviousPage,
+                        hasNextPage = result.HasNextPage
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Fail("Lỗi hệ thống: " + ex.Message));
+            }
+        }
+
+        //PUT /api/host/condotel/{id}/activate
+        // Kích hoạt lại condotel (chuyển từ Inactive sang Active)
+        [HttpPut("{id}/activate")]
+        public ActionResult ActivateCondotel(int id)
+        {
+            try
+            {
+                var host = _hostService.GetByUserId(User.GetUserId());
+                if (host == null)
+                    return Unauthorized(ApiResponse<object>.Fail("Không tìm thấy host. Vui lòng đăng ký làm host trước."));
+
+                // Kiểm tra ownership - đảm bảo condotel thuộc về host này
+                var existingCondotel = _condotelService.GetCondotelById(id);
+                if (existingCondotel == null)
+                    return NotFound(ApiResponse<object>.Fail("Không tìm thấy condotel"));
+
+                if (existingCondotel.HostId != host.HostId)
+                    return StatusCode(403, ApiResponse<object>.Fail("Bạn không có quyền kích hoạt căn hộ này"));
+
+                // Kiểm tra xem condotel có status là Inactive không
+                if (existingCondotel.Status != "Inactive")
+                    return BadRequest(ApiResponse<object>.Fail($"Chỉ có thể kích hoạt lại condotel có trạng thái Inactive. Trạng thái hiện tại: {existingCondotel.Status}"));
+
+                var success = _condotelService.ActivateCondotel(id);
+                if (!success)
+                    return StatusCode(500, ApiResponse<object>.Fail("Không thể kích hoạt condotel"));
+
+                return Ok(ApiResponse<object>.SuccessResponse("Condotel đã được kích hoạt thành công"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.Fail("Lỗi hệ thống: " + ex.Message));
+            }
         }
     }
 }

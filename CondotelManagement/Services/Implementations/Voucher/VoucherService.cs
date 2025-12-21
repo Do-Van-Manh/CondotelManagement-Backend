@@ -296,8 +296,14 @@ namespace CondotelManagement.Services
 				return null;
 			}
 
-			// Kiểm tra user (nếu voucher có UserId - voucher cá nhân)
+			// QUAN TRỌNG: Kiểm tra quyền sở hữu voucher
+			// - Nếu voucher có UserId (voucher cá nhân): CHỈ user đó mới được dùng
+			// - Nếu voucher không có UserId (voucher công khai): Bất kỳ ai cũng được dùng
 			if (voucher.UserId.HasValue && voucher.UserId.Value != userId)
+			{
+				// Voucher thuộc về user khác → không được phép sử dụng
+				return null;
+			}
 				return null;
 
 			// Kiểm tra usage limit

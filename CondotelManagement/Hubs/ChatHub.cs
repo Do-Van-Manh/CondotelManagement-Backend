@@ -41,9 +41,9 @@
         public async Task SendMessage(int conversationId, string content)
         {
             if (string.IsNullOrWhiteSpace(content)) return;
+
             var senderId = GetCurrentUserId();
 
-            // 1. Tạo và Lưu (Code cũ của bạn - Giữ nguyên)
             var message = new ChatMessage
             {
                 ConversationId = conversationId,
@@ -51,9 +51,9 @@
                 Content = content.Trim(),
                 SentAt = DateTime.UtcNow
             };
-          
 
-            // 2. Chuẩn bị DTO (Code cũ của bạn - Giữ nguyên)
+            await _chatService.AddMessageAsync(message);
+
             var messageDto = new
             {
                 messageId = message.MessageId,
@@ -63,14 +63,13 @@
                 sentAt = message.SentAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
             };
 
-            // --- 3. PHẦN SỬA ĐỔI: GỬI ĐÍCH DANH (REALTIME) ---
+            var receiverId = await _chatService.GetOtherUserIdInConversationAsync(conversationId, senderId);
 
-          
+            if (receiverId > 0 && receiverId != senderId)
+            {
+                await Clients.User(receiverId.ToString()).SendAsync("ReceiveMessage", messageDto);
+            }
 
-            // B. Gửi cho người nhận (Nếu họ đang Online thì nhận được ngay)
-           
-
-            // C. Gửi cho chính mình (Để đồng bộ nếu bạn đang mở 2 tab hoặc dùng điện thoại + web)
             await Clients.User(senderId.ToString()).SendAsync("ReceiveMessage", messageDto);
         }
 

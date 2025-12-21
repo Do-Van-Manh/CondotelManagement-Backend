@@ -42,13 +42,29 @@ namespace CondotelManagement.Controllers.Tenant
         }
 
         /// <summary>
-        /// Lấy danh sách voucher theo condotel (public, không cần auth)
+        /// Lấy danh sách voucher theo condotel - chỉ hiển thị voucher công khai (không có UserId)
+        /// hoặc voucher của chính user đang đăng nhập (nếu có auth)
         /// </summary>
         [HttpGet("condotel/{condotelId}")]
         public async Task<IActionResult> GetVouchersByCondotel(int condotelId)
         {
-            var vouchers = await _voucherService.GetVouchersByCondotelAsync(condotelId);
-            return Ok(ApiResponse<object>.SuccessResponse(vouchers));
+            // Lấy userId nếu user đã đăng nhập (optional)
+            int? currentUserId = null;
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out int userId))
+            {
+                currentUserId = userId;
+            }
+
+            var allVouchers = await _voucherService.GetVouchersByCondotelAsync(condotelId);
+            
+            // Lọc: chỉ hiển thị voucher công khai HOẶC voucher của chính user đang đăng nhập
+            var filteredVouchers = allVouchers.Where(v => 
+                !v.UserID.HasValue || // Voucher công khai (không có UserID)
+                (currentUserId.HasValue && v.UserID.Value == currentUserId.Value) // Hoặc voucher của chính user này
+            );
+
+            return Ok(ApiResponse<object>.SuccessResponse(filteredVouchers));
         }
 
 		[HttpPost("auto-create/{bookingId}")]
