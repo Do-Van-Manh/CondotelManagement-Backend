@@ -2,6 +2,9 @@
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
+using System.Net.Mail;
+using System.Net;
+using SmtpClient = MailKit.Net.Smtp.SmtpClient;
 
 namespace CondotelManagement.Services.Implementations.Shared
 {
@@ -12,6 +15,31 @@ namespace CondotelManagement.Services.Implementations.Shared
         public EmailService(IConfiguration config)
         {
             _config = config;
+        }
+        public async Task SendEmailAsync(string toEmail, string subject, string body)
+        {
+            var smtpClient = new System.Net.Mail.SmtpClient
+            {
+                Host = _config["Email:SmtpHost"],
+                Port = int.Parse(_config["Email:SmtpPort"]),
+                EnableSsl = true,
+                Credentials = new NetworkCredential(
+                    _config["Email:Username"],
+                    _config["Email:Password"]
+                )
+            };
+
+            var mailMessage = new MailMessage
+            {
+                From = new MailAddress(_config["Email:From"]),
+                Subject = subject,
+                Body = body,
+                IsBodyHtml = false
+            };
+
+            mailMessage.To.Add(toEmail);
+
+            await smtpClient.SendMailAsync(mailMessage);
         }
 
         public async Task SendPasswordResetEmailAsync(string toEmail, string resetLink)
@@ -42,6 +70,38 @@ namespace CondotelManagement.Services.Implementations.Shared
             await smtp.SendAsync(email);
             await smtp.DisconnectAsync(true);
         }
+        public async Task SendBookingConfirmedEmailAsync(
+    string toEmail,
+    string customerName,
+    int bookingId,
+    string token,
+    DateTime checkInAt,
+    DateTime checkOutAt
+)
+        {
+            var subject = $"Booking #{bookingId} confirmed – Check-in information";
+
+            var body = $@"
+Xin chào {customerName},
+
+🎉 Đặt phòng của bạn đã được xác nhận thành công!
+
+📌 Mã đặt phòng: {bookingId}
+🔐 Mã check-in: {token}
+
+⏰ Thời gian:
+- Check-in: {checkInAt:dd/MM/yyyy} từ 12:00
+- Check-out: {checkOutAt:dd/MM/yyyy} trước 10:00
+
+👉 Vui lòng mang theo mã check-in khi đến nhận phòng.
+👉 Không chia sẻ mã này cho người khác.
+
+Cảm ơn bạn đã sử dụng dịch vụ!
+";
+
+            await SendEmailAsync(toEmail, subject, body);
+        }
+
         public async Task SendPasswordResetOtpAsync(string toEmail, string otp)
         {
             var email = new MimeMessage();
