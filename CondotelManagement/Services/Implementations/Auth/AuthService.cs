@@ -330,7 +330,24 @@ namespace CondotelManagement.Services.Implementations.Auth
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
+        public async Task<(bool IsSuccess, string Message)> ChangePasswordAsync(string email, string currentPassword, string newPassword)
+        {
+            var user = await _repo.GetByEmailAsync(email);
+            if (user == null || user.Status != "Active")
+                return (false, "Tài khoản không tồn tại hoặc chưa được kích hoạt");
 
+            // Kiểm tra mật khẩu hiện tại
+            if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+                return (false, "Mật khẩu hiện tại không đúng");
+
+            // Hash mật khẩu mới
+            string newHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            var success = await _repo.UpdatePasswordAsync(email, newHash);
+            if (!success)
+                return (false, "Có lỗi khi cập nhật mật khẩu");
+
+            return (true, "Đổi mật khẩu thành công");
+        }
         // HÀM CŨ NÀY BÂY GIỜ KHÔNG CÒN DÙNG ĐẾN (có thể xóa)
         // private LoginResponse GenerateJwtToken(User user) { ... }
     }
