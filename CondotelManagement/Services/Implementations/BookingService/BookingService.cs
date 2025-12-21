@@ -237,15 +237,18 @@ namespace CondotelManagement.Services
             }
         }
 
-        private bool CheckAvailabilityInternal(int condotelId, DateOnly checkIn, DateOnly checkOut, DateOnly today)
+        private bool CheckAvailabilityInternal(
+    int condotelId,
+    DateOnly checkIn,
+    DateOnly checkOut,
+    DateOnly today)
         {
-            // SQL Server sử dụng WITH (UPDLOCK, ROWLOCK) thay vì FOR UPDATE
             var sql = @"
         SELECT * FROM Booking WITH (UPDLOCK, ROWLOCK)
         WHERE CondotelId = @condotelId 
-        AND Status IN ('Confirmed', 'Completed', 'Pending')
-        AND Status != 'Cancelled'
-        AND EndDate >= @today";
+        AND Status IN ('Confirmed', 'Completed', 'Pending','InStay')
+        AND EndDate >= @today
+    ";
 
             var bookings = _context.Bookings
                 .FromSqlRaw(sql,
@@ -254,11 +257,19 @@ namespace CondotelManagement.Services
                 .AsEnumerable()
                 .ToList();
 
-            // Kiểm tra overlap chính xác
+            var newCheckIn = checkIn.ToDateTime(new TimeOnly(12, 0));
+            var newCheckOut = checkOut.ToDateTime(new TimeOnly(10, 0));
+
             return !bookings.Any(b =>
-                !(checkOut <= b.StartDate || checkIn >= b.EndDate)
-            );
+            {
+                var existingCheckIn = b.StartDate.ToDateTime(new TimeOnly(14, 0));
+                var existingCheckOut = b.EndDate.ToDateTime(new TimeOnly(12, 0));
+
+                return newCheckIn < existingCheckOut
+                    && newCheckOut > existingCheckIn;
+            });
         }
+
 
 
         public async Task<ServiceResultDTO> CreateBookingAsync(CreateBookingDTO dto, int customerId)
@@ -475,6 +486,11 @@ namespace CondotelManagement.Services
                     CustomerId = booking.CustomerId,
                     StartDate = booking.StartDate,
                     EndDate = booking.EndDate,
+                    CheckInAt = booking.StartDate
+    .ToDateTime(new TimeOnly(12, 0)),
+
+                    CheckOutAt = booking.EndDate
+    .ToDateTime(new TimeOnly(10, 0)),
                     TotalPrice = booking.TotalPrice,
                     Status = booking.Status,
                     PromotionId = booking.PromotionId,

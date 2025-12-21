@@ -7,6 +7,7 @@ using Microsoft.Data.SqlClient;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using CondotelManagement.Services.Interfaces.Shared;
 
 namespace CondotelManagement.Services.Implementations.Payment
 {
@@ -438,6 +439,7 @@ namespace CondotelManagement.Services.Implementations.Payment
                 
                 // Sử dụng transaction với Serializable isolation để tránh race condition
                 using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+
                 try
                 {
                     // Lock booking row để tránh race condition
@@ -446,7 +448,29 @@ namespace CondotelManagement.Services.Implementations.Payment
                             "SELECT * FROM Booking WITH (UPDLOCK, ROWLOCK) WHERE BookingId = @bookingId",
                             new SqlParameter("@bookingId", bookingId_normal))
                         .FirstOrDefaultAsync();
+                    if (booking == null)
+                    {
+                        await transaction.CommitAsync();
+                        Console.WriteLine($"[Webhook] Không tìm thấy Booking {bookingId_normal}");
+                        return false;
+                    }
+                    var customer = await _context.Users
+      .Where(u => u.UserId == booking.CustomerId)
+      .Select(u => new
+      {
+          u.Email,
+          u.FullName
+      })
+      .FirstOrDefaultAsync();
 
+                    if (customer == null)
+                    {
+                        await transaction.CommitAsync();
+                        Console.WriteLine("[EMAIL] Không tìm thấy customer");
+                        return true;
+                    }
+
+                   
                     if (booking != null)
                     {
                         if (booking.Status == "Confirmed" || booking.Status == "Completed")
@@ -457,13 +481,13 @@ namespace CondotelManagement.Services.Implementations.Payment
                         }
 
                         // Kiểm tra availability trước khi confirm để tránh double booking
-                        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+                        var today = DateOnly.FromDateTime(DateTime.Now);
                         var conflictingBookings = await _context.Bookings
                             .FromSqlRaw(@"
                                 SELECT * FROM Booking WITH (UPDLOCK, ROWLOCK)
                                 WHERE CondotelId = @condotelId 
                                 AND BookingId != @currentBookingId
-                                AND Status IN ('Confirmed', 'Completed', 'Pending')
+                                AND Status IN ('Confirmed', 'Completed', 'Pending','InStay')
                                 AND Status != 'Cancelled'
                                 AND EndDate >= @today",
                                 new SqlParameter("@condotelId", booking.CondotelId),
@@ -492,11 +516,44 @@ namespace CondotelManagement.Services.Implementations.Payment
 
                         // Không có conflict → confirm booking
                         booking.Status = "Confirmed";
+                        booking.CheckInToken = TokenHelper.GenerateCheckInToken(booking.BookingId);
+                        booking.CheckInTokenGeneratedAt = DateTime.Now;
+                        booking.CheckInTokenUsedAt = null;
+
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
-                        
-                        // Tăng Voucher UsedCount khi payment thành công
-                        if (booking.VoucherId.HasValue)
+
+                        try
+                        {
+                            using var scope = _serviceProvider.CreateScope();
+                            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+                            var checkInAt = booking.StartDate.ToDateTime(new TimeOnly(12, 0));
+                            var checkOutAt = booking.EndDate.ToDateTime(new TimeOnly(10, 0));
+
+                            await emailService.SendBookingConfirmedEmailAsync(
+                                toEmail: customer.Email,
+                                customerName: customer.FullName,
+                                bookingId: booking.BookingId,
+                                token: booking.CheckInToken,
+                                checkInAt: checkInAt,
+                                checkOutAt: checkOutAt
+                            );
+
+                            Console.WriteLine($"[EMAIL] Đã gửi mail token cho {customer.Email}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("====== EMAIL ERROR ======");
+                            Console.WriteLine(ex.ToString());
+                            Console.WriteLine("=========================");
+                        }
+
+                     
+
+
+                // Tăng Voucher UsedCount khi payment thành công
+                if (booking.VoucherId.HasValue)
                         {
                             try
                             {
@@ -717,6 +774,8 @@ namespace CondotelManagement.Services.Implementations.Payment
                 throw new InvalidOperationException($"Error creating PayOS refund payment link: {ex.Message}", ex);
             }
         }
+
+
 
         public async Task<PayOSCreatePaymentResponse> CreatePackageRefundPaymentLinkAsync(int hostId, long originalOrderCode, decimal refundAmount, string hostName, string? hostEmail = null, string? hostPhone = null)
         {
