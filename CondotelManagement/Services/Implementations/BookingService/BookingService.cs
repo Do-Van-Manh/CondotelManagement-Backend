@@ -483,7 +483,10 @@ namespace CondotelManagement.Services
                     Status = "Pending",
                     PromotionId = appliedPromotionId,
                     VoucherId = appliedVoucherId,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now,
+                     GuestFullName = dto.GuestFullName,
+                    GuestPhone = dto.GuestPhone,
+                    GuestIdNumber = dto.GuestIdNumber
                 };
                 var responseDto = new BookingDTO
                 {
@@ -498,6 +501,9 @@ namespace CondotelManagement.Services
 
                     CheckOutAt = booking.EndDate
     .ToDateTime(new TimeOnly(12, 0)),
+                    GuestFullName = booking.GuestFullName,
+                    GuestPhone = booking.GuestPhone,
+                    GuestIdNumber = booking.GuestIdNumber,
                     TotalPrice = booking.TotalPrice,
                     Status = booking.Status,
                     PromotionId = booking.PromotionId,
@@ -1379,7 +1385,10 @@ namespace CondotelManagement.Services
             Status = dto.Status,
             PromotionId = dto.PromotionId,
             VoucherId = dto.VoucherId,
-            CreatedAt = dto.CreatedAt
+            CreatedAt = dto.CreatedAt,
+            GuestFullName = dto.GuestFullName,
+            GuestPhone = dto.GuestPhone,
+            GuestIdNumber = dto.GuestIdNumber
         };
 
         public IEnumerable<HostBookingDTO> GetBookingsByHost(int hostId)

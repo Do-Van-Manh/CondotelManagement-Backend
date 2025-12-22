@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using CondotelManagement.Services.Interfaces.Shared;
+using static CondotelManagement.Services.Implementations.Shared.EmailService;
 
 namespace CondotelManagement.Services.Implementations.Payment
 {
@@ -435,102 +436,91 @@ namespace CondotelManagement.Services.Implementations.Payment
                 // ========================================================================
                 // PHẦN 2: XỬ LÝ BOOKING PAYMENT
                 // ========================================================================
-                var bookingId_normal = (int)(orderCode / 1000000);
-                
-                // Sử dụng transaction với Serializable isolation để tránh race condition
-                using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+                var bookingId_normal = (int)(orderCode / 1_000_000);
+
+                using var transaction = await _context.Database
+                    .BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+
 
                 try
                 {
-                    // Lock booking row để tránh race condition
                     var booking = await _context.Bookings
                         .FromSqlRaw(
                             "SELECT * FROM Booking WITH (UPDLOCK, ROWLOCK) WHERE BookingId = @bookingId",
                             new SqlParameter("@bookingId", bookingId_normal))
                         .FirstOrDefaultAsync();
+
                     if (booking == null)
                     {
                         await transaction.CommitAsync();
                         Console.WriteLine($"[Webhook] Không tìm thấy Booking {bookingId_normal}");
                         return false;
                     }
+
                     var customer = await _context.Users
-      .Where(u => u.UserId == booking.CustomerId)
-      .Select(u => new
-      {
-          u.Email,
-          u.FullName
-      })
-      .FirstOrDefaultAsync();
+                        .Where(u => u.UserId == booking.CustomerId)
+                        .Select(u => new { u.Email, u.FullName })
+                        .FirstOrDefaultAsync();
 
                     if (customer == null)
                     {
                         await transaction.CommitAsync();
-                        Console.WriteLine("[EMAIL] Không tìm thấy customer");
                         return true;
                     }
 
-                   
-                    if (booking != null)
+                    bool isJustConfirmed = false;
+
+                    // ✅ CHỈ XỬ LÝ NẾU CHƯA CONFIRMED
+                    if (booking.Status != "Confirmed")
                     {
-                        if (booking.Status == "Confirmed" || booking.Status == "Completed")
-                        {
-                            Console.WriteLine($"[Webhook] Booking {bookingId_normal} đã xác nhận trước đó → bỏ qua");
-                            await transaction.CommitAsync();
-                            return true;
-                        }
-
-                        // Kiểm tra availability trước khi confirm để tránh double booking
-                        var today = DateOnly.FromDateTime(DateTime.Now);
-                        var conflictingBookings = await _context.Bookings
+                        // Check conflict
+                        var conflicting = await _context.Bookings
                             .FromSqlRaw(@"
-                                SELECT * FROM Booking WITH (UPDLOCK, ROWLOCK)
-                                WHERE CondotelId = @condotelId 
-                                AND BookingId != @currentBookingId
-                                AND Status IN ('Confirmed', 'Completed', 'Pending','InStay')
-                                AND Status != 'Cancelled'
-                                AND EndDate >= @today",
+                SELECT * FROM Booking WITH (UPDLOCK, ROWLOCK)
+                WHERE CondotelId = @condotelId
+                  AND BookingId != @bookingId
+                  AND Status IN ('Confirmed','Completed')
+                  AND NOT (@endDate <= StartDate OR @startDate >= EndDate)",
                                 new SqlParameter("@condotelId", booking.CondotelId),
-                                new SqlParameter("@currentBookingId", booking.BookingId),
-                                new SqlParameter("@today", today))
-                            .ToListAsync();
+                                new SqlParameter("@bookingId", booking.BookingId),
+                                new SqlParameter("@startDate", booking.StartDate),
+                                new SqlParameter("@endDate", booking.EndDate))
+                            .AnyAsync();
 
-                        // Kiểm tra overlap với các booking đã confirmed/completed
-                        // CHỈ check conflict với Confirmed/Completed, KHÔNG check với Pending
-                        // Vì nếu có Pending khác trùng thời gian, booking nào thanh toán trước sẽ được confirm
-                        var hasConflict = conflictingBookings
-                            .Where(b => b.Status == "Confirmed" || b.Status == "Completed")
-                            .Any(b => !(booking.EndDate <= b.StartDate || booking.StartDate >= b.EndDate));
-
-                        if (hasConflict)
+                        if (conflicting)
                         {
-                            // Có conflict với booking đã confirmed/completed → không thể confirm
-                            Console.WriteLine($"[Webhook] Booking {bookingId_normal} có conflict với booking đã confirmed/completed → hủy booking");
                             booking.Status = "Cancelled";
                             await _context.SaveChangesAsync();
                             await transaction.CommitAsync();
-                            
-                            // TODO: Có thể gửi email thông báo cho customer về việc booking bị hủy do conflict
-                            return false; // Trả về false để PayOS biết có lỗi
+                            return false;
                         }
 
-                        // Không có conflict → confirm booking
+                        // Confirm booking
                         booking.Status = "Confirmed";
+                        isJustConfirmed = true;
+
+                        // Generate token
+                        if (string.IsNullOrEmpty(booking.CheckInToken))
+                        {
+                            booking.CheckInToken = TokenHelper.GenerateCheckInToken(booking.BookingId);
+                            booking.CheckInTokenGeneratedAt = DateTime.Now;
+                            booking.CheckInTokenUsedAt = null;
+                        }
 
                         await _context.SaveChangesAsync();
-                        
+
                         // Gửi email xác nhận booking cho tenant
                         try
                         {
                             // Lấy thông tin customer đầy đủ và condotel để gửi email
                             var customerInfo = await _context.Users.FindAsync(booking.CustomerId);
                             var condotel = await _context.Condotels.FindAsync(booking.CondotelId);
-                            
+
                             if (customerInfo != null && condotel != null && !string.IsNullOrEmpty(customerInfo.Email))
                             {
                                 using var scope = _serviceProvider.CreateScope();
                                 var emailService = scope.ServiceProvider.GetRequiredService<CondotelManagement.Services.Interfaces.Shared.IEmailService>();
-                                
+
                                 await emailService.SendBookingConfirmationEmailAsync(
                                     toEmail: customerInfo.Email,
                                     customerName: customerInfo.FullName ?? "Khách hàng",
@@ -541,15 +531,15 @@ namespace CondotelManagement.Services.Implementations.Payment
                                     totalAmount: booking.TotalPrice ?? 0m,
                                     confirmedAt: DateTime.Now
                                 );
-                                
+
                                 Console.WriteLine($"[Webhook] Đã gửi email xác nhận booking đến {customerInfo.Email} cho booking {booking.BookingId}");
-                                
+
                                 // Gửi email thông báo cho host về booking mới (chỉ khi host không phải là customer)
                                 var host = await _context.Hosts
                                     .Where(h => h.HostId == condotel.HostId)
                                     .Include(h => h.User)
                                     .FirstOrDefaultAsync();
-                                
+
                                 // Chỉ gửi email cho host nếu họ không phải là người đặt phòng
                                 if (host?.User != null && !string.IsNullOrEmpty(host.User.Email) && host.UserId != booking.CustomerId)
                                 {
@@ -564,7 +554,7 @@ namespace CondotelManagement.Services.Implementations.Payment
                                         totalAmount: booking.TotalPrice ?? 0m,
                                         confirmedAt: DateTime.Now
                                     );
-                                    
+
                                     Console.WriteLine($"[Webhook] Đã gửi email thông báo booking mới đến host {host.User.Email}");
                                 }
                                 else if (host?.UserId == booking.CustomerId)
@@ -578,16 +568,58 @@ namespace CondotelManagement.Services.Implementations.Payment
                             // Log lỗi nhưng không fail transaction nếu email không gửi được
                             Console.WriteLine($"[Webhook] Lỗi khi gửi email xác nhận booking: {emailEx.Message}");
                         }
-                        
+
                         await transaction.CommitAsync();
+                    }
 
-                      
+                    // ✅ GỬI EMAIL - ĐẶT NGOÀI if, luôn chạy nếu isJustConfirmed = true
+                    if (isJustConfirmed)
+                    {
+                        try
+                        {
+                            var condotel = await _context.Condotels
+                                .Where(c => c.CondotelId == booking.CondotelId)
+                                .Select(c => new { c.Name })
+                                .FirstOrDefaultAsync();
 
-                     
+                            var detail = await _context.CondotelDetails
+                                .Where(d => d.CondotelId == booking.CondotelId)
+                                .Select(d => new { d.BuildingName, d.RoomNumber })
+                                .FirstOrDefaultAsync();
 
+                            if (condotel == null || detail == null)
+                            {
+                                Console.WriteLine("[EMAIL] Thiếu thông tin condotel");
+                                return true;
+                            }
 
-                // Tăng Voucher UsedCount khi payment thành công
-                if (booking.VoucherId.HasValue)
+                            var emailInfo = new BookingEmailInfo
+                            {
+                                CustomerName = customer.FullName,
+                                GuestName = string.IsNullOrWhiteSpace(booking.GuestFullName)
+                                    ? customer.FullName
+                                    : booking.GuestFullName,
+                                CondotelName = condotel.Name,
+                                RoomNumber = $"{detail.BuildingName} - Phòng {detail.RoomNumber}",
+                                CheckInToken = booking.CheckInToken,
+                                CheckInAt = booking.StartDate.ToDateTime(new TimeOnly(14, 0)),
+                                CheckOutAt = booking.EndDate.ToDateTime(new TimeOnly(12, 0))
+                            };
+
+                            using var scope = _serviceProvider.CreateScope();
+                            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+                            await emailService.SendBookingConfirmedEmailAsync(customer.Email, emailInfo);
+
+                            Console.WriteLine($"[EMAIL] Sent to {customer.Email}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[EMAIL ERROR] {ex.Message}");
+                        }
+
+                        // ✅ TĂNG VOUCHER - chỉ khi mới confirm
+                        if (booking.VoucherId.HasValue)
                         {
                             try
                             {
@@ -599,25 +631,22 @@ namespace CondotelManagement.Services.Implementations.Payment
                             catch (Exception ex)
                             {
                                 Console.WriteLine($"[Webhook] Lỗi khi tăng Voucher UsedCount: {ex.Message}");
-                                // Không throw để không ảnh hưởng đến booking confirmation
                             }
                         }
-                        
+
                         Console.WriteLine($"[Webhook] ĐÃ XÁC NHẬN BOOKING {bookingId_normal} THÀNH CÔNG!");
-                        return true;
                     }
                     else
                     {
-                        await transaction.CommitAsync();
-                        Console.WriteLine($"[Webhook] Không tìm thấy Booking {bookingId_normal}");
-                        return false;
+                        Console.WriteLine($"[Webhook] Booking {bookingId_normal} đã được confirm trước đó");
                     }
+
+                    return true;
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
                     Console.WriteLine($"[Webhook] Lỗi khi xử lý booking payment: {ex.Message}");
-                    Console.WriteLine($"Stack Trace: {ex.StackTrace}");
                     throw;
                 }
 

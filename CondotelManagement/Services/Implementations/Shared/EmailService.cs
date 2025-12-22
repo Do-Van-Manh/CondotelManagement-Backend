@@ -70,37 +70,173 @@ namespace CondotelManagement.Services.Implementations.Shared
             await smtp.SendAsync(email);
             await smtp.DisconnectAsync(true);
         }
-        public async Task SendBookingConfirmedEmailAsync(
-    string toEmail,
-    string customerName,
-    int bookingId,
-    string token,
-    DateTime checkInAt,
-    DateTime checkOutAt
-)
+        public class BookingEmailInfo
         {
-            var subject = $"Booking #{bookingId} confirmed – Check-in information";
+           
+            public string CustomerName { get; set; } = string.Empty;
 
-            var body = $@"
-Xin chào {customerName},
 
-🎉 Đặt phòng của bạn đã được xác nhận thành công!
+            public string? GuestName { get; set; }
 
-📌 Mã đặt phòng: {bookingId}
-🔐 Mã check-in: {token}
+            
+            public string CondotelName { get; set; } = string.Empty;
 
-⏰ Thời gian:
-- Check-in: {checkInAt:dd/MM/yyyy} từ 12:00
-- Check-out: {checkOutAt:dd/MM/yyyy} trước 10:00
 
-👉 Vui lòng mang theo mã check-in khi đến nhận phòng.
-👉 Không chia sẻ mã này cho người khác.
+            public string RoomNumber { get; set; } = string.Empty;
 
-Cảm ơn bạn đã sử dụng dịch vụ!
-";
+            // Mã xác minh check-in
+            public string CheckInToken { get; set; } = string.Empty;
 
-            await SendEmailAsync(toEmail, subject, body);
+            // Thời gian
+            public DateTime CheckInAt { get; set; }
+            public DateTime CheckOutAt { get; set; }
         }
+
+
+        public async Task SendBookingConfirmedEmailAsync(
+          string toEmail,
+          BookingEmailInfo info
+      )
+        {
+            var email = new MimeMessage();
+            email.From.Add(new MailboxAddress(
+                _config["EmailSettings:SenderName"],
+                _config["EmailSettings:SenderEmail"]));
+            email.To.Add(MailboxAddress.Parse(toEmail));
+            email.Subject = $"Xác nhận đặt phòng – {info.CondotelName} ({info.RoomNumber})";
+
+            var guestSection = string.IsNullOrWhiteSpace(info.GuestName)
+                ? ""
+                : $@"
+            <tr>
+                <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>👤 Người lưu trú:</strong></td>
+                <td style='padding: 10px; border-bottom: 1px solid #eee;'>{info.GuestName}</td>
+            </tr>";
+
+            var htmlBody = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+        .success-icon {{ font-size: 48px; margin-bottom: 20px; }}
+        .info-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .token-box {{ background: #e3f2fd; border-left: 4px solid #2196f3; padding: 20px; margin: 20px 0; border-radius: 8px; }}
+        .token {{ font-size: 28px; font-weight: bold; color: #1976d2; letter-spacing: 2px; text-align: center; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
+        .warning-box {{ background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <div class='success-icon'>✓</div>
+            <h1>Đặt phòng thành công!</h1>
+        </div>
+        <div class='content'>
+            <p>Xin chào <strong>{info.CustomerName}</strong>,</p>
+            
+            <p>Chúng tôi xác nhận <strong>đặt phòng của bạn đã được thanh toán và xác nhận thành công</strong>.</p>
+            
+            <div class='info-box'>
+                <h3 style='margin-top: 0; color: #667eea;'>🏨 THÔNG TIN CĂN HỘ</h3>
+                <table>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Tên căn hộ:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{info.CondotelName}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Phòng:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{info.RoomNumber}</td>
+                    </tr>
+                    {guestSection}
+                </table>
+            </div>
+
+            <div class='info-box'>
+                <h3 style='margin-top: 0; color: #667eea;'>⏰ THỜI GIAN LƯU TRÚ</h3>
+                <table>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Check-in:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>Từ 14:00 – {info.CheckInAt:dd/MM/yyyy}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px;'><strong>Check-out:</strong></td>
+                        <td style='padding: 10px;'>Trước 12:00 – {info.CheckOutAt:dd/MM/yyyy}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class='token-box'>
+                <h3 style='margin-top: 0; color: #1976d2; text-align: center;'>🔐 MÃ XÁC MINH CHECK-IN</h3>
+                <div class='token'>{info.CheckInToken}</div>
+                <p style='text-align: center; margin-bottom: 0; color: #1976d2;'>
+                    <strong>Mã này là bằng chứng xác nhận hợp lệ để nhận phòng</strong>
+                </p>
+            </div>
+
+            <div class='info-box'>
+                <h3 style='margin-top: 0; color: #667eea;'>🧾 QUY TRÌNH NHẬN PHÒNG</h3>
+                <p>Khi đến nhận phòng, khách vui lòng:</p>
+                <ul style='padding-left: 20px;'>
+                    <li>Cung cấp mã check-in</li>
+                    <li>Xuất trình CCCD / Hộ chiếu hợp lệ</li>
+                    <li>Thông tin giấy tờ phải trùng khớp với người lưu trú</li>
+                </ul>
+                <p style='margin-bottom: 0;'>
+                    <em>Trường hợp không cung cấp được mã hoặc thông tin không hợp lệ, 
+                    chủ nhà/lễ tân có quyền từ chối nhận phòng theo chính sách vận hành.</em>
+                </p>
+            </div>
+
+            <div class='warning-box'>
+                <h4 style='margin-top: 0; color: #856404;'>🔒 LƯU Ý QUAN TRỌNG</h4>
+                <ul style='color: #856404; padding-left: 20px; margin-bottom: 0;'>
+                    <li>Không chia sẻ mã check-in cho người không liên quan</li>
+                    <li>Người sở hữu mã được xem là người được ủy quyền hợp lệ</li>
+                    <li>Mã chỉ có hiệu lực trong thời gian lưu trú đã đăng ký</li>
+                </ul>
+            </div>
+            
+            <p>Cảm ơn bạn đã sử dụng dịch vụ.<br>
+            Chúc bạn có kỳ nghỉ thuận lợi!</p>
+            
+            <p>Trân trọng,<br>
+            <strong>Ban quản lý hệ thống</strong></p>
+            
+            <div class='footer'>
+                <p>Email này được gửi tự động, vui lòng không trả lời email này.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
+
+            var body = new BodyBuilder
+            {
+                HtmlBody = htmlBody
+            };
+            email.Body = body.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            await smtp.ConnectAsync(
+                _config["EmailSettings:SmtpServer"],
+                int.Parse(_config["EmailSettings:Port"]),
+                SecureSocketOptions.StartTls);
+
+            await smtp.AuthenticateAsync(
+                _config["EmailSettings:SenderEmail"],
+                _config["EmailSettings:Password"]);
+
+            await smtp.SendAsync(email);
+            await smtp.DisconnectAsync(true);
+        }
+
 
         public async Task SendPasswordResetOtpAsync(string toEmail, string otp)
         {

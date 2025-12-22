@@ -17,7 +17,9 @@ namespace CondotelManagement.DTOs.Booking
 
         [Required(ErrorMessage = "Ngày kết thúc không được để trống.")]
         public DateOnly EndDate { get; set; }
-
+        public string? GuestFullName { get; set; }
+        public string? GuestIdNumber { get; set; }
+        public string? GuestPhone { get; set; }
         public int? PromotionId { get; set; }
 
         public string? VoucherCode { get; set; }
