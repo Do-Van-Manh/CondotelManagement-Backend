@@ -942,6 +942,89 @@ namespace CondotelManagement.Controllers.Payment
 
             try
             {
+                // Normalize bank code to uppercase
+                var bankCode = request.BankCode.ToUpper().Trim();
+                
+                // Map common bank names to standard VietQR bin codes (acqId)
+                // Reference: https://api.vietqr.io/v2/banks
+                var bankToBinMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    // Short codes with correct bin codes
+                    { "VCB", "970436" },        // Vietcombank
+                    { "VIETCOMBANK", "970436" },
+                    { "ICB", "970415" },        // VietinBank (Industrial and Commercial Bank of Vietnam)
+                    { "CTG", "970415" },        // VietinBank (Cong Thuong)
+                    { "VIETINBANK", "970415" },
+                    { "TCB", "970407" },        // Techcombank
+                    { "TECHCOMBANK", "970407" },
+                    { "MB", "970422" },         // MBBank (Military Bank)
+                    { "MBBANK", "970422" },
+                    { "ACB", "970416" },        // ACB (Asia Commercial Bank)
+                    { "BID", "970418" },        // BIDV (Bank for Investment and Development of Vietnam)
+                    { "BIDV", "970418" },
+                    { "VBA", "970405" },        // Agribank (Vietnam Bank for Agriculture and Rural Development)
+                    { "AGRIBANK", "970405" },
+                    { "STB", "970403" },        // Sacombank
+                    { "SACOMBANK", "970403" },
+                    { "VPB", "970432" },        // VPBank (Vietnam Prosperity Bank)
+                    { "VPBANK", "970432" },
+                    { "TPB", "970423" },        // TPBank (Tien Phong Bank)
+                    { "TPBANK", "970423" },
+                    { "HDB", "970437" },        // HDBank (Ho Chi Minh City Development Bank)
+                    { "HDBANK", "970437" },
+                    { "SHB", "970443" },        // SHB (Saigon-Hanoi Bank)
+                    { "SHBBANK", "970443" },
+                    { "EIB", "970431" },        // Eximbank (Vietnam Export Import Commercial Joint Stock Bank)
+                    { "EXIMBANK", "970431" },
+                    { "MSB", "970426" },        // MSB (Maritime Bank)
+                    { "MSBANK", "970426" },
+                    { "NAB", "970428" },        // NamABank
+                    { "NAMABANK", "970428" },
+                    { "VAB", "970427" },        // VietABank (Vietnam Asia Commercial Bank)
+                    { "VIETABANK", "970427" },
+                    { "PGB", "970430" },        // PGBank (Petrolimex Group Commercial Bank)
+                    { "PGBANK", "970430" },
+                    { "SEAB", "970440" },       // SeABank (Southeast Asia Commercial Bank)
+                    { "SEABANK", "970440" },
+                    { "ABB", "970425" },        // ABBank (An Binh Commercial Bank)
+                    { "ABBANK", "970425" },
+                    { "BAB", "970409" },        // BacABank (Bac A Commercial Bank)
+                    { "BACABANK", "970409" },
+                    { "KLB", "970452" },        // KienLongBank
+                    { "KIENLONGBANK", "970452" },
+                    { "NCB", "970419" },        // NCB (National Citizen Bank)
+                    { "VB", "970433" },         // VietBank (Vietnam Thuong Tin Commercial Bank)
+                    { "VIETBANK", "970433" },
+                    { "LPB", "970449" },        // LienVietPostBank
+                    { "LIENVIETPOSTBANK", "970449" },
+                    { "PVB", "970412" },        // PVcomBank (Petro Vietnam Commercial Bank)
+                    { "PVCOMBANK", "970412" },
+                    { "OCB", "970448" },        // OCB (Orient Commercial Bank)
+                    { "OCEANBANK", "970414" },  // OceanBank
+                    { "OJB", "970414" },        
+                    { "GPB", "970408" },        // GPBank (Global Petro Bank)
+                    { "GPBANK", "970408" },
+                    { "SCB", "970429" },        // SCB (Sai Gon Commercial Bank)
+                    { "SAIGONBANK", "970429" },
+                    { "CAKE", "546034" },       // Cake by VPBank
+                    { "UBANK", "546035" },      // Ubank by VPBank
+                    { "TIMO", "963388" },       // Timo by Ban Viet Bank
+                    { "VCCB", "970454" },       // VietCapital Bank
+                    { "VIETCAPITALBANK", "970454" }
+                };
+                
+                // Try to map to bin code first
+                string binCode;
+                if (bankToBinMap.ContainsKey(bankCode))
+                {
+                    binCode = bankToBinMap[bankCode];
+                }
+                else
+                {
+                    // If not found in map, assume it's already a bin code or valid bank code
+                    binCode = bankCode;
+                }
+                
                 // Tạo nội dung chuyển khoản
                 var content = string.IsNullOrWhiteSpace(request.Content) 
                     ? "Chuyen tien" 
@@ -951,18 +1034,18 @@ namespace CondotelManagement.Controllers.Payment
                 var encodedContent = Uri.EscapeDataString(content);
                 var encodedAccountName = Uri.EscapeDataString(request.AccountHolderName);
 
-                // Tạo URL QR code từ VietQR
-                // Format: https://img.vietqr.io/image/{bankCode}-{accountNumber}-{template}.jpg?amount={amount}&addInfo={content}&accountName={accountName}
+                // Tạo URL QR code từ VietQR với bin code
+                // Format: https://img.vietqr.io/image/{binCode}-{accountNumber}-{template}.jpg?amount={amount}&addInfo={content}&accountName={accountName}
                 var baseUrl = "https://img.vietqr.io/image";
-                var qrCodeUrlCompact = $"{baseUrl}/{request.BankCode}-{request.AccountNumber}-compact.jpg?amount={request.Amount}&addInfo={encodedContent}&accountName={encodedAccountName}";
-                var qrCodeUrlPrint = $"{baseUrl}/{request.BankCode}-{request.AccountNumber}-print.jpg?amount={request.Amount}&addInfo={encodedContent}&accountName={encodedAccountName}";
+                var qrCodeUrlCompact = $"{baseUrl}/{binCode}-{request.AccountNumber}-compact.jpg?amount={request.Amount}&addInfo={encodedContent}&accountName={encodedAccountName}";
+                var qrCodeUrlPrint = $"{baseUrl}/{binCode}-{request.AccountNumber}-print.jpg?amount={request.Amount}&addInfo={encodedContent}&accountName={encodedAccountName}";
 
                 var response = new GenerateQRResponseDTO
                 {
                     QrCodeUrl = qrCodeUrlCompact, // Default URL
                     QrCodeUrlCompact = qrCodeUrlCompact,
                     QrCodeUrlPrint = qrCodeUrlPrint,
-                    BankCode = request.BankCode,
+                    BankCode = binCode, // Return bin code
                     AccountNumber = request.AccountNumber,
                     Amount = request.Amount,
                     AccountHolderName = request.AccountHolderName,

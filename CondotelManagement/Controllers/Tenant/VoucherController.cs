@@ -20,10 +20,10 @@ namespace CondotelManagement.Controllers.Tenant
         }
 
         /// <summary>
-        /// Lấy danh sách voucher của user đang đăng nhập
+        /// Lấy danh sách voucher của user đang đăng nhập (hỗ trợ cả Tenant và Host vì Host cũng là User)
         /// </summary>
         [HttpGet("my")]
-        [Authorize(Roles = "Tenant")]
+        [Authorize(Roles = "Tenant,Host")]
         public async Task<IActionResult> GetMyVouchers()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
