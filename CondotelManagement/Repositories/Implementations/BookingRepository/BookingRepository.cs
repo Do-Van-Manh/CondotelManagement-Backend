@@ -140,7 +140,17 @@ namespace CondotelManagement.Repositories
                         ServiceName = d.Service.Name,
                         Quantity = d.Quantity,
                         Price = d.Price
-                    }).ToList()
+                    }).ToList(),
+                    
+                // Thông tin người được đặt hộ
+                GuestFullName = b.GuestFullName,
+                GuestPhone = b.GuestPhone,
+                GuestIdNumber = b.GuestIdNumber,
+                
+                // Check-in token
+                CheckInToken = b.CheckInToken,
+                CheckInTokenGeneratedAt = b.CheckInTokenGeneratedAt,
+                CheckInTokenUsedAt = b.CheckInTokenUsedAt
             });
 
             // Apply sorting
@@ -195,7 +205,17 @@ namespace CondotelManagement.Repositories
                         ServiceName = d.Service.Name,
                         Quantity = d.Quantity,
                         Price = d.Price
-                    }).ToList()
+                    }).ToList(),
+                    
+                // Thông tin người được đặt hộ
+                GuestFullName = b.GuestFullName,
+                GuestPhone = b.GuestPhone,
+                GuestIdNumber = b.GuestIdNumber,
+                
+                // Check-in token
+                CheckInToken = b.CheckInToken,
+                CheckInTokenGeneratedAt = b.CheckInTokenGeneratedAt,
+                CheckInTokenUsedAt = b.CheckInTokenUsedAt
             })
             .OrderByDescending(x => x.StartDate)
             .ToList();

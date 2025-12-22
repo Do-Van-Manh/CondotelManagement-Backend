@@ -17,6 +17,16 @@
 
         public string Status { get; set; }
         public List<BookingServiceDTO> Services { get; set; }
+        
+        // Thông tin người được đặt hộ (nếu có)
+        public string? GuestFullName { get; set; }
+        public string? GuestPhone { get; set; }
+        public string? GuestIdNumber { get; set; }
+        
+        // Check-in token và thời gian
+        public string? CheckInToken { get; set; }
+        public DateTime? CheckInTokenGeneratedAt { get; set; }
+        public DateTime? CheckInTokenUsedAt { get; set; }
     }
 
     public class BookingServiceDTO

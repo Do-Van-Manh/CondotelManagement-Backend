@@ -156,7 +156,12 @@ namespace CondotelManagement.Services
                     CanRefund = canRefund,
                     
                     // Trạng thái hoàn tiền (chỉ có giá trị khi Status = "Cancelled")
-                    RefundStatus = refundStatus
+                    RefundStatus = refundStatus,
+                    
+                    // Check-in token và thời gian
+                    CheckInToken = b.CheckInToken,
+                    CheckInTokenGeneratedAt = b.CheckInTokenGeneratedAt,
+                    CheckInTokenUsedAt = b.CheckInTokenUsedAt
                 };
             }).ToList();
 
@@ -196,6 +201,9 @@ namespace CondotelManagement.Services
             dto.RefundStatus = refundStatus;
             dto.CondotelName = b.Condotel?.Name ?? "";
             dto.ThumbnailImage = b.Condotel?.CondotelImages.FirstOrDefault()?.ImageUrl;
+            dto.CheckInToken = b.CheckInToken;
+            dto.CheckInTokenGeneratedAt = b.CheckInTokenGeneratedAt;
+            dto.CheckInTokenUsedAt = b.CheckInTokenUsedAt;
 
             // Set các field khác
             dto.CanReview = b.Status == "Completed"
@@ -484,7 +492,7 @@ namespace CondotelManagement.Services
                     PromotionId = appliedPromotionId,
                     VoucherId = appliedVoucherId,
                     CreatedAt = DateTime.Now,
-                     GuestFullName = dto.GuestFullName,
+                    GuestFullName = dto.GuestFullName,
                     GuestPhone = dto.GuestPhone,
                     GuestIdNumber = dto.GuestIdNumber
                 };
@@ -541,6 +549,7 @@ namespace CondotelManagement.Services
                 // Điều này đảm bảo voucher chỉ bị dùng khi booking thực sự được thanh toán
 
                 responseDto.BookingId = entity.BookingId;
+                responseDto.CheckInToken = entity.CheckInToken; // Trả về CheckInToken trong response
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();

@@ -35,5 +35,10 @@ namespace CondotelManagement.DTOs
         // "Refunded" = Đã hoàn tiền thành công (qua PayOS)
         // "Completed" = Đã hoàn tiền thủ công (admin xác nhận)
         public string? RefundStatus { get; set; }
+        
+        // Check-in token và thời gian
+        public string? CheckInToken { get; set; }
+        public DateTime? CheckInTokenGeneratedAt { get; set; }
+        public DateTime? CheckInTokenUsedAt { get; set; }
     }
 }

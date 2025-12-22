@@ -996,7 +996,7 @@ namespace CondotelManagement.Services.Implementations.Shared
             await smtp.DisconnectAsync(true);
         }
 
-        public async Task SendBookingConfirmationEmailAsync(string toEmail, string customerName, int bookingId, string condotelName, DateOnly checkInDate, DateOnly checkOutDate, decimal totalAmount, DateTime confirmedAt)
+        public async Task SendBookingConfirmationEmailAsync(string toEmail, string customerName, int bookingId, string condotelName, DateOnly checkInDate, DateOnly checkOutDate, decimal totalAmount, DateTime confirmedAt, string? checkInToken = null)
         {
             var email = new MimeMessage();
             email.From.Add(new MailboxAddress(
@@ -1013,6 +1013,13 @@ namespace CondotelManagement.Services.Implementations.Shared
             
             // Tính số đêm
             var nights = checkOutDate.DayNumber - checkInDate.DayNumber;
+
+            // Tạo phần hiển thị CheckInToken nếu có
+            var checkInTokenHtml = string.IsNullOrEmpty(checkInToken) ? "" : $@"
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Mã Check-in:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><span style='font-size: 18px; font-weight: bold; color: #ff6b6b; font-family: monospace;'>{checkInToken}</span></td>
+                    </tr>";
 
             var htmlBody = $@"
 <!DOCTYPE html>
@@ -1071,6 +1078,7 @@ namespace CondotelManagement.Services.Implementations.Shared
                         <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Tổng tiền:</strong></td>
                         <td style='padding: 10px; border-bottom: 1px solid #eee;'><span class='amount'>{formattedAmount}</span></td>
                     </tr>
+                    {checkInTokenHtml}
                     <tr>
                         <td style='padding: 10px;'><strong>Thời gian xác nhận:</strong></td>
                         <td style='padding: 10px;'>{formattedConfirmDate}</td>

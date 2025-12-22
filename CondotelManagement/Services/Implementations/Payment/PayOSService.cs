@@ -499,7 +499,7 @@ namespace CondotelManagement.Services.Implementations.Payment
                         booking.Status = "Confirmed";
                         isJustConfirmed = true;
 
-                        // Generate token
+                        // Tạo CheckInToken nếu chưa có
                         if (string.IsNullOrEmpty(booking.CheckInToken))
                         {
                             booking.CheckInToken = TokenHelper.GenerateCheckInToken(booking.BookingId);
@@ -529,7 +529,8 @@ namespace CondotelManagement.Services.Implementations.Payment
                                     checkInDate: booking.StartDate,
                                     checkOutDate: booking.EndDate,
                                     totalAmount: booking.TotalPrice ?? 0m,
-                                    confirmedAt: DateTime.Now
+                                    confirmedAt: DateTime.Now,
+                                    checkInToken: booking.CheckInToken
                                 );
 
                                 Console.WriteLine($"[Webhook] Đã gửi email xác nhận booking đến {customerInfo.Email} cho booking {booking.BookingId}");

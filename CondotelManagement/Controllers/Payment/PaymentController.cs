@@ -477,6 +477,15 @@ namespace CondotelManagement.Controllers.Payment
 
                         // Không có conflict → confirm booking
                         booking.Status = "Confirmed";
+                        
+                        // Tạo CheckInToken nếu chưa có
+                        if (string.IsNullOrEmpty(booking.CheckInToken))
+                        {
+                            booking.CheckInToken = TokenHelper.GenerateCheckInToken(booking.BookingId);
+                            booking.CheckInTokenGeneratedAt = DateTime.Now;
+                            booking.CheckInTokenUsedAt = null;
+                        }
+                        
                         await _context.SaveChangesAsync();
                         
                         // Gửi email xác nhận booking cho tenant
@@ -499,7 +508,8 @@ namespace CondotelManagement.Controllers.Payment
                                     checkInDate: booking.StartDate,
                                     checkOutDate: booking.EndDate,
                                     totalAmount: booking.TotalPrice ?? 0m,
-                                    confirmedAt: DateTime.Now
+                                    confirmedAt: DateTime.Now,
+                                    checkInToken: booking.CheckInToken
                                 );
                                 
                                 Console.WriteLine($"[Return URL] Đã gửi email xác nhận booking đến {customer.Email} cho booking {booking.BookingId}");
