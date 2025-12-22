@@ -493,6 +493,62 @@ namespace CondotelManagement.Services.Implementations.Payment
                         // Không có conflict → confirm booking
                         booking.Status = "Confirmed";
                         await _context.SaveChangesAsync();
+                        
+                        // Gửi email xác nhận booking cho tenant
+                        try
+                        {
+                            // Lấy thông tin customer và condotel để gửi email
+                            var customer = await _context.Users.FindAsync(booking.CustomerId);
+                            var condotel = await _context.Condotels.FindAsync(booking.CondotelId);
+                            
+                            if (customer != null && condotel != null && !string.IsNullOrEmpty(customer.Email))
+                            {
+                                using var scope = _serviceProvider.CreateScope();
+                                var emailService = scope.ServiceProvider.GetRequiredService<CondotelManagement.Services.Interfaces.Shared.IEmailService>();
+                                
+                                await emailService.SendBookingConfirmationEmailAsync(
+                                    toEmail: customer.Email,
+                                    customerName: customer.FullName ?? "Khách hàng",
+                                    bookingId: booking.BookingId,
+                                    condotelName: condotel.Name,
+                                    checkInDate: booking.StartDate,
+                                    checkOutDate: booking.EndDate,
+                                    totalAmount: booking.TotalPrice ?? 0m,
+                                    confirmedAt: DateTime.Now
+                                );
+                                
+                                Console.WriteLine($"[Webhook] Đã gửi email xác nhận booking đến {customer.Email} cho booking {booking.BookingId}");
+                                
+                                // Gửi email thông báo cho host về booking mới
+                                var host = await _context.Hosts
+                                    .Where(h => h.HostId == condotel.HostId)
+                                    .Include(h => h.User)
+                                    .FirstOrDefaultAsync();
+                                
+                                if (host?.User != null && !string.IsNullOrEmpty(host.User.Email))
+                                {
+                                    await emailService.SendNewBookingNotificationToHostAsync(
+                                        toEmail: host.User.Email,
+                                        hostName: host.CompanyName ?? host.User.FullName ?? "Chủ nhà",
+                                        bookingId: booking.BookingId,
+                                        condotelName: condotel.Name,
+                                        customerName: customer.FullName ?? "Khách hàng",
+                                        checkInDate: booking.StartDate,
+                                        checkOutDate: booking.EndDate,
+                                        totalAmount: booking.TotalPrice ?? 0m,
+                                        confirmedAt: DateTime.Now
+                                    );
+                                    
+                                    Console.WriteLine($"[Webhook] Đã gửi email thông báo booking mới đến host {host.User.Email}");
+                                }
+                            }
+                        }
+                        catch (Exception emailEx)
+                        {
+                            // Log lỗi nhưng không fail transaction nếu email không gửi được
+                            Console.WriteLine($"[Webhook] Lỗi khi gửi email xác nhận booking: {emailEx.Message}");
+                        }
+                        
                         await transaction.CommitAsync();
                         
                         // Tăng Voucher UsedCount khi payment thành công

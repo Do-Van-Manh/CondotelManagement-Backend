@@ -43,6 +43,7 @@ namespace CondotelManagement.Repositories
 		bool AmenitiesExist(List<int>? amenityIds);
 		bool UtilitiesExist(List<int>? utilityIds);
 		bool HostExists(int hostId);
+		bool HasActiveBookings(int condotelId);
 		
 		// Methods for adding child entities
 		void AddCondotelImages(IEnumerable<CondotelImage> images);

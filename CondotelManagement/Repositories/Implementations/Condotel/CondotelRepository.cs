@@ -57,6 +57,14 @@ namespace CondotelManagement.Repositories
 			// Không gọi SaveChanges() ở đây, để Service quản lý transaction
 		}
 
+	public bool HasActiveBookings(int condotelId)
+	{
+		return _context.Bookings.Any(b => 
+			b.CondotelId == condotelId && 
+			(b.Status == "Pending" || b.Status == "Confirmed")
+		);
+	}
+
     public Condotel GetCondotelById(int id)
     {
         return _context.Condotels

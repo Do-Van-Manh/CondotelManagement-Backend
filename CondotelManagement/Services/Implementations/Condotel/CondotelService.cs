@@ -195,6 +195,15 @@ public class CondotelService : ICondotelService
 
     public bool DeleteCondotel(int id)
     {
+        // Kiểm tra xem condotel có booking đang Pending hoặc Confirmed không
+        if (_condotelRepo.HasActiveBookings(id))
+        {
+            throw new InvalidOperationException(
+                "Không thể inactive condotel này vì còn booking đang Pending hoặc Confirmed. " +
+                "Vui lòng chờ các booking này hoàn thành hoặc hủy bỏ trước khi inactive."
+            );
+        }
+
         _condotelRepo.DeleteCondotel(id);
         return _condotelRepo.SaveChanges();
     }
@@ -270,7 +279,8 @@ public class CondotelService : ICondotelService
 				Name = p.Name,
 				StartDate = p.StartDate,
 				EndDate = p.EndDate,
-				DiscountPercentage = p.DiscountPercentage
+				DiscountPercentage = p.DiscountPercentage,
+				Status = p.Status
 			}).ToList(),
             // Tính toán ActivePrice: Lấy giá đang active (Status = "Hoạt động" và trong khoảng thời gian hiện tại)
             ActivePrice = c.CondotelPrices?

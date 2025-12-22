@@ -799,6 +799,265 @@ namespace CondotelManagement.Services.Implementations.Shared
             await smtp.SendAsync(email);
             await smtp.DisconnectAsync(true);
         }
+
+        public async Task SendBookingConfirmationEmailAsync(string toEmail, string customerName, int bookingId, string condotelName, DateOnly checkInDate, DateOnly checkOutDate, decimal totalAmount, DateTime confirmedAt)
+        {
+            var email = new MimeMessage();
+            email.From.Add(new MailboxAddress(
+                _config["EmailSettings:SenderName"],
+                _config["EmailSettings:SenderEmail"]));
+            email.To.Add(MailboxAddress.Parse(toEmail));
+            email.Subject = $"✅ Xác nhận đặt phòng thành công - Booking #{bookingId}";
+
+            // Format dữ liệu
+            var formattedAmount = totalAmount.ToString("N0").Replace(",", ".") + " VNĐ";
+            var formattedConfirmDate = confirmedAt.ToString("dd/MM/yyyy HH:mm");
+            var formattedCheckIn = checkInDate.ToString("dd/MM/yyyy");
+            var formattedCheckOut = checkOutDate.ToString("dd/MM/yyyy");
+            
+            // Tính số đêm
+            var nights = checkOutDate.DayNumber - checkInDate.DayNumber;
+
+            var htmlBody = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .success-icon {{ font-size: 48px; margin-bottom: 20px; }}
+        .content {{ background: #f8f9fa; padding: 30px; }}
+        .info-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .amount {{ font-size: 24px; font-weight: bold; color: #667eea; margin: 10px 0; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        .highlight-box {{ background: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; border-radius: 4px; margin: 20px 0; }}
+        .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
+        .btn {{ display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <div class='success-icon'>✅</div>
+            <h1>Đặt phòng thành công!</h1>
+        </div>
+        <div class='content'>
+            <p>Xin chào <strong>{customerName}</strong>,</p>
+            
+            <p>Cảm ơn bạn đã thanh toán! Đơn đặt phòng của bạn đã được xác nhận thành công.</p>
+            
+            <div class='info-box'>
+                <h3 style='margin-top: 0; color: #667eea;'>Thông tin đặt phòng</h3>
+                <table>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Mã booking:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>#{bookingId}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Tên condotel:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{condotelName}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Ngày nhận phòng:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{formattedCheckIn}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Ngày trả phòng:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{formattedCheckOut}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Số đêm:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{nights} đêm</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Tổng tiền:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><span class='amount'>{formattedAmount}</span></td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px;'><strong>Thời gian xác nhận:</strong></td>
+                        <td style='padding: 10px;'>{formattedConfirmDate}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class='highlight-box'>
+                <p style='margin: 0;'><strong>📌 Lưu ý quan trọng:</strong></p>
+                <ul style='margin: 10px 0 0 0; padding-left: 20px;'>
+                    <li>Vui lòng mang theo giấy tờ tùy thân khi nhận phòng</li>
+                    <li>Thời gian nhận phòng: từ 14:00 ngày {formattedCheckIn}</li>
+                    <li>Thời gian trả phòng: trước 12:00 ngày {formattedCheckOut}</li>
+                    <li>Nếu muốn hủy đặt phòng, vui lòng thực hiện trước ít nhất 2 ngày so với ngày nhận phòng</li>
+                </ul>
+            </div>
+            
+            <p>Chúng tôi rất mong được phục vụ bạn. Chúc bạn có một kỳ nghỉ vui vẻ!</p>
+            
+            <p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi qua email hoặc hotline.</p>
+            
+            <p>Trân trọng,<br>
+            <strong>Đội ngũ Condotel Management</strong></p>
+            
+            <div class='footer'>
+                <p>Email này được gửi tự động, vui lòng không trả lời email này.</p>
+                <p>© 2025 Condotel Management. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
+
+            var body = new BodyBuilder
+            {
+                HtmlBody = htmlBody
+            };
+            email.Body = body.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            await smtp.ConnectAsync(
+                _config["EmailSettings:SmtpServer"],
+                int.Parse(_config["EmailSettings:Port"]),
+                SecureSocketOptions.StartTls);
+
+            await smtp.AuthenticateAsync(
+                _config["EmailSettings:SenderEmail"],
+                _config["EmailSettings:Password"]);
+
+            await smtp.SendAsync(email);
+            await smtp.DisconnectAsync(true);
+        }
+
+        public async Task SendNewBookingNotificationToHostAsync(string toEmail, string hostName, int bookingId, string condotelName, string customerName, DateOnly checkInDate, DateOnly checkOutDate, decimal totalAmount, DateTime confirmedAt)
+        {
+            var email = new MimeMessage();
+            email.From.Add(new MailboxAddress(
+                _config["EmailSettings:SenderName"],
+                _config["EmailSettings:SenderEmail"]));
+            email.To.Add(MailboxAddress.Parse(toEmail));
+            email.Subject = $"🏠 Bạn có booking mới #{bookingId} - {condotelName}";
+
+            // Format dữ liệu
+            var formattedAmount = totalAmount.ToString("N0").Replace(",", ".") + " VNĐ";
+            var formattedConfirmDate = confirmedAt.ToString("dd/MM/yyyy HH:mm");
+            var formattedCheckIn = checkInDate.ToString("dd/MM/yyyy");
+            var formattedCheckOut = checkOutDate.ToString("dd/MM/yyyy");
+            
+            // Tính số đêm
+            var nights = checkOutDate.DayNumber - checkInDate.DayNumber;
+
+            var htmlBody = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .notification-icon {{ font-size: 48px; margin-bottom: 20px; }}
+        .content {{ background: #f8f9fa; padding: 30px; }}
+        .info-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .amount {{ font-size: 24px; font-weight: bold; color: #f5576c; margin: 10px 0; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        .highlight-box {{ background: #fff3e0; padding: 15px; border-left: 4px solid #ff9800; border-radius: 4px; margin: 20px 0; }}
+        .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <div class='notification-icon'>🏠</div>
+            <h1>Bạn có booking mới!</h1>
+        </div>
+        <div class='content'>
+            <p>Xin chào <strong>{hostName}</strong>,</p>
+            
+            <p>Chúc mừng! Condotel <strong>{condotelName}</strong> của bạn vừa nhận được một booking mới từ khách hàng <strong>{customerName}</strong>.</p>
+            
+            <div class='info-box'>
+                <h3 style='margin-top: 0; color: #f5576c;'>Thông tin booking</h3>
+                <table>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Mã booking:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>#{bookingId}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Tên condotel:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{condotelName}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Tên khách hàng:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{customerName}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Ngày check-in:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{formattedCheckIn}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Ngày check-out:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{formattedCheckOut}</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Số đêm:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'>{nights} đêm</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><strong>Tổng tiền:</strong></td>
+                        <td style='padding: 10px; border-bottom: 1px solid #eee;'><span class='amount'>{formattedAmount}</span></td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px;'><strong>Thời gian đặt:</strong></td>
+                        <td style='padding: 10px;'>{formattedConfirmDate}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class='highlight-box'>
+                <p style='margin: 0;'><strong>📋 Công việc cần làm:</strong></p>
+                <ul style='margin: 10px 0 0 0; padding-left: 20px;'>
+                    <li>Chuẩn bị phòng trước ngày khách check-in</li>
+                    <li>Kiểm tra trang thiết bị và vệ sinh phòng</li>
+                    <li>Đảm bảo mọi tiện nghi hoạt động tốt</li>
+                    <li>Liên hệ với khách nếu cần thông tin bổ sung</li>
+                </ul>
+            </div>
+            
+            <p>Thanh toán sẽ được chuyển vào tài khoản của bạn sau khi khách hoàn tất kỳ nghỉ và không có vấn đề gì phát sinh.</p>
+            
+            <p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi qua email hoặc hotline.</p>
+            
+            <p>Trân trọng,<br>
+            <strong>Đội ngũ Condotel Management</strong></p>
+            
+            <div class='footer'>
+                <p>Email này được gửi tự động, vui lòng không trả lời email này.</p>
+                <p>© 2025 Condotel Management. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
+
+            var body = new BodyBuilder
+            {
+                HtmlBody = htmlBody
+            };
+            email.Body = body.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            await smtp.ConnectAsync(
+                _config["EmailSettings:SmtpServer"],
+                int.Parse(_config["EmailSettings:Port"]),
+                SecureSocketOptions.StartTls);
+
+            await smtp.AuthenticateAsync(
+                _config["EmailSettings:SenderEmail"],
+                _config["EmailSettings:Password"]);
+
+            await smtp.SendAsync(email);
+            await smtp.DisconnectAsync(true);
+        }
     }
 }
 

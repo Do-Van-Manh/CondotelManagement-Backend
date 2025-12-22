@@ -260,11 +260,19 @@ namespace CondotelManagement.Controllers.Host
 				if (existingCondotel.HostId != host.HostId)
                     return StatusCode(403, ApiResponse<object>.Fail("Bạn không có quyền xóa căn hộ này"));
 
-                var success = _condotelService.DeleteCondotel(id);
-                if (!success)
-                    return NotFound(ApiResponse<object>.Fail("Condotel không tìm thấy hoặc đã bị xóa"));
+                try
+                {
+                    var success = _condotelService.DeleteCondotel(id);
+                    if (!success)
+                        return NotFound(ApiResponse<object>.Fail("Condotel không tìm thấy hoặc đã bị xóa"));
 
-                return Ok(ApiResponse<object>.SuccessResponse("Condotel đã xóa thành công"));
+                    return Ok(ApiResponse<object>.SuccessResponse("Condotel đã inactive thành công"));
+                }
+                catch (InvalidOperationException ex)
+                {
+                    // Lỗi nghiệp vụ: có booking active
+                    return BadRequest(ApiResponse<object>.Fail(ex.Message));
+                }
             }
             catch (Exception ex)
             {
