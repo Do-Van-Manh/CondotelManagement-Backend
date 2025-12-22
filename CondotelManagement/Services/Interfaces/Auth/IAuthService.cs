@@ -15,5 +15,6 @@ namespace CondotelManagement.Services.Interfaces.Auth
         Task<User?> GetCurrentUserAsync(); // THÊM MỚI
         Task<bool> SendPasswordResetOtpAsync(ForgotPasswordRequest request);
         Task<bool> ResetPasswordWithOtpAsync(ResetPasswordWithOtpRequest request);
+        Task<(bool IsSuccess, string Message)> ChangePasswordAsync(string email, string currentPassword, string newPassword);
     }
 }

@@ -4,6 +4,8 @@ using CondotelManagement.DTOs.Booking;
 using CondotelManagement.Services.Interfaces.BookingService;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using CondotelManagement.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace CondotelManagement.Controllers
 {
@@ -13,16 +15,20 @@ namespace CondotelManagement.Controllers
     public class BookingController : ControllerBase
     {
         private readonly IBookingService _bookingService;
+        private readonly CondotelDbVer1Context _context = new CondotelDbVer1Context();
 
-        public BookingController(IBookingService bookingService)
+        public BookingController(IBookingService bookingService, CondotelDbVer1Context  context)
         {
             _bookingService = bookingService;
+            _context = context;
         }
 
         private int GetCustomerId()
         {
             return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
         }
+
+
 
         [HttpGet("my")]
         public async Task<IActionResult> GetMyBookings()
@@ -69,6 +75,10 @@ namespace CondotelManagement.Controllers
 
             return CreatedAtAction(nameof(GetBookingById), new { id = booking.BookingId }, result);
         }
+        [HttpPost("check-in")]
+       
+
+
 
 
         // PUT api/booking/{id}

@@ -13,6 +13,8 @@ namespace CondotelManagement.DTOs
         public int CustomerId { get; set; }
         public DateOnly StartDate { get; set; }
         public DateOnly EndDate { get; set; }
+        public DateTime CheckInAt { get; set; }
+        public DateTime CheckOutAt { get; set; }
         public decimal? TotalPrice { get; set; }
         public string Status { get; set; }
         public int? PromotionId { get; set; }

@@ -207,7 +207,9 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasForeignKey(d => d.VoucherId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_Booking_Voucher");
-        });
+
+
+    
 
         modelBuilder.Entity<BookingDetail>(entity =>
         {
@@ -793,6 +795,7 @@ public partial class CondotelDbVer1Context : DbContext
 		        .HasForeignKey(w => w.HostId)
 		        .OnDelete(DeleteBehavior.Restrict);
 		});
+
 
 		modelBuilder.Entity<HostVoucherSetting>(entity =>
 		{
