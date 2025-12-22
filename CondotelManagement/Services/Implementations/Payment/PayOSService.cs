@@ -508,9 +508,68 @@ namespace CondotelManagement.Services.Implementations.Payment
                         }
 
                         await _context.SaveChangesAsync();
-                    } // ✅ ĐÓNG if ở đây
-
-                    await transaction.CommitAsync();
+                        
+                        // Gửi email xác nhận booking cho tenant
+                        try
+                        {
+                            // Lấy thông tin customer đầy đủ và condotel để gửi email
+                            var customerInfo = await _context.Users.FindAsync(booking.CustomerId);
+                            var condotel = await _context.Condotels.FindAsync(booking.CondotelId);
+                            
+                            if (customerInfo != null && condotel != null && !string.IsNullOrEmpty(customerInfo.Email))
+                            {
+                                using var scope = _serviceProvider.CreateScope();
+                                var emailService = scope.ServiceProvider.GetRequiredService<CondotelManagement.Services.Interfaces.Shared.IEmailService>();
+                                
+                                await emailService.SendBookingConfirmationEmailAsync(
+                                    toEmail: customerInfo.Email,
+                                    customerName: customerInfo.FullName ?? "Khách hàng",
+                                    bookingId: booking.BookingId,
+                                    condotelName: condotel.Name,
+                                    checkInDate: booking.StartDate,
+                                    checkOutDate: booking.EndDate,
+                                    totalAmount: booking.TotalPrice ?? 0m,
+                                    confirmedAt: DateTime.Now
+                                );
+                                
+                                Console.WriteLine($"[Webhook] Đã gửi email xác nhận booking đến {customerInfo.Email} cho booking {booking.BookingId}");
+                                
+                                // Gửi email thông báo cho host về booking mới (chỉ khi host không phải là customer)
+                                var host = await _context.Hosts
+                                    .Where(h => h.HostId == condotel.HostId)
+                                    .Include(h => h.User)
+                                    .FirstOrDefaultAsync();
+                                
+                                // Chỉ gửi email cho host nếu họ không phải là người đặt phòng
+                                if (host?.User != null && !string.IsNullOrEmpty(host.User.Email) && host.UserId != booking.CustomerId)
+                                {
+                                    await emailService.SendNewBookingNotificationToHostAsync(
+                                        toEmail: host.User.Email,
+                                        hostName: host.CompanyName ?? host.User.FullName ?? "Chủ nhà",
+                                        bookingId: booking.BookingId,
+                                        condotelName: condotel.Name,
+                                        customerName: customerInfo.FullName ?? "Khách hàng",
+                                        checkInDate: booking.StartDate,
+                                        checkOutDate: booking.EndDate,
+                                        totalAmount: booking.TotalPrice ?? 0m,
+                                        confirmedAt: DateTime.Now
+                                    );
+                                    
+                                    Console.WriteLine($"[Webhook] Đã gửi email thông báo booking mới đến host {host.User.Email}");
+                                }
+                                else if (host?.UserId == booking.CustomerId)
+                                {
+                                    Console.WriteLine($"[Webhook] Bỏ qua gửi email cho host vì host chính là customer của booking {booking.BookingId}");
+                                }
+                            }
+                        }
+                        catch (Exception emailEx)
+                        {
+                            // Log lỗi nhưng không fail transaction nếu email không gửi được
+                            Console.WriteLine($"[Webhook] Lỗi khi gửi email xác nhận booking: {emailEx.Message}");
+                        }
+                        
+                        await transaction.CommitAsync();
 
                     // ✅ GỬI EMAIL - ĐẶT NGOÀI if, luôn chạy nếu isJustConfirmed = true
                     if (isJustConfirmed)

@@ -304,7 +304,6 @@ namespace CondotelManagement.Services
 				// Voucher thuộc về user khác → không được phép sử dụng
 				return null;
 			}
-				return null;
 
 			// Kiểm tra usage limit
 			if (voucher.UsageLimit.HasValue)
