@@ -504,13 +504,14 @@ namespace CondotelManagement.Controllers.Payment
                                 
                                 Console.WriteLine($"[Return URL] Đã gửi email xác nhận booking đến {customer.Email} cho booking {booking.BookingId}");
                                 
-                                // Gửi email thông báo cho host về booking mới
+                                // Gửi email thông báo cho host về booking mới (chỉ khi host không phải là customer)
                                 var host = await _context.Hosts
                                     .Where(h => h.HostId == condotel.HostId)
                                     .Include(h => h.User)
                                     .FirstOrDefaultAsync();
                                 
-                                if (host?.User != null && !string.IsNullOrEmpty(host.User.Email))
+                                // Chỉ gửi email cho host nếu họ không phải là người đặt phòng
+                                if (host?.User != null && !string.IsNullOrEmpty(host.User.Email) && host.UserId != booking.CustomerId)
                                 {
                                     await emailService.SendNewBookingNotificationToHostAsync(
                                         toEmail: host.User.Email,
@@ -525,6 +526,10 @@ namespace CondotelManagement.Controllers.Payment
                                     );
                                     
                                     Console.WriteLine($"[Return URL] Đã gửi email thông báo booking mới đến host {host.User.Email}");
+                                }
+                                else if (host?.UserId == booking.CustomerId)
+                                {
+                                    Console.WriteLine($"[Return URL] Bỏ qua gửi email cho host vì host chính là customer của booking {booking.BookingId}");
                                 }
                             }
                         }
