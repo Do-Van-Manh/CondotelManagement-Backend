@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using CondotelManagement.Data;
 using Microsoft.EntityFrameworkCore;
+using CondotelManagement.DTOs.Payment;
+using CondotelManagement.Services.Interfaces.Payment;
 
 namespace CondotelManagement.Controllers
 {
@@ -16,18 +18,70 @@ namespace CondotelManagement.Controllers
     {
         private readonly IBookingService _bookingService;
         private readonly CondotelDbVer1Context _context = new CondotelDbVer1Context();
+        private readonly IPayOSService _paymentService;
 
-        public BookingController(IBookingService bookingService, CondotelDbVer1Context  context)
+        public BookingController(IBookingService bookingService, CondotelDbVer1Context  context, IPayOSService payOS)
         {
             _bookingService = bookingService;
             _context = context;
+            _paymentService = payOS;
         }
 
         private int GetCustomerId()
         {
             return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
         }
+        [HttpPost("dev/fake-webhook/{bookingId}")]
+        public async Task<IActionResult> FakeWebhook(int bookingId)
+        {
+            var fakeWebhook = new PayOSWebhookData
+            {
+                Code = "00",
+                Success = true,
+                Data = new PayOSWebhookPaymentData
+                {
+                    OrderCode = bookingId * 1_000_000,
+                    Code = "PAID",
+                    Amount = 1000000,
+                    Currency = "VND"
+                },
+                Signature = "DEV"
+            };
 
+            var result = await _paymentService.ProcessWebhookAsync(fakeWebhook);
+
+            return Ok(new
+            {
+                bookingId,
+                webhookProcessed = result
+            });
+        }
+
+        [HttpPost("dev/confirm-booking/{bookingId}")]
+        public async Task<IActionResult> DevConfirmBooking(int bookingId)
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Customer)
+                .FirstOrDefaultAsync(b => b.BookingId == bookingId);
+
+            if (booking == null)
+                return NotFound();
+
+            booking.Status = "Confirmed";
+            booking.CheckInToken = TokenHelper.GenerateCheckInToken(booking.BookingId);
+
+            booking.CheckInTokenGeneratedAt = DateTime.UtcNow;
+            booking.CheckInTokenUsedAt = null;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                booking.BookingId,
+                booking.Status,
+                booking.CheckInToken
+            });
+        }
 
 
         [HttpGet("my")]
@@ -75,8 +129,35 @@ namespace CondotelManagement.Controllers
 
             return CreatedAtAction(nameof(GetBookingById), new { id = booking.BookingId }, result);
         }
-        [HttpPost("check-in")]
-       
+        public class CheckInOfflineDTO
+        {
+            public string Token { get; set; }
+            public string FullName { get; set; }
+        }
+
+        [HttpPost("check-in/offline")]
+        public async Task<IActionResult> CheckInOffline(CheckInOfflineDTO dto)
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Customer)
+                .FirstOrDefaultAsync(b => b.CheckInToken == dto.Token);
+
+            if (booking == null)
+                return NotFound("Token không hợp lệ");
+
+            var expectedName = string.IsNullOrEmpty(booking.GuestFullName)
+                ? booking.Customer.FullName
+                : booking.GuestFullName;
+
+            if (!expectedName.Trim().Equals(dto.FullName.Trim(), StringComparison.OrdinalIgnoreCase))
+                return Unauthorized("Tên người check-in không khớp");
+
+            booking.Status = "InStay";
+            booking.CheckInTokenUsedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return Ok("Check-in thành công");
+        }
 
 
 

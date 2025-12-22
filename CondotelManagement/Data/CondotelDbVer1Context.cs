@@ -207,7 +207,23 @@ public partial class CondotelDbVer1Context : DbContext
                 .HasForeignKey(d => d.VoucherId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_Booking_Voucher");
+            entity.Property(e => e.CheckInToken)
+.HasMaxLength(20)
+.IsUnicode(false);
 
+            entity.Property(e => e.CheckInTokenGeneratedAt)
+                .HasColumnType("datetime");
+
+            entity.Property(e => e.CheckInTokenUsedAt)
+                .HasColumnType("datetime");
+            entity.Property(e => e.GuestFullName)
+        .HasMaxLength(150);
+
+            entity.Property(e => e.GuestPhone)
+                .HasMaxLength(20);
+            entity.Property(e => e.GuestIdNumber)
+        .HasMaxLength(50);
+        });
 
 
 
@@ -813,8 +829,7 @@ public partial class CondotelDbVer1Context : DbContext
                     .HasConstraintName("FK_HostVoucherSetting_Host");
             });
 
-            OnModelCreatingPartial(modelBuilder);
-        }); }
+            OnModelCreatingPartial(modelBuilder); }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
 }

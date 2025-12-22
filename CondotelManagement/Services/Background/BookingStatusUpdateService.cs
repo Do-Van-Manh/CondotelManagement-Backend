@@ -11,7 +11,7 @@ namespace CondotelManagement.Services.Background
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<BookingStatusUpdateService> _logger;
-        private readonly TimeSpan _interval = TimeSpan.FromSeconds(10);
+        private readonly TimeSpan _interval = TimeSpan.FromMinutes(5); // Chạy mỗi 5 phút để kịp thời
 
         public BookingStatusUpdateService(
             IServiceProvider serviceProvider,
@@ -32,8 +32,13 @@ namespace CondotelManagement.Services.Background
             {
                 try
                 {
-                    _logger.LogInformation($"[BookingStatusUpdate] Running scheduled check (Interval: {_interval.TotalMinutes} minutes)");
-                    await UpdateExpiredBookingsAsync(stoppingToken);
+                    _logger.LogInformation($"[BookingStatusUpdate] Running scheduled check at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+
+                    // Chuyển Confirmed → InStay (sau 14:00 ngày check-in)
+                    await UpdateConfirmedToInStayAsync(stoppingToken);
+
+                    // Chuyển InStay → Completed (sau 12:00 ngày check-out)
+                    await UpdateInStayToCompletedAsync(stoppingToken);
                 }
                 catch (Exception ex)
                 {
@@ -57,39 +62,127 @@ namespace CondotelManagement.Services.Background
             _logger.LogInformation("[BookingStatusUpdate] Service is stopping...");
         }
 
-        private async Task UpdateExpiredBookingsAsync(CancellationToken cancellationToken)
+        /// <summary>
+        /// Chuyển trạng thái Confirmed → InStay sau 14:00 ngày check-in
+        /// </summary>
+        private async Task UpdateConfirmedToInStayAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("[BookingStatusUpdate] Checking for expired bookings...");
+            _logger.LogInformation("[BookingStatusUpdate] Checking for bookings to move from Confirmed to InStay...");
 
             using var scope = _serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<CondotelDbVer1Context>();
 
+            var now = DateTime.Now;
+            var today = DateOnly.FromDateTime(now);
+            var currentTime = TimeOnly.FromDateTime(now);
 
-            var today = DateOnly.FromDateTime(DateTime.Today);
-
-            var expiredBookings = await context.Bookings
-                .Where(b => b.Status == "Confirmed" && b.EndDate < today)
+            // Tìm booking: Status = Confirmed, StartDate = today, và đã qua 14:00
+            var bookingsToCheckIn = await context.Bookings
+                .Where(b => b.Status == "Confirmed"
+                         && b.StartDate == today
+                         && currentTime >= new TimeOnly(14, 0)) // Đã qua 14:00
                 .ToListAsync(cancellationToken);
 
-            if (!expiredBookings.Any())
+            // Hoặc những booking có StartDate < today nhưng vẫn Confirmed (quá hạn check-in)
+            var overdueCheckIns = await context.Bookings
+                .Where(b => b.Status == "Confirmed" && b.StartDate < today)
+                .ToListAsync(cancellationToken);
+
+            var allBookingsToCheckIn = bookingsToCheckIn.Concat(overdueCheckIns).ToList();
+
+            if (!allBookingsToCheckIn.Any())
             {
-                _logger.LogInformation("[BookingStatusUpdate] No expired bookings found.");
+                _logger.LogInformation("[BookingStatusUpdate] No bookings ready for check-in (Confirmed → InStay).");
                 return;
             }
 
-            _logger.LogInformation($"[BookingStatusUpdate] Found {expiredBookings.Count} expired booking(s) to update.");
+            _logger.LogInformation($"[BookingStatusUpdate] Found {allBookingsToCheckIn.Count} booking(s) to check in.");
 
             var updatedCount = 0;
-            var failedCount = 0;
-
-            var voucherService = scope.ServiceProvider.GetRequiredService<IVoucherService>();
-            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
-
-            foreach (var booking in expiredBookings)
+            foreach (var booking in allBookingsToCheckIn)
             {
                 try
                 {
-                    _logger.LogInformation($"[BookingStatusUpdate] Processing booking #{booking.BookingId} (EndDate: {booking.EndDate})");
+                    _logger.LogInformation(
+                        $"[BookingStatusUpdate] Checking in booking #{booking.BookingId} " +
+                        $"(StartDate: {booking.StartDate}, Current: {now:yyyy-MM-dd HH:mm})");
+
+                    booking.Status = "InStay";
+                    updatedCount++;
+
+                    _logger.LogInformation($"[BookingStatusUpdate] Successfully updated booking #{booking.BookingId} to InStay");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"[BookingStatusUpdate] Failed to update booking #{booking.BookingId} to InStay");
+                }
+            }
+
+            if (updatedCount > 0)
+            {
+                try
+                {
+                    var savedChanges = await context.SaveChangesAsync(cancellationToken);
+                    _logger.LogInformation(
+                        $"[BookingStatusUpdate] Check-in update completed. " +
+                        $"Updated: {updatedCount}, SaveChanges rows: {savedChanges}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[BookingStatusUpdate] Failed to save check-in changes to database");
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Chuyển trạng thái InStay → Completed sau 12:00 ngày check-out
+        /// Tự động tạo voucher và gửi email thông báo
+        /// </summary>
+        private async Task UpdateInStayToCompletedAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("[BookingStatusUpdate] Checking for bookings to move from InStay to Completed...");
+
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<CondotelDbVer1Context>();
+
+            var now = DateTime.Now;
+            var today = DateOnly.FromDateTime(now);
+            var currentTime = TimeOnly.FromDateTime(now);
+
+            // Tìm booking: Status = InStay, EndDate = today, và đã qua 12:00
+            var bookingsToCheckOut = await context.Bookings
+                .Where(b => b.Status == "InStay"
+                         && b.EndDate == today
+                         && currentTime >= new TimeOnly(12, 0)) // Đã qua 12:00
+                .ToListAsync(cancellationToken);
+
+            // Hoặc những booking có EndDate < today nhưng vẫn InStay (quá hạn check-out)
+            var overdueCheckOuts = await context.Bookings
+                .Where(b => b.Status == "InStay" && b.EndDate < today)
+                .ToListAsync(cancellationToken);
+
+            var allBookingsToCheckOut = bookingsToCheckOut.Concat(overdueCheckOuts).ToList();
+
+            if (!allBookingsToCheckOut.Any())
+            {
+                _logger.LogInformation("[BookingStatusUpdate] No bookings ready for check-out (InStay → Completed).");
+                return;
+            }
+
+            _logger.LogInformation($"[BookingStatusUpdate] Found {allBookingsToCheckOut.Count} booking(s) to check out.");
+
+            var updatedCount = 0;
+            var voucherService = scope.ServiceProvider.GetRequiredService<IVoucherService>();
+            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+            foreach (var booking in allBookingsToCheckOut)
+            {
+                try
+                {
+                    _logger.LogInformation(
+                        $"[BookingStatusUpdate] Checking out booking #{booking.BookingId} " +
+                        $"(EndDate: {booking.EndDate}, Current: {now:yyyy-MM-dd HH:mm})");
 
                     booking.Status = "Completed";
 
@@ -97,7 +190,7 @@ namespace CondotelManagement.Services.Background
                     try
                     {
                         var vouchers = await voucherService.CreateVoucherAfterBookingAsync(booking.BookingId);
-                        
+
                         if (vouchers != null && vouchers.Any())
                         {
                             _logger.LogInformation($"[BookingStatusUpdate] Created {vouchers.Count} voucher(s) for booking #{booking.BookingId}");
@@ -130,23 +223,21 @@ namespace CondotelManagement.Services.Background
                                 catch (Exception emailEx)
                                 {
                                     _logger.LogError(emailEx, $"[BookingStatusUpdate] Failed to send voucher email for booking #{booking.BookingId}");
-                                    // Không throw exception, tiếp tục xử lý booking
                                 }
                             }
                             else
                             {
-                                _logger.LogWarning($"[BookingStatusUpdate] Customer email not found for booking #{booking.BookingId}, skipping email notification");
+                                _logger.LogWarning($"[BookingStatusUpdate] Customer email not found for booking #{booking.BookingId}");
                             }
                         }
                         else
                         {
-                            _logger.LogInformation($"[BookingStatusUpdate] No vouchers created for booking #{booking.BookingId} (AutoGenerate may be false or setting not found)");
+                            _logger.LogInformation($"[BookingStatusUpdate] No vouchers created for booking #{booking.BookingId}");
                         }
                     }
                     catch (Exception voucherEx)
                     {
                         _logger.LogError(voucherEx, $"[BookingStatusUpdate] Failed to create vouchers for booking #{booking.BookingId}");
-                        // Không throw exception, tiếp tục xử lý booking
                     }
 
                     updatedCount++;
@@ -154,25 +245,25 @@ namespace CondotelManagement.Services.Background
                 }
                 catch (Exception ex)
                 {
-                    failedCount++;
-                    _logger.LogError(ex, $"[BookingStatusUpdate] Failed to update booking #{booking.BookingId}");
+                    _logger.LogError(ex, $"[BookingStatusUpdate] Failed to update booking #{booking.BookingId} to Completed");
                 }
             }
 
-            try
+            if (updatedCount > 0)
             {
-                var savedChanges = await context.SaveChangesAsync(cancellationToken);
-                _logger.LogInformation($"[BookingStatusUpdate] SaveChanges completed. Rows affected: {savedChanges}");
+                try
+                {
+                    var savedChanges = await context.SaveChangesAsync(cancellationToken);
+                    _logger.LogInformation(
+                        $"[BookingStatusUpdate] Check-out update completed. " +
+                        $"Updated: {updatedCount}, SaveChanges rows: {savedChanges}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[BookingStatusUpdate] Failed to save check-out changes to database");
+                    throw;
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[BookingStatusUpdate] Failed to save changes to database");
-                throw;
-            }
-
-            _logger.LogInformation(
-                $"[BookingStatusUpdate] Update completed. Success: {updatedCount}, Failed: {failedCount}"
-            );
         }
 
         public override async Task StopAsync(CancellationToken cancellationToken)
