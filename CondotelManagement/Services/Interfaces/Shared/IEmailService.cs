@@ -1,4 +1,6 @@
-﻿namespace CondotelManagement.Services.Interfaces.Shared
+﻿using static CondotelManagement.Services.Implementations.Shared.EmailService;
+
+namespace CondotelManagement.Services.Interfaces.Shared
 {
     public interface IEmailService
     {
@@ -14,13 +16,9 @@
         Task SendEmailAsync(string toEmail, string subject, string body);
 
         Task SendBookingConfirmedEmailAsync(
-            string toEmail,
-            string customerName,
-            int bookingId,
-            string token,
-            DateTime checkInAt,
-            DateTime checkOutAt
-        );
+     string toEmail,
+     BookingEmailInfo info
+ );
 
 
     }
