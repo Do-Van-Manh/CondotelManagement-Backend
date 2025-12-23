@@ -91,19 +91,21 @@ namespace CondotelManagement.Controllers.Payment
                 Console.WriteLine($"Creating payment - BookingId: {request.BookingId}, OrderCode: {orderCode}, TotalPrice: {booking.TotalPrice}");
 
                 // Create PayOS payment request
-                var frontendUrl = _configuration["AppSettings:FrontendUrl"] ?? "http://localhost:3000";
+                var frontendUrl = _configuration["AppSettings:FrontendUrl"];
                 var backendBaseUrl = _configuration["AppSettings:BackendBaseUrl"];
+
+                // HARD FAIL nếu thiếu config (để không fallback localhost)
+                if (string.IsNullOrWhiteSpace(frontendUrl))
+                {
+                    throw new InvalidOperationException("AppSettings:FrontendUrl is not configured");
+                }
+
                 if (string.IsNullOrWhiteSpace(backendBaseUrl))
                 {
-                    if (Request?.Host.HasValue == true)
-                    {
-                        backendBaseUrl = $"{Request.Scheme}://{Request.Host}";
-                    }
-                    else
-                    {
-                        backendBaseUrl = frontendUrl;
-                    }
+                    throw new InvalidOperationException("AppSettings:BackendBaseUrl is not configured");
                 }
+
+                frontendUrl = frontendUrl.TrimEnd('/');
                 backendBaseUrl = backendBaseUrl.TrimEnd('/');
                 // PayOS yêu cầu amount là VND (không phải cents)
                 // Nhưng để đảm bảo, kiểm tra cả hai format
@@ -343,7 +345,8 @@ namespace CondotelManagement.Controllers.Payment
                 Console.WriteLine($"PayOS Return URL called - code: {code}, id: {id}, cancel: {cancel}, status: {status}, orderCode: {orderCode}");
 
                 // Khai báo frontendUrl một lần ở đầu method
-                var frontendUrl = _configuration["AppSettings:FrontendUrl"] ?? "http://localhost:3000";
+                var frontendUrl = _configuration["AppSettings:FrontendUrl"]
+                    ?? throw new InvalidOperationException("AppSettings:FrontendUrl is missing");
 
                 // Validate required params
                 if (orderCode == null)
@@ -410,8 +413,8 @@ namespace CondotelManagement.Controllers.Payment
                 }
 
                 // === XỬ LÝ BOOKING PAYMENT (BÌNH THƯỜNG) ===
-                // Sử dụng transaction với Serializable isolation để tránh race condition
-                using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+                // Sử dụng transaction với ReadCommitted isolation (đủ để tránh race condition)
+                using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted);
                 try
                 {
                     // Lock booking row để tránh race condition
@@ -487,87 +490,11 @@ namespace CondotelManagement.Controllers.Payment
                         }
                         
                         await _context.SaveChangesAsync();
-                        
-                        // Gửi email xác nhận booking cho tenant
-                        try
-                        {
-                            // Lấy thông tin customer và condotel để gửi email
-                            var customer = await _context.Users.FindAsync(booking.CustomerId);
-                            var condotel = await _context.Condotels.FindAsync(booking.CondotelId);
-                            
-                            if (customer != null && condotel != null && !string.IsNullOrEmpty(customer.Email))
-                            {
-                                using var scope = HttpContext.RequestServices.CreateScope();
-                                var emailService = scope.ServiceProvider.GetRequiredService<CondotelManagement.Services.Interfaces.Shared.IEmailService>();
-                                
-                                await emailService.SendBookingConfirmationEmailAsync(
-                                    toEmail: customer.Email,
-                                    customerName: customer.FullName ?? "Khách hàng",
-                                    bookingId: booking.BookingId,
-                                    condotelName: condotel.Name,
-                                    checkInDate: booking.StartDate,
-                                    checkOutDate: booking.EndDate,
-                                    totalAmount: booking.TotalPrice ?? 0m,
-                                    confirmedAt: DateTime.Now,
-                                    checkInToken: booking.CheckInToken
-                                );
-                                
-                                Console.WriteLine($"[Return URL] Đã gửi email xác nhận booking đến {customer.Email} cho booking {booking.BookingId}");
-                                
-                                // Gửi email thông báo cho host về booking mới (chỉ khi host không phải là customer)
-                                var host = await _context.Hosts
-                                    .Where(h => h.HostId == condotel.HostId)
-                                    .Include(h => h.User)
-                                    .FirstOrDefaultAsync();
-                                
-                                // Chỉ gửi email cho host nếu họ không phải là người đặt phòng
-                                if (host?.User != null && !string.IsNullOrEmpty(host.User.Email) && host.UserId != booking.CustomerId)
-                                {
-                                    await emailService.SendNewBookingNotificationToHostAsync(
-                                        toEmail: host.User.Email,
-                                        hostName: host.CompanyName ?? host.User.FullName ?? "Chủ nhà",
-                                        bookingId: booking.BookingId,
-                                        condotelName: condotel.Name,
-                                        customerName: customer.FullName ?? "Khách hàng",
-                                        checkInDate: booking.StartDate,
-                                        checkOutDate: booking.EndDate,
-                                        totalAmount: booking.TotalPrice ?? 0m,
-                                        confirmedAt: DateTime.Now
-                                    );
-                                    
-                                    Console.WriteLine($"[Return URL] Đã gửi email thông báo booking mới đến host {host.User.Email}");
-                                }
-                                else if (host?.UserId == booking.CustomerId)
-                                {
-                                    Console.WriteLine($"[Return URL] Bỏ qua gửi email cho host vì host chính là customer của booking {booking.BookingId}");
-                                }
-                            }
-                        }
-                        catch (Exception emailEx)
-                        {
-                            // Log lỗi nhưng không fail transaction nếu email không gửi được
-                            Console.WriteLine($"[Return URL] Lỗi khi gửi email xác nhận booking: {emailEx.Message}");
-                        }
-                        
                         await transaction.CommitAsync();
                         
-                        // Tăng Voucher UsedCount khi payment thành công (từ Return URL)
-                        if (booking.VoucherId.HasValue)
-                        {
-                            try
-                            {
-                                using var scope = HttpContext.RequestServices.CreateScope();
-                                var voucherService = scope.ServiceProvider.GetRequiredService<IVoucherService>();
-                                await voucherService.ApplyVoucherToBookingAsync(booking.VoucherId.Value);
-                                Console.WriteLine($"[Return URL] Đã tăng UsedCount cho Voucher {booking.VoucherId.Value}");
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"[Return URL] Lỗi khi tăng Voucher UsedCount: {ex.Message}");
-                            }
-                        }
+                        Console.WriteLine($"[Return URL] Booking {bookingId} confirmed. Email & voucher handled by webhook.");
                         
-                        Console.WriteLine($"Booking {bookingId} status updated to Confirmed from Return URL (Payment Link Id: {id})");
+                        // NOTE: Webhook sẽ xử lý email + voucher để tránh timeout
                         return Redirect($"{frontendUrl}/pay-done?bookingId={bookingId}&status=success&orderCode={orderCode}&paymentLinkId={id}");
                     }
                     else
@@ -578,9 +505,19 @@ namespace CondotelManagement.Controllers.Payment
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    Console.WriteLine($"[Return URL] Lỗi khi xử lý booking payment: {ex.Message}");
-                    Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-                    return Redirect($"{frontendUrl}/payment-error?message=Error processing payment");
+                    Console.WriteLine($"[Return URL] ========================================");
+                    Console.WriteLine($"[Return URL] ERROR PROCESSING PAYMENT");
+                    Console.WriteLine($"[Return URL] BookingId: {bookingId}");
+                    Console.WriteLine($"[Return URL] OrderCode: {orderCode}");
+                    Console.WriteLine($"[Return URL] Status: {status}");
+                    Console.WriteLine($"[Return URL] Cancel: {cancel}");
+                    Console.WriteLine($"[Return URL] Error Message: {ex.Message}");
+                    Console.WriteLine($"[Return URL] Stack Trace: {ex.StackTrace}");
+                    Console.WriteLine($"[Return URL] Inner Exception: {ex.InnerException?.Message}");
+                    Console.WriteLine($"[Return URL] ========================================");
+                    var errorFrontendUrl = _configuration["AppSettings:FrontendUrl"]
+                        ?? throw new InvalidOperationException("AppSettings:FrontendUrl is missing");
+                    return Redirect($"{errorFrontendUrl}/payment-error?message={Uri.EscapeDataString(ex.Message)}");
                 }
 
                 // Xử lý các trường hợp khác (CANCELLED, PENDING, etc.)
@@ -646,11 +583,21 @@ namespace CondotelManagement.Controllers.Payment
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"PayOS Return URL Error: {ex.Message}");
+                Console.WriteLine($"========================================");
+                Console.WriteLine($"PayOS Return URL OUTER ERROR");
+                Console.WriteLine($"OrderCode: {orderCode}");
+                Console.WriteLine($"Status: {status}");
+                Console.WriteLine($"Cancel: {cancel}");
+                Console.WriteLine($"Code: {code}");
+                Console.WriteLine($"Id: {id}");
+                Console.WriteLine($"Error Message: {ex.Message}");
                 Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-
-                var frontendUrl = _configuration["AppSettings:FrontendUrl"] ?? "http://localhost:3000";
-                return Redirect($"{frontendUrl}/payment-error?message={Uri.EscapeDataString(ex.Message)}");
+                Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
+                Console.WriteLine($"========================================");
+                
+                var outerErrorFrontendUrl = _configuration["AppSettings:FrontendUrl"]
+                    ?? throw new InvalidOperationException("AppSettings:FrontendUrl is missing");
+                return Redirect($"{outerErrorFrontendUrl}/payment-error?message={Uri.EscapeDataString(ex.Message)}&orderCode={orderCode}");
             }
         }
 
@@ -1116,7 +1063,8 @@ namespace CondotelManagement.Controllers.Payment
                     ? "Nâng cấp gói dịch vụ"
                     : request.Description.Length > 25 ? request.Description.Substring(0, 25) : request.Description;
 
-                var frontendUrl = _configuration["AppSettings:FrontendUrl"] ?? "http://localhost:3000";
+                var frontendUrl = _configuration["AppSettings:FrontendUrl"]
+                    ?? throw new InvalidOperationException("AppSettings:FrontendUrl is missing");
                 var returnUrl = $"{frontendUrl}/payment/success?type=package";
                 var cancelUrl = $"{frontendUrl}/pricing";
 

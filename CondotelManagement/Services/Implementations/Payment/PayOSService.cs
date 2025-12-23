@@ -530,7 +530,10 @@ namespace CondotelManagement.Services.Implementations.Payment
                                     checkOutDate: booking.EndDate,
                                     totalAmount: booking.TotalPrice ?? 0m,
                                     confirmedAt: DateTime.Now,
-                                    checkInToken: booking.CheckInToken
+                                    checkInToken: booking.CheckInToken,
+                                    guestFullName: booking.GuestFullName,
+                                    guestPhone: booking.GuestPhone,
+                                    guestIdNumber: booking.GuestIdNumber
                                 );
 
                                 Console.WriteLine($"[Webhook] Đã gửi email xác nhận booking đến {customerInfo.Email} cho booking {booking.BookingId}");
